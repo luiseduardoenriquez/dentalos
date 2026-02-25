@@ -344,3 +344,7 @@ npm run lint                        # ESLint + Prettier
 3. Check the error handling spec (`specs/infra/error-handling.md`) for error codes
 4. Check the testing spec (`specs/infra/testing-setup.md`) for test patterns
 5. Follow this CLAUDE.md for code conventions
+
+### MANDATORY: Update Checklist After Every Completed Task
+
+**After finishing any implementation task** (a spec item, a sub-task, or a full sprint block), you MUST mark the corresponding checkbox as done (`[x]`) in `specs/IMPLEMENTATION-CHECKLIST.md`. This is NOT optional. A task is not considered done until its checklist entry is checked off. Do not wait until the end of a session — update the checklist immediately after each item is completed.

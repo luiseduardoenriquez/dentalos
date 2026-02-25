@@ -41,9 +41,9 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 ### Project Scaffolding
 
-- [ ] FastAPI backend project structure with Poetry/uv dependency management
+- [x] FastAPI backend project structure with Poetry/uv dependency management
 - [ ] Next.js 14+ frontend project with TailwindCSS and TypeScript
-- [ ] Docker Compose for local development (PostgreSQL, Redis, RabbitMQ)
+- [x] Docker Compose for local development (PostgreSQL, Redis, RabbitMQ)
 - [ ] Monorepo or polyrepo structure decision finalized (see ADR-LOG)
 
 ### Infrastructure Core (I-01 through I-09)
@@ -71,11 +71,11 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
   - [ ] superadmin role and permissions
   - [ ] Permission matrix enforcement on all endpoints
 - [ ] **I-03** Error handling framework
-  - [ ] HTTP status code mapping
-  - [ ] Error response schema: `{error, message, details}`
+  - [x] HTTP status code mapping
+  - [x] Error response schema: `{error, message, details}`
   - [ ] Error codes registry
-  - [ ] Backend exception handling (Python/FastAPI)
-  - [ ] Logging patterns for structured JSON output
+  - [x] Backend exception handling (Python/FastAPI)
+  - [x] Logging patterns for structured JSON output
 - [ ] **I-05** Redis caching layer
   - [ ] Cache key namespacing per tenant
   - [ ] TTL policies defined and implemented
@@ -93,13 +93,13 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
   - [ ] Endpoint-specific overrides (auth endpoints stricter)
   - [ ] Redis-based sliding window implementation
 - [ ] **I-08** Testing infrastructure
-  - [ ] pytest configuration with async support
+  - [x] pytest configuration with async support
   - [ ] Test database provisioning (per-tenant test schemas)
   - [ ] Factory patterns: patients, teeth, appointments, users
   - [ ] Mock external services (WhatsApp, SMS, email)
   - [ ] Coverage target: 80% minimum
 - [ ] **I-09** Local development environment
-  - [ ] Docker Compose stack validated and documented
+  - [x] Docker Compose stack validated and documented
   - [ ] Seed data script (demo tenant, demo users, sample patients)
   - [ ] Tenant provisioning CLI script
   - [ ] Environment variables template (.env.example)

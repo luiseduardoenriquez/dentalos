@@ -1,0 +1,95 @@
+from typing import Any
+
+
+class DentalOSError(Exception):
+    """Base exception for all DentalOS application errors."""
+
+    def __init__(
+        self,
+        error: str,
+        message: str,
+        status_code: int = 500,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        self.error = error
+        self.message = message
+        self.status_code = status_code
+        self.details = details or {}
+        super().__init__(self.message)
+
+
+# --- Auth Errors ---
+
+
+class AuthError(DentalOSError):
+    """Base class for authentication/authorization errors."""
+
+    pass
+
+
+# --- Tenant Errors ---
+
+
+class TenantError(DentalOSError):
+    """Base class for tenant-related errors."""
+
+    pass
+
+
+# --- Resource Errors ---
+
+
+class ResourceNotFoundError(DentalOSError):
+    """Generic resource not found."""
+
+    def __init__(self, error: str, resource_name: str) -> None:
+        super().__init__(
+            error=error,
+            message=f"{resource_name} not found.",
+            status_code=404,
+        )
+
+
+class ResourceConflictError(DentalOSError):
+    """Generic conflict error for duplicate resources or state conflicts."""
+
+    def __init__(self, error: str, message: str, details: dict[str, Any] | None = None) -> None:
+        super().__init__(
+            error=error,
+            message=message,
+            status_code=409,
+            details=details or {},
+        )
+
+
+class BusinessValidationError(DentalOSError):
+    """For business rule validation failures (not Pydantic schema validation)."""
+
+    def __init__(self, message: str, field_errors: dict[str, list[str]] | None = None) -> None:
+        super().__init__(
+            error="VALIDATION_failed",
+            message=message,
+            status_code=422,
+            details=field_errors or {},
+        )
+
+
+# --- Domain-Specific Base Errors ---
+
+
+class OdontogramError(DentalOSError):
+    """Base class for odontogram errors."""
+
+    pass
+
+
+class BillingError(DentalOSError):
+    """Base class for billing errors."""
+
+    pass
+
+
+class FileError(DentalOSError):
+    """Base class for file upload/storage errors."""
+
+    pass
