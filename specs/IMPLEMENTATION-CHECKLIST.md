@@ -254,68 +254,74 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 ### Backend: Odontogram (OD-01 through OD-12)
 
-- [ ] **OD-01** `GET /api/v1/patients/{patient_id}/odontogram` -- Get current state (32 adult / 20 pediatric teeth, 6 zones each)
-- [ ] **OD-02** `POST /api/v1/patients/{patient_id}/odontogram/conditions` -- Add/update condition on tooth zone
-- [ ] **OD-03** `DELETE /api/v1/patients/{patient_id}/odontogram/conditions/{condition_id}` -- Remove condition
-- [ ] **OD-04** `GET /api/v1/patients/{patient_id}/odontogram/history` -- Change history timeline
-- [ ] **OD-05** `POST /api/v1/patients/{patient_id}/odontogram/snapshots` -- Create point-in-time snapshot
-- [ ] **OD-06** `GET /api/v1/patients/{patient_id}/odontogram/snapshots/{snapshot_id}` -- Get snapshot
-- [ ] **OD-07** `GET /api/v1/patients/{patient_id}/odontogram/snapshots` -- List all snapshots
-- [ ] **OD-08** `GET /api/v1/patients/{patient_id}/odontogram/compare` -- Compare two snapshots (diff)
-- [ ] **OD-09** `GET /api/v1/odontogram/conditions` -- Conditions catalog (12 conditions with codes, colors, SVG data)
-- [ ] **OD-10** `GET /api/v1/patients/{patient_id}/odontogram/teeth/{tooth_number}` -- Single tooth detail
-- [ ] **OD-11** `POST /api/v1/patients/{patient_id}/odontogram/bulk` -- Bulk update (initial examination)
-- [ ] **OD-12** `POST /api/v1/patients/{patient_id}/odontogram/dentition` -- Toggle adult/pediatric
+- [x] **OD-01** `GET /api/v1/patients/{patient_id}/odontogram` -- Get current state (32 adult / 20 pediatric teeth, 6 zones each)
+- [x] **OD-02** `POST /api/v1/patients/{patient_id}/odontogram/conditions` -- Add/update condition on tooth zone
+- [x] **OD-03** `DELETE /api/v1/patients/{patient_id}/odontogram/conditions/{condition_id}` -- Remove condition
+- [x] **OD-04** `GET /api/v1/patients/{patient_id}/odontogram/history` -- Change history timeline
+- [x] **OD-05** `POST /api/v1/patients/{patient_id}/odontogram/snapshots` -- Create point-in-time snapshot
+- [x] **OD-06** `GET /api/v1/patients/{patient_id}/odontogram/snapshots/{snapshot_id}` -- Get snapshot
+- [x] **OD-07** `GET /api/v1/patients/{patient_id}/odontogram/snapshots` -- List all snapshots
+- [x] **OD-08** `GET /api/v1/patients/{patient_id}/odontogram/compare` -- Compare two snapshots (diff)
+- [x] **OD-09** `GET /api/v1/catalog/conditions` -- Conditions catalog (12 conditions with codes, colors, SVG data)
+- [x] **OD-10** `GET /api/v1/patients/{patient_id}/odontogram/teeth/{tooth_number}` -- Single tooth detail
+- [x] **OD-11** `POST /api/v1/patients/{patient_id}/odontogram/bulk` -- Bulk update (initial examination)
+- [x] **OD-12** `POST /api/v1/patients/{patient_id}/odontogram/dentition` -- Toggle adult/pediatric
 
 ### Frontend: Odontogram (FE-OD-01 through FE-OD-07)
 
 - [ ] **I-24** ADR-005: SVG-based odontogram rendering approach
-- [ ] **FE-OD-01** Classic grid odontogram (32/20 teeth, 5 crown zones + root, color-coded)
+- [x] **FE-OD-01** Classic grid odontogram (32/20 teeth, 5 crown zones + root, color-coded)
 - [ ] **FE-OD-02** Anatomic arch odontogram (SVG-based, interactive zoom -- premium tier)
-- [ ] **FE-OD-03** Condition selection panel (12 conditions with icons, quick-select, notes)
-- [ ] **FE-OD-04** History panel (sidebar timeline of changes, filter by date/condition)
+- [x] **FE-OD-03** Condition selection panel (12 conditions with icons, quick-select, notes)
+- [x] **FE-OD-04** History panel (sidebar timeline of changes, filter by date/condition)
 - [ ] **FE-OD-05** Comparison view (side-by-side snapshots, visual diff)
-- [ ] **FE-OD-06** Tooth detail panel (conditions, history, linked treatments, X-rays)
-- [ ] **FE-OD-07** Odontogram toolbar (mode toggle, adult/pediatric, zoom, print, snapshot)
-- [ ] **FE-DS-18** Tooth selector widget (interactive, FDI notation)
-- [ ] **FE-DS-19** Condition icon component (color-coded badges per condition type)
+- [x] **FE-OD-06** Tooth detail panel (conditions, history, linked treatments, X-rays)
+- [x] **FE-OD-07** Odontogram toolbar (mode toggle, adult/pediatric, zoom, print, snapshot)
+- [x] **FE-DS-18** Tooth selector widget (interactive, FDI notation)
+- [x] **FE-DS-19** Condition icon component (color-coded badges per condition type)
 
 ### Backend: Clinical Records Foundation (CR-01 through CR-06)
 
-- [ ] **CR-01** `POST /api/v1/patients/{patient_id}/clinical-records` -- Create record (anamnesis, examination, diagnosis, evolution, procedure)
-- [ ] **CR-02** `GET /api/v1/patients/{patient_id}/clinical-records/{record_id}` -- Get record
-- [ ] **CR-03** `GET /api/v1/patients/{patient_id}/clinical-records` -- List records (filterable)
-- [ ] **CR-04** `PUT /api/v1/patients/{patient_id}/clinical-records/{record_id}` -- Update (24h window, audit logged)
-- [ ] **CR-05** `POST /api/v1/patients/{patient_id}/anamnesis` -- Create/update anamnesis
-- [ ] **CR-06** `GET /api/v1/patients/{patient_id}/anamnesis` -- Get current anamnesis
+- [x] **CR-01** `POST /api/v1/patients/{patient_id}/clinical-records` -- Create record (anamnesis, examination, diagnosis, evolution, procedure)
+- [x] **CR-02** `GET /api/v1/patients/{patient_id}/clinical-records/{record_id}` -- Get record
+- [x] **CR-03** `GET /api/v1/patients/{patient_id}/clinical-records` -- List records (filterable)
+- [x] **CR-04** `PUT /api/v1/patients/{patient_id}/clinical-records/{record_id}` -- Update (24h window, audit logged)
+- [x] **CR-05** `POST /api/v1/patients/{patient_id}/anamnesis` -- Create/update anamnesis
+- [x] **CR-06** `GET /api/v1/patients/{patient_id}/anamnesis` -- Get current anamnesis
 
 ### Backend: Catalog Search (CR-10, CR-11)
 
-- [ ] **CR-10** `GET /api/v1/catalog/cie10` -- CIE-10 code search (dental subset, Spanish FTS, cached)
-- [ ] **CR-11** `GET /api/v1/catalog/cups` -- CUPS procedure code search (dental subset, FTS)
+- [x] **CR-10** `GET /api/v1/catalog/cie10` -- CIE-10 code search (dental subset, Spanish FTS, cached)
+- [x] **CR-11** `GET /api/v1/catalog/cups` -- CUPS procedure code search (dental subset, FTS)
 
 ### Backend: Evolution Templates (CR-15, CR-16, CR-17)
 
 Evolution templates are MVP Phase 1 -- clinical procedure templates reduce charting time for common procedures.
 
-- [ ] **CR-15** `GET /api/v1/clinical-record-templates` -- List evolution templates (built-in + custom, filterable by procedure type)
-- [ ] **CR-16** `POST /api/v1/clinical-record-templates` -- Create custom evolution template (rich text with placeholders)
-- [ ] **CR-17** `POST /api/v1/patients/{patient_id}/clinical-records/from-template` -- Create record from template (template_id + tooth overrides)
-- [ ] Seed data: 5-10 built-in procedure templates loaded at tenant creation:
-  - [ ] Resina compuesta (composite resin)
-  - [ ] Endodoncia unirradicular / birradicular / trirradicular
-  - [ ] Exodoncia simple / quirurgica
-  - [ ] Profilaxis y detartraje
-  - [ ] Corona ceramica
-  - [ ] Blanqueamiento dental
-  - [ ] Consulta de primera vez / urgencia
+- [x] **CR-15** `GET /api/v1/evolution-templates` -- List evolution templates (built-in + custom, filterable by procedure type)
+- [x] **CR-16** `POST /api/v1/evolution-templates` -- Create custom evolution template (rich text with placeholders)
+- [x] **CR-17** `POST /api/v1/patients/{patient_id}/clinical-records/from-template` -- Create record from template (template_id + tooth overrides)
+- [x] Seed data: 5-10 built-in procedure templates loaded at tenant creation:
+  - [x] Resina compuesta (composite resin)
+  - [x] Endodoncia unirradicular / birradicular / trirradicular
+  - [x] Exodoncia simple / quirurgica
+  - [x] Profilaxis y detartraje
+  - [x] Corona ceramica
+  - [x] Blanqueamiento dental
+  - [x] Consulta de primera vez / urgencia
+  - [x] Cirugía de tercer molar incluido
+  - [x] Raspaje y alisado radicular
+  - [x] Sellante de fotocurado
+  - [x] `app/cli/seed_evolution_templates.py` — 10 built-in templates with steps + variables
+  - [x] `app/cli/seed_catalogs.py` — 79 CIE-10 + 79 CUPS codes (public schema, idempotent)
+  - [x] `app/cli/seed_service_catalog.py` — 74 services with COP cent prices (tenant schema, idempotent)
 
 ### Backend: Service/Price Catalog (B-14, B-15)
 
 Moved to Sprint 5-6 because the service catalog is required for the auto-quotation flow in Sprint 7-8.
 
-- [ ] **B-14** `GET /api/v1/billing/services` -- Service/procedure price catalog (searchable by name, CUPS code)
-- [ ] **B-15** `PUT /api/v1/billing/services/{service_id}` -- Update service price (supports per-doctor override)
+- [x] **B-14** `GET /api/v1/services` -- Service/procedure price catalog (searchable by name, CUPS code)
+- [x] **B-15** `PUT /api/v1/services/{service_id}` -- Update service price (supports per-doctor override)
 
 ---
 
@@ -996,7 +1002,7 @@ Each sprint must meet these criteria before sign-off:
 |--------|-------|-------|---------|----------|-------|--------|
 | 1-2 | 1 | ~42 | Auth + Tenants + Infra | -- | Infrastructure tests | In Progress |
 | 3-4 | 2 | ~53 | Users + Patients | Design system + Auth + Dashboard + Patients + Settings | Component + API tests | Not Started |
-| 5-6 | 3 | ~46 | Odontogram + Clinical Records (base) + Evolution Templates + Service Catalog | Odontogram + Clinical (base) | Odontogram tests | Not Started |
+| 5-6 | 3 | ~46 | Odontogram + Clinical Records (base) + Evolution Templates + Service Catalog | Odontogram + Clinical (base) | Odontogram tests | Complete |
 | 7-8 | 4 | ~57 | Diagnoses + Procedures + Treatment + Consents + Rx + Quotation + Digital Sig + Tooth Photos | Clinical + Treatment + Consent + Rx screens | Clinical workflow tests | Not Started |
 | 9-10 | 5 | ~50 | Appointments + Scheduling + Waitlist + Public booking + Voice Pipeline | Calendar + Agenda screens + Voice UI | Scheduling + Voice tests | Not Started |
 | 11-12 | 6 | ~67 | Billing + Notifications + Portal + Messaging + WhatsApp + Referral | Billing + Portal screens | Integration tests | Not Started |

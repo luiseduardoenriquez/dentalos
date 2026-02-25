@@ -217,7 +217,8 @@ export default function PatientDetailPage() {
         <Tabs defaultValue="resumen">
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="resumen">Resumen</TabsTrigger>
-            <TabsTrigger value="historial">Historial clínico</TabsTrigger>
+            <TabsTrigger value="odontograma">Odontograma</TabsTrigger>
+            <TabsTrigger value="historial">Historial clinico</TabsTrigger>
             <TabsTrigger value="tratamientos">Tratamientos</TabsTrigger>
             <TabsTrigger value="citas">Citas</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
@@ -397,11 +398,25 @@ export default function PatientDetailPage() {
             </Card>
           </TabsContent>
 
+          {/* ── Odontograma Tab ──────────────────────────────────────────── */}
+          <TabsContent value="odontograma" className="mt-4">
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Visualiza y edita el estado dental del paciente.
+              </p>
+              <Button asChild>
+                <Link href={`/patients/${patient.id}/odontogram`}>
+                  Abrir Odontograma
+                </Link>
+              </Button>
+            </div>
+          </TabsContent>
+
           {/* ── Historial Tab ────────────────────────────────────────────── */}
           <TabsContent value="historial" className="mt-4">
             <EmptyState
-              title="Historial clínico"
-              description="Próximamente podrás ver las evoluciones y anotaciones clínicas del paciente aquí."
+              title="Historial clinico"
+              description="Proximamente podras ver las evoluciones y anotaciones clinicas del paciente aqui."
             />
           </TabsContent>
 

@@ -49,8 +49,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     }),
     "assistant": frozenset({
         "patients:read", "patients:write",
-        "odontogram:read",
-        "clinical_records:read",
+        "odontogram:read", "odontogram:write",
+        "clinical_records:read", "clinical_records:write",
         "treatment_plans:read",
         "appointments:read", "appointments:write",
         "billing:read",
