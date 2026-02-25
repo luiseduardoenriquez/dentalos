@@ -333,72 +333,72 @@ Moved to Sprint 5-6 because the service catalog is required for the auto-quotati
 
 ### Backend: Diagnoses (CR-07 through CR-09)
 
-- [ ] **CR-07** `POST /api/v1/patients/{patient_id}/diagnoses` -- Create diagnosis (CIE-10, tooth link)
-- [ ] **CR-08** `GET /api/v1/patients/{patient_id}/diagnoses` -- List diagnoses (active/resolved)
-- [ ] **CR-09** `PUT /api/v1/patients/{patient_id}/diagnoses/{diagnosis_id}` -- Update diagnosis
+- [x] **CR-07** `POST /api/v1/patients/{patient_id}/diagnoses` -- Create diagnosis (CIE-10, tooth link)
+- [x] **CR-08** `GET /api/v1/patients/{patient_id}/diagnoses` -- List diagnoses (active/resolved)
+- [x] **CR-09** `PUT /api/v1/patients/{patient_id}/diagnoses/{diagnosis_id}` -- Update diagnosis
 
 ### Backend: Procedures (CR-12 through CR-14)
 
-- [ ] **CR-12** `POST /api/v1/patients/{patient_id}/procedures` -- Record procedure (CUPS code, tooth, auto-update odontogram)
-- [ ] **CR-13** `GET /api/v1/patients/{patient_id}/procedures` -- List procedures
-- [ ] **CR-14** `GET /api/v1/patients/{patient_id}/procedures/{procedure_id}` -- Get procedure detail
+- [x] **CR-12** `POST /api/v1/patients/{patient_id}/procedures` -- Record procedure (CUPS code, tooth, auto-update odontogram)
+- [x] **CR-13** `GET /api/v1/patients/{patient_id}/procedures` -- List procedures
+- [x] **CR-14** `GET /api/v1/patients/{patient_id}/procedures/{procedure_id}` -- Get procedure detail
 
 ### Backend: Treatment Plans (TP-01 through TP-10)
 
-- [ ] **TP-01** `POST /api/v1/patients/{patient_id}/treatment-plans` -- Create plan
-- [ ] **TP-02** `GET /api/v1/patients/{patient_id}/treatment-plans/{plan_id}` -- Get plan with items and costs
-- [ ] **TP-03** `GET /api/v1/patients/{patient_id}/treatment-plans` -- List plans (draft/active/completed)
-- [ ] **TP-04** `PUT /api/v1/patients/{patient_id}/treatment-plans/{plan_id}` -- Update plan metadata/status
-- [ ] **TP-05** `POST /api/v1/patients/{patient_id}/treatment-plans/{plan_id}/items` -- Add item to plan
-- [ ] **TP-06** `PUT /api/v1/patients/{patient_id}/treatment-plans/{plan_id}/items/{item_id}` -- Update item
-- [ ] **TP-07** `POST .../items/{item_id}/complete` -- Mark item completed, link to procedure
-- [ ] **TP-08** `POST .../treatment-plans/{plan_id}/approve` -- Patient approval with digital signature
-- [ ] **TP-09** `GET .../treatment-plans/{plan_id}/pdf` -- Generate PDF with clinic branding
-- [ ] **TP-10** `POST .../treatment-plans/{plan_id}/share` -- Share via email/WhatsApp
+- [x] **TP-01** `POST /api/v1/patients/{patient_id}/treatment-plans` -- Create plan
+- [x] **TP-02** `GET /api/v1/patients/{patient_id}/treatment-plans/{plan_id}` -- Get plan with items and costs
+- [x] **TP-03** `GET /api/v1/patients/{patient_id}/treatment-plans` -- List plans (draft/active/completed)
+- [x] **TP-04** `PUT /api/v1/patients/{patient_id}/treatment-plans/{plan_id}` -- Update plan metadata/status
+- [x] **TP-05** `POST /api/v1/patients/{patient_id}/treatment-plans/{plan_id}/items` -- Add item to plan
+- [x] **TP-06** `PUT /api/v1/patients/{patient_id}/treatment-plans/{plan_id}/items/{item_id}` -- Update item
+- [x] **TP-07** `POST .../items/{item_id}/complete` -- Mark item completed, link to procedure
+- [x] **TP-08** `POST .../treatment-plans/{plan_id}/approve` -- Patient approval with digital signature
+- [x] **TP-09** `GET .../treatment-plans/{plan_id}/pdf` -- Generate PDF with clinic branding
+- [x] **TP-10** `POST .../treatment-plans/{plan_id}/share` -- Share via email/WhatsApp
 
 ### Backend: Auto-Quotation Flow (B-16, B-17, B-18, B-19)
 
 The Odontogram → Treatment Plan → Quotation flow must be seamless. Conditions on the odontogram should auto-suggest procedures from the service catalog with prices already populated.
 
-- [ ] **B-16** `POST /api/v1/patients/{patient_id}/quotations` -- Generate quotation from treatment plan items (auto-prices from service catalog)
-- [ ] **B-17** `GET /api/v1/patients/{patient_id}/quotations/{quotation_id}` -- Get quotation detail with line items and totals
+- [x] **B-16** `POST /api/v1/patients/{patient_id}/quotations` -- Generate quotation from treatment plan items (auto-prices from service catalog)
+- [x] **B-17** `GET /api/v1/patients/{patient_id}/quotations/{quotation_id}` -- Get quotation detail with line items and totals
 - [ ] **B-18** `POST /api/v1/patients/{patient_id}/quotations/{quotation_id}/share` -- Share quotation via email/WhatsApp with payment link
-- [ ] **B-19** `POST /api/v1/patients/{patient_id}/quotations/{quotation_id}/convert` -- Convert approved quotation into invoice
+- [x] **B-19** `POST /api/v1/patients/{patient_id}/quotations/{quotation_id}/convert` -- Convert approved quotation into invoice
 
 ### Backend: Digital Signature (DS-01)
 
 Required for treatment plan approvals and consent forms. Colombia Ley 527/1999 (e-commerce/digital signature law).
 
-- [ ] **DS-01** Digital signature service: capture signature image (canvas), store as PNG, embed in PDF, log timestamp + IP + user-agent for legal validity per Ley 527/1999
-  - [ ] Signature metadata: signer name, role (patient/doctor/clinic_owner), timestamp (UTC), IP address, user-agent
-  - [ ] Audit log entry for every signature event
-  - [ ] PDF embedding: signature image + signature block with metadata
+- [x] **DS-01** Digital signature service: capture signature image (canvas), store as PNG, embed in PDF, log timestamp + IP + user-agent for legal validity per Ley 527/1999
+  - [x] Signature metadata: signer name, role (patient/doctor/clinic_owner), timestamp (UTC), IP address, user-agent
+  - [x] Audit log entry for every signature event
+  - [x] PDF embedding: signature image + signature block with metadata
 
 ### Backend: Tooth Photo Attachment (P-16)
 
-- [ ] **P-16** `POST /api/v1/patients/{patient_id}/odontogram/teeth/{tooth_number}/photos` -- Attach photo to specific tooth (max 2 taps from odontogram view); `GET` and `DELETE` variants
-  - [ ] S3-compatible upload with tenant isolation
-  - [ ] Photo linked to tooth number + odontogram state version
-  - [ ] Thumbnail generation for gallery view
+- [x] **P-16** `POST /api/v1/patients/{patient_id}/odontogram/teeth/{tooth_number}/photos` -- Attach photo to specific tooth (max 2 taps from odontogram view); `GET` and `DELETE` variants
+  - [x] S3-compatible upload with tenant isolation
+  - [x] Photo linked to tooth number + odontogram state version
+  - [x] Thumbnail generation for gallery view
 
 ### Backend: Consent Management (IC-01 through IC-09)
 
-- [ ] **IC-01** `GET /api/v1/consent-templates` -- List templates (built-in + custom)
-- [ ] **IC-02** `POST /api/v1/consent-templates` -- Create custom template
-- [ ] **IC-03** `GET /api/v1/consent-templates/{template_id}` -- Get template detail
-- [ ] **IC-04** `POST /api/v1/patients/{patient_id}/consents` -- Create consent from template
-- [ ] **IC-05** `POST .../consents/{consent_id}/sign` -- Sign consent (signature + timestamp + IP)
-- [ ] **IC-06** `GET .../consents/{consent_id}` -- Get consent detail
-- [ ] **IC-07** `GET /api/v1/patients/{patient_id}/consents` -- List patient consents
-- [ ] **IC-08** `GET .../consents/{consent_id}/pdf` -- Download signed PDF
-- [ ] **IC-09** `POST .../consents/{consent_id}/void` -- Void consent (clinic_owner, audit logged)
+- [x] **IC-01** `GET /api/v1/consent-templates` -- List templates (built-in + custom)
+- [x] **IC-02** `POST /api/v1/consent-templates` -- Create custom template
+- [x] **IC-03** `GET /api/v1/consent-templates/{template_id}` -- Get template detail
+- [x] **IC-04** `POST /api/v1/patients/{patient_id}/consents` -- Create consent from template
+- [x] **IC-05** `POST .../consents/{consent_id}/sign` -- Sign consent (signature + timestamp + IP)
+- [x] **IC-06** `GET .../consents/{consent_id}` -- Get consent detail
+- [x] **IC-07** `GET /api/v1/patients/{patient_id}/consents` -- List patient consents
+- [x] **IC-08** `GET .../consents/{consent_id}/pdf` -- Download signed PDF
+- [x] **IC-09** `POST .../consents/{consent_id}/void` -- Void consent (clinic_owner, audit logged)
 
 ### Backend: Prescriptions (RX-01 through RX-05)
 
-- [ ] **RX-01** `POST /api/v1/patients/{patient_id}/prescriptions` -- Create prescription
-- [ ] **RX-02** `GET .../prescriptions/{rx_id}` -- Get prescription
-- [ ] **RX-03** `GET /api/v1/patients/{patient_id}/prescriptions` -- List prescriptions
-- [ ] **RX-04** `GET .../prescriptions/{rx_id}/pdf` -- Generate prescription PDF
+- [x] **RX-01** `POST /api/v1/patients/{patient_id}/prescriptions` -- Create prescription
+- [x] **RX-02** `GET .../prescriptions/{rx_id}` -- Get prescription
+- [x] **RX-03** `GET /api/v1/patients/{patient_id}/prescriptions` -- List prescriptions
+- [x] **RX-04** `GET .../prescriptions/{rx_id}/pdf` -- Generate prescription PDF
 - [ ] **RX-05** `GET /api/v1/catalog/medications` -- Medication catalog search
 
 ### Frontend: Clinical Records Screens (FE-CR-01 through FE-CR-07)
@@ -406,35 +406,35 @@ Required for treatment plan approvals and consent forms. Colombia Ley 527/1999 (
 - [ ] **FE-CR-01** Clinical records list (table with type icon, date, doctor, expandable preview)
 - [ ] **FE-CR-02** Create clinical record form (dynamic per type, rich text editor, **template selector for evolution notes**)
 - [ ] **FE-CR-03** Anamnesis questionnaire form (structured sections)
-- [ ] **FE-CR-04** Diagnosis form (CIE-10 autocomplete, severity, tooth link)
-- [ ] **FE-CR-05** Procedure recording form (CUPS autocomplete, tooth/zone selector)
-- [ ] **FE-CR-06** CIE-10 search component (reusable autocomplete)
-- [ ] **FE-CR-07** CUPS search component (reusable autocomplete)
+- [x] **FE-CR-04** Diagnosis form (CIE-10 autocomplete, severity, tooth link)
+- [x] **FE-CR-05** Procedure recording form (CUPS autocomplete, tooth/zone selector)
+- [x] **FE-CR-06** CIE-10 search component (reusable autocomplete)
+- [x] **FE-CR-07** CUPS search component (reusable autocomplete)
 
 ### Frontend: Treatment Plan Screens (FE-TP-01 through FE-TP-04)
 
-- [ ] **FE-TP-01** Treatment plan list (cards with status, progress bar, cost)
-- [ ] **FE-TP-02** Create treatment plan form (add items, CUPS search, drag reorder, totals, **auto-price from service catalog**)
-- [ ] **FE-TP-03** Treatment plan detail page (items, progress, cost breakdown, actions, **quotation generation button**)
-- [ ] **FE-TP-04** Treatment plan approval flow (signature pad, mobile-optimized)
+- [x] **FE-TP-01** Treatment plan list (cards with status, progress bar, cost)
+- [x] **FE-TP-02** Create treatment plan form (add items, CUPS search, drag reorder, totals, **auto-price from service catalog**)
+- [x] **FE-TP-03** Treatment plan detail page (items, progress, cost breakdown, actions, **quotation generation button**)
+- [x] **FE-TP-04** Treatment plan approval flow (signature pad, mobile-optimized)
 
 ### Frontend: Consent Screens (FE-IC-01 through FE-IC-04)
 
-- [ ] **FE-IC-01** Consent forms list (status badges, template name, date)
-- [ ] **FE-IC-02** Create consent form (select template, preview, send/sign)
-- [ ] **FE-IC-03** Consent signing screen (scroll-to-read, signature pad, submit)
+- [x] **FE-IC-01** Consent forms list (status badges, template name, date)
+- [x] **FE-IC-02** Create consent form (select template, preview, send/sign)
+- [x] **FE-IC-03** Consent signing screen (scroll-to-read, signature pad, submit)
 - [ ] **FE-IC-04** Custom consent template editor (rich text, placeholders, preview)
 
 ### Frontend: Prescription Screens (FE-RX-01 through FE-RX-03)
 
-- [ ] **FE-RX-01** Create prescription form (medication autocomplete, dosage, multiple meds)
-- [ ] **FE-RX-02** Prescription list (date, medications, doctor, PDF download)
-- [ ] **FE-RX-03** Prescription preview/print view (formatted like prescription pad)
+- [x] **FE-RX-01** Create prescription form (medication autocomplete, dosage, multiple meds)
+- [x] **FE-RX-02** Prescription list (date, medications, doctor, PDF download)
+- [x] **FE-RX-03** Prescription preview/print view (formatted like prescription pad)
 
 ### Patient Medical History
 
-- [ ] **P-07** `GET /api/v1/patients/{patient_id}/medical-history` -- Full timeline
-- [ ] **FE-P-07** Medical history timeline in patient detail
+- [x] **P-07** `GET /api/v1/patients/{patient_id}/medical-history` -- Full timeline
+- [x] **FE-P-07** Medical history timeline in patient detail
 
 ### Email Templates
 

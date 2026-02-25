@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 40px; }
+        h1 { font-size: 18px; color: #0891B2; }
+        .content { margin: 20px 0; line-height: 1.6; }
+        .meta { color: #666; font-size: 10px; margin-top: 20px; }
+        .signature-block { margin-top: 40px; border-top: 1px solid #000; width: 200px; padding-top: 5px; }
+        .watermark {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 80px; color: rgba(200, 0, 0, 0.15);
+            z-index: 1000; pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    {% if _watermark %}
+    <div class="watermark">{{ _watermark }}</div>
+    {% endif %}
+
+    <h1>{{ clinic_name }} — Consentimiento Informado</h1>
+    <h2>{{ consent.title }}</h2>
+
+    <div class="content">
+        {{ consent.content_rendered | safe }}
+    </div>
+
+    {% if consent.content_hash %}
+    <div class="meta">
+        <p>Hash de contenido: {{ consent.content_hash }}</p>
+        <p>Fecha de firma: {{ consent.signed_at }}</p>
+    </div>
+    {% endif %}
+
+    <div class="signature-block">
+        <p>Firma del Paciente</p>
+    </div>
+
+    <div class="signature-block">
+        <p>Firma del Doctor</p>
+    </div>
+</body>
+</html>

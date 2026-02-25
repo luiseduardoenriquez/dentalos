@@ -131,6 +131,62 @@ class ConsentErrors:
     TEMPLATE_NOT_FOUND = "CONSENT_template_not_found"
 
 
+class TreatmentPlanErrors:
+    """TREATMENT_PLAN domain — treatment plan error codes."""
+
+    NOT_FOUND = "TREATMENT_PLAN_not_found"
+    ITEM_NOT_FOUND = "TREATMENT_PLAN_item_not_found"
+    ALREADY_APPROVED = "TREATMENT_PLAN_already_approved"
+    ALREADY_COMPLETED = "TREATMENT_PLAN_already_completed"
+    ALREADY_CANCELLED = "TREATMENT_PLAN_already_cancelled"
+    INVALID_STATUS_TRANSITION = "TREATMENT_PLAN_invalid_status_transition"
+    ITEM_ALREADY_COMPLETED = "TREATMENT_PLAN_item_already_completed"
+    APPROVAL_REQUIRED = "TREATMENT_PLAN_approval_required"
+
+
+class QuotationErrors:
+    """QUOTATION domain — quotation error codes."""
+
+    NOT_FOUND = "QUOTATION_not_found"
+    ALREADY_APPROVED = "QUOTATION_already_approved"
+    ALREADY_EXPIRED = "QUOTATION_already_expired"
+    DUPLICATE_FOR_PLAN = "QUOTATION_duplicate_for_plan"
+    INVALID_STATUS_TRANSITION = "QUOTATION_invalid_status_transition"
+
+
+class DiagnosisErrors:
+    """DIAGNOSIS domain — diagnosis error codes."""
+
+    NOT_FOUND = "DIAGNOSIS_not_found"
+    INVALID_CIE10_CODE = "DIAGNOSIS_invalid_cie10_code"
+    ALREADY_RESOLVED = "DIAGNOSIS_already_resolved"
+
+
+class ProcedureErrors:
+    """PROCEDURE domain — procedure error codes."""
+
+    NOT_FOUND = "PROCEDURE_not_found"
+    INVALID_CUPS_CODE = "PROCEDURE_invalid_cups_code"
+    ALREADY_LINKED = "PROCEDURE_already_linked"
+
+
+class SignatureErrors:
+    """SIGNATURE domain — digital signature error codes."""
+
+    NOT_FOUND = "SIGNATURE_not_found"
+    BLANK_SIGNATURE = "SIGNATURE_blank_signature"
+    INVALID_IMAGE = "SIGNATURE_invalid_image"
+    ALREADY_SIGNED = "SIGNATURE_already_signed"
+    VERIFICATION_FAILED = "SIGNATURE_verification_failed"
+    DOCUMENT_NOT_FOUND = "SIGNATURE_document_not_found"
+
+
+class PrescriptionErrors:
+    """PRESCRIPTION domain — prescription error codes."""
+
+    NOT_FOUND = "PRESCRIPTION_not_found"
+
+
 class ValidationErrors:
     """VALIDATION domain — input and business rule validation error codes."""
 

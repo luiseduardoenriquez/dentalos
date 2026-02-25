@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { size: A4; margin: 20mm 15mm 20mm 15mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 11px; color: #222; }
+
+        /* Header */
+        .clinic-header {
+            border-bottom: 2px solid #0891B2;
+            padding-bottom: 10px;
+            margin-bottom: 16px;
+        }
+        .clinic-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0891B2;
+            margin: 0 0 4px 0;
+        }
+        .clinic-contact {
+            font-size: 10px;
+            color: #555;
+        }
+
+        /* Document title */
+        .document-title {
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #1a1a1a;
+            margin: 12px 0 16px 0;
+            border: 1px solid #0891B2;
+            padding: 6px 0;
+        }
+
+        /* Info sections */
+        .info-grid {
+            display: table;
+            width: 100%;
+            margin-bottom: 14px;
+        }
+        .info-col {
+            display: table-cell;
+            width: 50%;
+            vertical-align: top;
+            padding-right: 10px;
+        }
+        .info-label {
+            font-size: 9px;
+            font-weight: bold;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .info-value {
+            font-size: 11px;
+            margin-top: 2px;
+            margin-bottom: 8px;
+        }
+
+        /* Medications table */
+        .section-heading {
+            font-size: 12px;
+            font-weight: bold;
+            color: #0891B2;
+            border-bottom: 1px solid #0891B2;
+            padding-bottom: 4px;
+            margin: 16px 0 8px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        table.medications {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            font-size: 10px;
+        }
+        table.medications th {
+            background-color: #0891B2;
+            color: #fff;
+            padding: 5px 6px;
+            text-align: left;
+            font-weight: bold;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        table.medications td {
+            padding: 5px 6px;
+            border-bottom: 1px solid #e8e8e8;
+            vertical-align: top;
+        }
+        table.medications tr:nth-child(even) td {
+            background-color: #f9fafb;
+        }
+        table.medications td.num {
+            text-align: center;
+            font-weight: bold;
+            width: 28px;
+        }
+        table.medications td.instrucciones {
+            color: #444;
+            font-style: italic;
+            font-size: 9px;
+        }
+
+        /* Notes */
+        .notes-block {
+            background: #f0f9ff;
+            border-left: 3px solid #0891B2;
+            padding: 8px 10px;
+            margin-top: 12px;
+            font-size: 10px;
+        }
+        .notes-label {
+            font-weight: bold;
+            color: #0891B2;
+            margin-bottom: 3px;
+        }
+
+        /* Signature area */
+        .signature-area {
+            margin-top: 40px;
+            page-break-inside: avoid;
+        }
+        .signature-line {
+            display: inline-block;
+            width: 240px;
+            border-top: 1px solid #333;
+            margin-top: 40px;
+            padding-top: 5px;
+            font-size: 10px;
+            text-align: center;
+        }
+        .signature-sublabel {
+            font-size: 9px;
+            color: #666;
+        }
+
+        /* Footer */
+        .doc-footer {
+            margin-top: 20px;
+            padding-top: 8px;
+            border-top: 1px solid #ddd;
+            font-size: 9px;
+            color: #888;
+            text-align: right;
+        }
+
+        /* Watermark */
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 80px;
+            color: rgba(200, 0, 0, 0.12);
+            z-index: 1000;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+    {% if _watermark %}
+    <div class="watermark">{{ _watermark }}</div>
+    {% endif %}
+
+    <!-- Clinic header -->
+    <div class="clinic-header">
+        <p class="clinic-name">{{ clinic.name if clinic.name else 'DentalOS' }}</p>
+        <div class="clinic-contact">
+            {% if clinic.address %}<span>{{ clinic.address }}</span>{% endif %}
+            {% if clinic.address and clinic.phone %} &nbsp;|&nbsp; {% endif %}
+            {% if clinic.phone %}<span>Tel: {{ clinic.phone }}</span>{% endif %}
+        </div>
+    </div>
+
+    <!-- Document title -->
+    <div class="document-title">Prescripción Médica</div>
+
+    <!-- Patient and doctor info -->
+    <div class="info-grid">
+        <div class="info-col">
+            <div class="info-label">Paciente</div>
+            <div class="info-value"><strong>{{ patient.name }}</strong></div>
+            <div class="info-label">Documento</div>
+            <div class="info-value">{{ patient.document_number }}</div>
+        </div>
+        <div class="info-col">
+            <div class="info-label">Médico Tratante</div>
+            <div class="info-value"><strong>{{ doctor.name }}</strong></div>
+            {% if doctor.professional_license %}
+            <div class="info-label">Registro Profesional</div>
+            <div class="info-value">{{ doctor.professional_license }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="info-label">Fecha de Prescripción</div>
+    <div class="info-value">{{ prescription_date.strftime('%d/%m/%Y') if prescription_date else '—' }}</div>
+
+    <!-- Medications -->
+    <div class="section-heading">Medicamentos</div>
+    <table class="medications">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Medicamento</th>
+                <th>Dosis</th>
+                <th>Frecuencia</th>
+                <th>Duración</th>
+                <th>Vía</th>
+                <th>Instrucciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for med in medications %}
+            <tr>
+                <td class="num">{{ loop.index }}</td>
+                <td><strong>{{ med.name }}</strong></td>
+                <td>{{ med.dosis }}</td>
+                <td>{{ med.frecuencia }}</td>
+                <td>{{ med.duracion_dias }} día{{ 's' if med.duracion_dias != 1 else '' }}</td>
+                <td>{{ med.via | default('oral') }}</td>
+                <td class="instrucciones">{{ med.instrucciones if med.instrucciones else '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if notes %}
+    <div class="notes-block">
+        <div class="notes-label">Notas</div>
+        <div>{{ notes }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Signature -->
+    <div class="signature-area">
+        <div class="signature-line">
+            <div><strong>{{ doctor.name }}</strong></div>
+            {% if doctor.professional_license %}
+            <div class="signature-sublabel">Reg. Prof. {{ doctor.professional_license }}</div>
+            {% endif %}
+            <div class="signature-sublabel">Firma del Médico</div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="doc-footer">
+        Documento generado por DentalOS &mdash; {{ prescription_date.strftime('%d/%m/%Y %H:%M') if prescription_date else '' }}
+    </div>
+
+</body>
+</html>

@@ -22,6 +22,7 @@ from app.auth.dependencies import get_current_user, require_permission, require_
 from app.core.audit import audit_action
 from app.core.database import get_tenant_db
 from app.core.exceptions import ResourceNotFoundError
+from app.schemas.medical_history import MedicalHistoryResponse
 from app.schemas.patient import (
     PatientCreate,
     PatientListItem,
@@ -31,6 +32,7 @@ from app.schemas.patient import (
     PatientSearchResult,
     PatientUpdate,
 )
+from app.services.medical_history_service import medical_history_service
 from app.services.patient_service import patient_service
 
 router = APIRouter(prefix="/patients", tags=["patients"])
@@ -295,3 +297,24 @@ async def deactivate_patient(
     )
 
     return PatientResponse(**result)
+
+
+# ─── Medical History: Unified timeline ───────────────────────────────────────
+
+
+@router.get("/{patient_id}/medical-history", response_model=MedicalHistoryResponse)
+async def get_medical_history(
+    patient_id: str,
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> MedicalHistoryResponse:
+    """Return unified medical history timeline for a patient."""
+    result = await medical_history_service.get_timeline(
+        db=db,
+        patient_id=patient_id,
+        cursor=cursor,
+        limit=limit,
+    )
+    return MedicalHistoryResponse(**result)

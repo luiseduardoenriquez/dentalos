@@ -126,3 +126,39 @@ class FileError(DentalOSError):
     """Base class for file upload/storage errors."""
 
     pass
+
+
+class ClinicalError(DentalOSError):
+    """Base class for clinical domain errors (diagnoses, procedures)."""
+
+    pass
+
+
+class TreatmentPlanError(DentalOSError):
+    """Base class for treatment plan errors."""
+
+    pass
+
+
+class QuotationError(DentalOSError):
+    """Base class for quotation errors."""
+
+    pass
+
+
+class ConsentError(DentalOSError):
+    """Base class for consent errors."""
+
+    pass
+
+
+class SignatureError(DentalOSError):
+    """Base class for digital signature errors."""
+
+    pass
+
+
+class PrescriptionError(DentalOSError):
+    """Base class for prescription errors."""
+
+    pass

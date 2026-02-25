@@ -27,6 +27,16 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "invites:read", "invites:write", "invites:delete",
         # Prescriptions
         "prescriptions:read", "prescriptions:write",
+        # Diagnoses
+        "diagnoses:read", "diagnoses:write",
+        # Procedures
+        "procedures:read", "procedures:write",
+        # Quotations
+        "quotations:read", "quotations:write", "quotations:delete",
+        # Signatures
+        "signatures:read", "signatures:write",
+        # Photos
+        "photos:read", "photos:write",
         # Inventory
         "inventory:read", "inventory:write", "inventory:delete",
         # Compliance
@@ -43,6 +53,11 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "billing:read",
         "consents:read", "consents:write",
         "prescriptions:read", "prescriptions:write",
+        "diagnoses:read", "diagnoses:write",
+        "procedures:read", "procedures:write",
+        "quotations:read", "quotations:write",
+        "signatures:read", "signatures:write",
+        "photos:read", "photos:write",
         "analytics:read",
         "messages:read", "messages:write",
         "inventory:read",
@@ -56,6 +71,11 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "billing:read",
         "consents:read",
         "prescriptions:read",
+        "diagnoses:read",
+        "procedures:read",
+        "quotations:read",
+        "signatures:read",
+        "photos:read", "photos:write",
         "messages:read", "messages:write",
         "inventory:read",
     }),
@@ -63,6 +83,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "patients:read", "patients:write",
         "appointments:read", "appointments:write", "appointments:manage",
         "billing:read", "billing:write",
+        "quotations:read", "quotations:write",
         "messages:read", "messages:write",
         "inventory:read",
     }),
@@ -75,6 +96,11 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "billing:read",
         "consents:read", "consents:write",
         "prescriptions:read",
+        "diagnoses:read",
+        "procedures:read",
+        "quotations:read",
+        "signatures:read", "signatures:write",
+        "photos:read",
         "messages:read", "messages:write",
     }),
 }
