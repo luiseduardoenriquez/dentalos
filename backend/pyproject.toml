@@ -117,7 +117,7 @@ addopts = [
     "--cov=app",
     "--cov-report=term-missing",
     "--cov-report=html:htmlcov",
-    "--cov-fail-under=60",
+    "--cov-fail-under=80",
 ]
 markers = [
     "unit: Unit tests (no DB, no network)",

@@ -7,7 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.core.exceptions import DentalOSError
+from app.core.exceptions import DentalOSError, RateLimitError
 
 logger = logging.getLogger("dentalos.errors")
 
@@ -37,7 +37,12 @@ def register_exception_handlers(app: FastAPI) -> None:
                 extra=log_context,
             )
 
-        return _build_error_response(exc.status_code, exc.error, exc.message, exc.details)
+        headers = {}
+        if isinstance(exc, RateLimitError):
+            retry_after = exc.details.get("retry_after", 60)
+            headers["Retry-After"] = str(retry_after)
+
+        return _build_error_response(exc.status_code, exc.error, exc.message, exc.details, headers=headers)
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(
@@ -107,6 +112,7 @@ def _build_error_response(
     error: str,
     message: str,
     details: dict,  # type: ignore[type-arg]
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
@@ -115,6 +121,7 @@ def _build_error_response(
             "message": message,
             "details": details,
         },
+        headers=headers or {},
     )
 
 

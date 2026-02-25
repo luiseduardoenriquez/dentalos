@@ -205,7 +205,8 @@ async def get_me(
     """Get current user profile with tenant and permissions."""
     result = await auth_service.get_me(
         user_id=current_user.user_id,
-        tenant_ctx=current_user.tenant,
+        tenant_id=current_user.tenant.tenant_id,
+        tenant_schema=current_user.tenant.schema_name,
         db=db,
     )
 
@@ -260,7 +261,7 @@ async def change_password(
         user_id=current_user.user_id,
         current_password=body.current_password,
         new_password=body.new_password,
-        current_jti=current_user.token_jti,
+        current_session_token_hash=None,
         tenant_schema=current_user.tenant.schema_name,
         db=db,
     )

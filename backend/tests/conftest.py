@@ -201,3 +201,28 @@ async def doctor_client(
     )
     async_client.headers["Authorization"] = f"Bearer {token}"
     return async_client
+
+
+@pytest.fixture
+async def superadmin_client(
+    async_client: httpx.AsyncClient,
+    test_user,
+    test_tenant,
+) -> httpx.AsyncClient:
+    """httpx client pre-authorized with a superadmin JWT.
+
+    Uses the same test_tenant for tenant resolution (the JWT still carries a
+    tid claim and the auth dependency resolves the tenant normally). The role
+    claim is set to "superadmin" so require_role(["superadmin"]) passes.
+    """
+    permissions = get_permissions_for_role("superadmin")
+    token = create_access_token(
+        user_id=str(test_user.id),
+        tenant_id=str(test_tenant.id),
+        role="superadmin",
+        permissions=list(permissions),
+        email=test_user.email,
+        name=test_user.name,
+    )
+    async_client.headers["Authorization"] = f"Bearer {token}"
+    return async_client

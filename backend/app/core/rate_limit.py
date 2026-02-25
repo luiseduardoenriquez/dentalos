@@ -38,3 +38,21 @@ async def check_rate_limit(key: str, limit: int, window_seconds: int) -> None:
     except Exception:
         # Redis down — allow the request (graceful degradation)
         logger.warning("Rate limit check failed (Redis unavailable), allowing request")
+
+
+async def check_rate_limit_tenant(
+    tenant_id: str,
+    resource: str,
+    limit: int,
+    window_seconds: int,
+) -> None:
+    """Check rate limit scoped to a specific tenant and resource.
+
+    Uses key pattern: dentalos:{tenant_id_short}:rl:{resource}
+    Raises RateLimitError if the limit is exceeded.
+    If Redis is down, allows the request (graceful degradation).
+    """
+    # tenant_id_short: strip the "tn_" prefix if present, keep the rest
+    tenant_id_short = tenant_id.removeprefix("tn_")
+    key = f"dentalos:{tenant_id_short}:rl:{resource}"
+    await check_rate_limit(key, limit, window_seconds)

@@ -42,7 +42,7 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 ### Project Scaffolding
 
 - [x] FastAPI backend project structure with Poetry/uv dependency management
-- [ ] Next.js 14+ frontend project with TailwindCSS and TypeScript
+- [ ] Next.js 16 frontend project with TailwindCSS and TypeScript
 - [x] Docker Compose for local development (PostgreSQL, Redis, RabbitMQ)
 - [ ] Monorepo or polyrepo structure decision finalized (see ADR-LOG)
 
@@ -70,10 +70,10 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
   - [x] patient role and permissions
   - [x] superadmin role and permissions
   - [x] Permission matrix enforcement on all endpoints
-- [ ] **I-03** Error handling framework
+- [x] **I-03** Error handling framework
   - [x] HTTP status code mapping
   - [x] Error response schema: `{error, message, details}`
-  - [ ] Error codes registry
+  - [x] Error codes registry
   - [x] Backend exception handling (Python/FastAPI)
   - [x] Logging patterns for structured JSON output
 - [x] **I-05** Redis caching layer
@@ -81,42 +81,42 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
   - [x] TTL policies defined and implemented
   - [x] Session cache for active users
   - [x] Plan limits cache for fast enforcement
-- [ ] **I-06** RabbitMQ setup
-  - [ ] Queue topology defined (email, SMS, WhatsApp, audit, reports)
-  - [ ] Worker process scaffolding
-  - [ ] Retry policies and dead letter queues
-  - [ ] Priority queue for critical tasks
+- [x] **I-06** RabbitMQ setup
+  - [x] Queue topology defined (email, SMS, WhatsApp, audit, reports)
+  - [x] Worker process scaffolding
+  - [x] Retry policies and dead letter queues
+  - [x] Priority queue for critical tasks
 - [x] **I-07** Rate limiting
-  - [ ] Per-tenant rate limits
+  - [x] Per-tenant rate limits
   - [x] Per-user rate limits
   - [x] Per-IP rate limits
   - [x] Endpoint-specific overrides (auth endpoints stricter)
   - [x] Redis-based sliding window implementation
-- [ ] **I-08** Testing infrastructure
+- [x] **I-08** Testing infrastructure
   - [x] pytest configuration with async support
   - [x] Test database provisioning (per-tenant test schemas)
   - [x] Factory patterns: patients, teeth, appointments, users
-  - [ ] Mock external services (WhatsApp, SMS, email)
-  - [ ] Coverage target: 80% minimum
-- [ ] **I-09** Local development environment
+  - [x] Mock external services (WhatsApp, SMS, email)
+  - [x] Coverage target: 80% minimum
+- [x] **I-09** Local development environment
   - [x] Docker Compose stack validated and documented
-  - [ ] Seed data script (demo tenant, demo users, sample patients)
+  - [x] Seed data script (demo tenant, demo users, sample patients)
   - [x] Tenant provisioning CLI script
   - [x] Environment variables template (.env.example)
 
 ### Security and Compliance Foundation
 
-- [ ] **I-10** Security policy: HTTPS, CORS, CSP headers, input sanitization
-- [ ] **I-11** Audit logging: Immutable audit trail per tenant
+- [x] **I-10** Security policy: HTTPS, CORS, CSP headers, input sanitization
+- [x] **I-11** Audit logging: Immutable audit trail per tenant
 - [ ] **I-14** Deployment architecture: Hetzner Cloud baseline plan
 
 ### Architecture Decision Records (ADRs)
 
-- [ ] **I-20** ADR-001: Schema-per-tenant rationale
-- [ ] **I-21** ADR-002: FastAPI over Django rationale
-- [ ] **I-22** ADR-003: PostgreSQL over alternatives rationale
-- [ ] **I-23** ADR-004: Hetzner over AWS/GCP rationale
-- [ ] **I-27** ADR-008: RabbitMQ over Celery+Redis rationale
+- [x] **I-20** ADR-001: Schema-per-tenant rationale
+- [x] **I-21** ADR-002: FastAPI over Django rationale
+- [x] **I-22** ADR-003: PostgreSQL over alternatives rationale
+- [x] **I-23** ADR-004: Hetzner over AWS/GCP rationale
+- [x] **I-27** ADR-008: RabbitMQ over Celery+Redis rationale
 
 ### Backend: Authentication Endpoints (A-01 through A-11)
 
@@ -134,16 +134,17 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 ### Backend: Tenant Management Endpoints (T-01 through T-10)
 
-- [ ] **T-01** `POST /api/v1/superadmin/tenants` -- Create/provision new tenant
-- [ ] **T-02** `GET /api/v1/superadmin/tenants/{tenant_id}` -- Get tenant details
-- [ ] **T-03** `GET /api/v1/superadmin/tenants` -- List all tenants
-- [ ] **T-04** `PUT /api/v1/superadmin/tenants/{tenant_id}` -- Update tenant
-- [ ] **T-05** `POST /api/v1/superadmin/tenants/{tenant_id}/suspend` -- Suspend tenant
-- [ ] **T-06** `GET /api/v1/settings` -- Get current tenant settings
-- [ ] **T-07** `PUT /api/v1/settings` -- Update tenant settings
-- [ ] **T-08** `GET /api/v1/settings/usage` -- Plan usage stats
-- [ ] **T-09** `GET /api/v1/settings/plan-limits` -- Plan limits check
-- [ ] **T-10** `POST /api/v1/onboarding` -- Multi-step onboarding wizard
+- [x] **T-01** `POST /api/v1/admin/tenants` -- Create/provision new tenant
+- [x] **T-02** `GET /api/v1/admin/tenants/{tenant_id}` -- Get tenant details
+- [x] **T-03** `GET /api/v1/admin/tenants` -- List all tenants
+- [x] **T-04** `PUT /api/v1/admin/tenants/{tenant_id}` -- Update tenant
+- [x] **T-05** `POST /api/v1/admin/tenants/{tenant_id}/suspend` -- Suspend tenant
+- [x] **T-06** `GET /api/v1/settings` -- Get current tenant settings
+- [x] **T-07** `PUT /api/v1/settings` -- Update tenant settings
+- [x] **T-08** `GET /api/v1/settings/usage` -- Plan usage stats
+- [x] **T-09** `GET /api/v1/settings/plan-limits` -- Plan limits check
+- [x] **T-10** `POST /api/v1/onboarding` -- Multi-step onboarding wizard
+- [x] Integration tests: `tests/integration/test_tenants/` (T-01 through T-10, settings, onboarding)
 
 ### CI/CD and DevOps
 

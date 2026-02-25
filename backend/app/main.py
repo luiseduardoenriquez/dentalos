@@ -11,6 +11,7 @@ from app.core.database import engine
 from app.core.exception_handlers import register_exception_handlers
 from app.core.logging_config import setup_logging
 from app.core.middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
+from app.core.queue import close_rabbitmq, connect_rabbitmq
 from app.core.redis import redis_client
 
 logger = logging.getLogger("dentalos")
@@ -26,10 +27,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         settings.app_version,
         settings.environment,
     )
+    await connect_rabbitmq()
     yield
     logger.info("Shutting down %s", settings.app_name)
     await engine.dispose()
     await redis_client.aclose()
+    await close_rabbitmq()
 
 
 app = FastAPI(
