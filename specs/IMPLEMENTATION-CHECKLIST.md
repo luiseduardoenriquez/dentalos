@@ -42,7 +42,7 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 ### Project Scaffolding
 
 - [x] FastAPI backend project structure with Poetry/uv dependency management
-- [ ] Next.js 16 frontend project with TailwindCSS and TypeScript
+- [x] Next.js 16 frontend project with TailwindCSS and TypeScript
 - [x] Docker Compose for local development (PostgreSQL, Redis, RabbitMQ)
 - [ ] Monorepo or polyrepo structure decision finalized (see ADR-LOG)
 
@@ -171,21 +171,21 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 ### Backend: User Management (U-01 through U-06)
 
-- [ ] **U-01** `GET /api/v1/users/me` -- Get own profile
-- [ ] **U-02** `PUT /api/v1/users/me` -- Update own profile
-- [ ] **U-03** `GET /api/v1/users` -- List team members (filterable by role, status)
-- [ ] **U-04** `GET /api/v1/users/{user_id}` -- Get team member profile
-- [ ] **U-05** `PUT /api/v1/users/{user_id}` -- Update team member (change role, deactivate)
-- [ ] **U-06** `POST /api/v1/users/{user_id}/deactivate` -- Soft-delete team member
+- [x] **U-01** `GET /api/v1/users/me` -- Get own profile
+- [x] **U-02** `PUT /api/v1/users/me` -- Update own profile
+- [x] **U-03** `GET /api/v1/users` -- List team members (filterable by role, status)
+- [x] **U-04** `GET /api/v1/users/{user_id}` -- Get team member profile
+- [x] **U-05** `PUT /api/v1/users/{user_id}` -- Update team member (change role, deactivate)
+- [x] **U-06** `POST /api/v1/users/{user_id}/deactivate` -- Soft-delete team member
 
 ### Backend: Patient CRUD (P-01 through P-06)
 
-- [ ] **P-01** `POST /api/v1/patients` -- Create patient (plan limit check included)
-- [ ] **P-02** `GET /api/v1/patients/{patient_id}` -- Get patient full profile
-- [ ] **P-03** `GET /api/v1/patients` -- List patients with search, pagination, filters
-- [ ] **P-04** `PUT /api/v1/patients/{patient_id}` -- Update patient profile
-- [ ] **P-05** `POST /api/v1/patients/{patient_id}/deactivate` -- Soft-delete patient
-- [ ] **P-06** `GET /api/v1/patients/search` -- PostgreSQL FTS typeahead search (name, document, phone); **predictive search: 3 letters triggers suggestions, target latency ≤100ms; this is a primary daily workflow**
+- [x] **P-01** `POST /api/v1/patients` -- Create patient (plan limit check included)
+- [x] **P-02** `GET /api/v1/patients/{patient_id}` -- Get patient full profile
+- [x] **P-03** `GET /api/v1/patients` -- List patients with search, pagination, filters
+- [x] **P-04** `PUT /api/v1/patients/{patient_id}` -- Update patient profile
+- [x] **P-05** `POST /api/v1/patients/{patient_id}/deactivate` -- Soft-delete patient
+- [x] **P-06** `GET /api/v1/patients/search` -- PostgreSQL FTS typeahead search (name, document, phone); **predictive search: 3 letters triggers suggestions, target latency ≤100ms; this is a primary daily workflow**
 
 ### Backend: Patient Documents (P-12 through P-14)
 
@@ -200,49 +200,49 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 - [ ] **I-28** Design system spec: color palette, typography, spacing, TailwindCSS config
 - [ ] **I-29** Responsive breakpoints: mobile-first, tablet optimization for clinical use
 - [ ] **FE-DS-01** Design tokens: colors, typography (Inter/system), spacing, shadows
-- [ ] **FE-DS-02** Button component (primary, secondary, outline, ghost, danger)
-- [ ] **FE-DS-03** Input component (text, email, password, number, phone, date, textarea)
-- [ ] **FE-DS-04** Select/Combobox component (searchable, async loading)
-- [ ] **FE-DS-05** Data table component (sortable, paginated, responsive)
-- [ ] **FE-DS-06** Modal/Dialog component (sm, md, lg, full)
+- [x] **FE-DS-02** Button component (primary, secondary, outline, ghost, danger)
+- [x] **FE-DS-03** Input component (text, email, password, number, phone, date, textarea)
+- [x] **FE-DS-04** Select/Combobox component (searchable, async loading)
+- [x] **FE-DS-05** Data table component (sortable, paginated, responsive)
+- [x] **FE-DS-06** Modal/Dialog component (sm, md, lg, full)
 - [ ] **FE-DS-07** Toast/notification component (success, error, warning, info)
-- [ ] **FE-DS-08** Navigation sidebar (collapsible, role-based visibility)
-- [ ] **FE-DS-09** App header (clinic name, user menu, notifications, search)
-- [ ] **FE-DS-10** Card component (default, elevated, outlined)
-- [ ] **FE-DS-11** Badge/pill component (status badges, condition badges)
-- [ ] **FE-DS-12** Avatar component (image, initials fallback, status indicator)
+- [x] **FE-DS-08** Navigation sidebar (collapsible, role-based visibility)
+- [x] **FE-DS-09** App header (clinic name, user menu, notifications, search)
+- [x] **FE-DS-10** Card component (default, elevated, outlined)
+- [x] **FE-DS-11** Badge/pill component (status badges, condition badges)
+- [x] **FE-DS-12** Avatar component (image, initials fallback, status indicator)
 - [ ] **FE-DS-14** Signature pad component (canvas drawing, base64 export)
 - [ ] **FE-DS-15** File upload component (drag-and-drop, preview, progress)
-- [ ] **FE-DS-16** Empty state component (illustration + message + CTA)
-- [ ] **FE-DS-17** Skeleton loader component
+- [x] **FE-DS-16** Empty state component (illustration + message + CTA)
+- [x] **FE-DS-17** Skeleton loader component
 
 ### Frontend: Auth Screens (FE-A-01 through FE-A-06)
 
-- [ ] **FE-A-01** Registration page (multi-step: email/password, clinic info, plan selection)
-- [ ] **FE-A-02** Login page (email + password, forgot password link, **multi-clinic selector shown when user belongs to more than one clinic**)
-- [ ] **FE-A-03** Forgot password page
-- [ ] **FE-A-04** Reset password page
-- [ ] **FE-A-05** Accept invitation page
-- [ ] **FE-A-06** Post-registration onboarding wizard (4 steps)
+- [x] **FE-A-01** Registration page (multi-step: email/password, clinic info, plan selection)
+- [x] **FE-A-02** Login page (email + password, forgot password link, **multi-clinic selector shown when user belongs to more than one clinic**)
+- [x] **FE-A-03** Forgot password page
+- [x] **FE-A-04** Reset password page
+- [x] **FE-A-05** Accept invitation page
+- [x] **FE-A-06** Post-registration onboarding wizard (4 steps)
 
 ### Frontend: Dashboard (FE-D-01, FE-D-02)
 
-- [ ] **FE-D-01** Main dashboard (today's appointments, new patients, revenue, pending plans)
+- [x] **FE-D-01** Main dashboard (today's appointments, new patients, revenue, pending plans)
 - [ ] **FE-D-02** Doctor-specific dashboard (my appointments, my patients, my procedures)
 
 ### Frontend: Patient Screens (FE-P-01 through FE-P-05)
 
-- [ ] **FE-P-01** Patient list page (table + search + filters + responsive card view)
-- [ ] **FE-P-02** Create patient form (personal info, contact, medical, insurance)
-- [ ] **FE-P-03** Patient detail page (tabbed: overview, odontogram, records, plans, appointments, billing, docs)
-- [ ] **FE-P-04** Edit patient form
-- [ ] **FE-P-05** Global patient search (typeahead in header bar, ≤100ms, predictive after 3 characters)
+- [x] **FE-P-01** Patient list page (table + search + filters + responsive card view)
+- [x] **FE-P-02** Create patient form (personal info, contact, medical, insurance)
+- [x] **FE-P-03** Patient detail page (tabbed: overview, odontogram, records, plans, appointments, billing, docs)
+- [x] **FE-P-04** Edit patient form
+- [x] **FE-P-05** Global patient search (typeahead in header bar, ≤100ms, predictive after 3 characters)
 
 ### Frontend: Settings Screens (FE-S-01, FE-S-02, FE-S-03)
 
-- [ ] **FE-S-01** Clinic settings page (name, address, phone, logo, country, timezone)
-- [ ] **FE-S-02** Team management page (list users, invite, edit roles, deactivate)
-- [ ] **FE-S-03** Subscription plan page (current plan, usage meters, upgrade options)
+- [x] **FE-S-01** Clinic settings page (name, address, phone, logo, country, timezone)
+- [x] **FE-S-02** Team management page (list users, invite, edit roles, deactivate)
+- [x] **FE-S-03** Subscription plan page (current plan, usage meters, upgrade options)
 
 ---
 
