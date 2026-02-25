@@ -40,12 +40,25 @@ class Settings(BaseSettings):
     rabbitmq_url: str = "amqp://dentalos:dentalos_dev_password@localhost:5672/dentalos"
     sync_queue: bool = True
 
-    # ─── Authentication (JWT) ─────────────────────────
+    # ─── Authentication (JWT RS256) ─────────────────────
     secret_key: str = "dev-secret-key-change-in-production-immediately"  # noqa: S105
-    jwt_secret: str = "dev-jwt-secret-change-in-production-immediately"  # noqa: S105
-    jwt_algorithm: str = "HS256"
+    jwt_private_key_path: str = "keys/private.pem"
+    jwt_public_key_path: str = "keys/public.pem"
+    jwt_key_id: str = "dentalos-key-1"
+    jwt_algorithm: str = "RS256"
+    jwt_issuer: str = "dentalos-api"
+    jwt_audience: str = "dentalos-api"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
+
+    # ─── Password ────────────────────────────────────
+    password_bcrypt_rounds: int = 12
+    password_pepper: str = ""  # noqa: S105
+    lockout_threshold: int = 5
+    lockout_duration_minutes: int = 15
+
+    # ─── Tenant ──────────────────────────────────────
+    tenant_schema_prefix: str = "tn_"
 
     # ─── CORS ─────────────────────────────────────────
     cors_origins: str = "http://localhost:3000"

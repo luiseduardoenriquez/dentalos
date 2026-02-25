@@ -49,6 +49,9 @@ docker-compose.override.yml
 # ─── Alembic ──────────────────────────────────────────
 # Don't ignore versions — they're committed
 
+# ─── JWT Keys ────────────────────────────────────────
+backend/keys/*.pem
+
 # ─── Misc ─────────────────────────────────────────────
 *.log
 *.bak

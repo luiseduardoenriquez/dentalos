@@ -48,61 +48,61 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 ### Infrastructure Core (I-01 through I-09)
 
-- [ ] **I-01** Multi-tenancy: Schema-per-tenant architecture implemented
-  - [ ] Tenant schema creation on provisioning
-  - [ ] Tenant resolution from request (subdomain/header)
-  - [ ] Tenant isolation guarantees validated
-  - [ ] Shared `public` schema for tenants, plans, superadmin tables
-- [ ] **I-04** Database architecture: PostgreSQL schema-per-tenant
-  - [ ] Alembic migration runner (per-tenant schema migrations)
-  - [ ] Connection pool configuration (pgbouncer or equivalent)
-  - [ ] Shared schema template for new tenants
-- [ ] **I-02** Authentication system: JWT RS256
-  - [ ] Access token generation (15min expiry)
-  - [ ] Refresh token with rotation (30d expiry, single-use)
-  - [ ] Replay detection on refresh tokens
-  - [ ] Revocation on reuse
-- [ ] **I-02** RBAC middleware with 6 roles
-  - [ ] clinic_owner role and permissions
-  - [ ] doctor role and permissions
-  - [ ] assistant role and permissions
-  - [ ] receptionist role and permissions
-  - [ ] patient role and permissions
-  - [ ] superadmin role and permissions
-  - [ ] Permission matrix enforcement on all endpoints
+- [x] **I-01** Multi-tenancy: Schema-per-tenant architecture implemented
+  - [x] Tenant schema creation on provisioning
+  - [x] Tenant resolution from request (JWT tid claim)
+  - [x] Tenant isolation guarantees validated
+  - [x] Shared `public` schema for tenants, plans, superadmin tables
+- [x] **I-04** Database architecture: PostgreSQL schema-per-tenant
+  - [x] Alembic migration runner (per-tenant schema migrations)
+  - [x] Connection pool configuration (pool_size, max_overflow in config)
+  - [x] Shared schema template for new tenants
+- [x] **I-02** Authentication system: JWT RS256
+  - [x] Access token generation (15min expiry)
+  - [x] Refresh token with rotation (30d expiry, single-use)
+  - [x] Replay detection on refresh tokens
+  - [x] Revocation on reuse
+- [x] **I-02** RBAC middleware with 6 roles
+  - [x] clinic_owner role and permissions
+  - [x] doctor role and permissions
+  - [x] assistant role and permissions
+  - [x] receptionist role and permissions
+  - [x] patient role and permissions
+  - [x] superadmin role and permissions
+  - [x] Permission matrix enforcement on all endpoints
 - [ ] **I-03** Error handling framework
   - [x] HTTP status code mapping
   - [x] Error response schema: `{error, message, details}`
   - [ ] Error codes registry
   - [x] Backend exception handling (Python/FastAPI)
   - [x] Logging patterns for structured JSON output
-- [ ] **I-05** Redis caching layer
-  - [ ] Cache key namespacing per tenant
-  - [ ] TTL policies defined and implemented
-  - [ ] Session cache for active users
-  - [ ] Plan limits cache for fast enforcement
+- [x] **I-05** Redis caching layer
+  - [x] Cache key namespacing per tenant
+  - [x] TTL policies defined and implemented
+  - [x] Session cache for active users
+  - [x] Plan limits cache for fast enforcement
 - [ ] **I-06** RabbitMQ setup
   - [ ] Queue topology defined (email, SMS, WhatsApp, audit, reports)
   - [ ] Worker process scaffolding
   - [ ] Retry policies and dead letter queues
   - [ ] Priority queue for critical tasks
-- [ ] **I-07** Rate limiting
+- [x] **I-07** Rate limiting
   - [ ] Per-tenant rate limits
-  - [ ] Per-user rate limits
-  - [ ] Per-IP rate limits
-  - [ ] Endpoint-specific overrides (auth endpoints stricter)
-  - [ ] Redis-based sliding window implementation
+  - [x] Per-user rate limits
+  - [x] Per-IP rate limits
+  - [x] Endpoint-specific overrides (auth endpoints stricter)
+  - [x] Redis-based sliding window implementation
 - [ ] **I-08** Testing infrastructure
   - [x] pytest configuration with async support
-  - [ ] Test database provisioning (per-tenant test schemas)
-  - [ ] Factory patterns: patients, teeth, appointments, users
+  - [x] Test database provisioning (per-tenant test schemas)
+  - [x] Factory patterns: patients, teeth, appointments, users
   - [ ] Mock external services (WhatsApp, SMS, email)
   - [ ] Coverage target: 80% minimum
 - [ ] **I-09** Local development environment
   - [x] Docker Compose stack validated and documented
   - [ ] Seed data script (demo tenant, demo users, sample patients)
-  - [ ] Tenant provisioning CLI script
-  - [ ] Environment variables template (.env.example)
+  - [x] Tenant provisioning CLI script
+  - [x] Environment variables template (.env.example)
 
 ### Security and Compliance Foundation
 
@@ -120,17 +120,17 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 ### Backend: Authentication Endpoints (A-01 through A-11)
 
-- [ ] **A-01** `POST /api/v1/auth/register` -- Register new clinic (creates tenant + first clinic_owner)
-- [ ] **A-02** `POST /api/v1/auth/login` -- Login with email + password, returns JWT; **must support multi-clinic selector when a doctor belongs to 2-6 clinics (clinic is selected at login time, token encodes clinic context)**
-- [ ] **A-03** `POST /api/v1/auth/refresh-token` -- Token rotation
-- [ ] **A-04** `GET /api/v1/auth/me` -- Current user profile with tenant context
-- [ ] **A-05** `POST /api/v1/auth/forgot-password` -- Send password reset email
-- [ ] **A-06** `POST /api/v1/auth/reset-password` -- Reset via token
-- [ ] **A-07** `POST /api/v1/auth/change-password` -- Change password (authenticated)
-- [ ] **A-08** `POST /api/v1/auth/logout` -- Revoke refresh token
-- [ ] **A-09** `POST /api/v1/auth/invite` -- Invite team member with role
-- [ ] **A-10** `POST /api/v1/auth/accept-invite` -- Accept invitation, set password
-- [ ] **A-11** `POST /api/v1/auth/verify-email` -- Email verification
+- [x] **A-01** `POST /api/v1/auth/register` -- Register new clinic (creates tenant + first clinic_owner)
+- [x] **A-02** `POST /api/v1/auth/login` -- Login with email + password, returns JWT; **must support multi-clinic selector when a doctor belongs to 2-6 clinics (clinic is selected at login time, token encodes clinic context)**
+- [x] **A-03** `POST /api/v1/auth/refresh-token` -- Token rotation
+- [x] **A-04** `GET /api/v1/auth/me` -- Current user profile with tenant context
+- [x] **A-05** `POST /api/v1/auth/forgot-password` -- Send password reset email
+- [x] **A-06** `POST /api/v1/auth/reset-password` -- Reset via token
+- [x] **A-07** `POST /api/v1/auth/change-password` -- Change password (authenticated)
+- [x] **A-08** `POST /api/v1/auth/logout` -- Revoke refresh token
+- [x] **A-09** `POST /api/v1/auth/invite` -- Invite team member with role
+- [x] **A-10** `POST /api/v1/auth/accept-invite` -- Accept invitation, set password
+- [x] **A-11** `POST /api/v1/auth/verify-email` -- Email verification
 
 ### Backend: Tenant Management Endpoints (T-01 through T-10)
 
@@ -993,7 +993,7 @@ Each sprint must meet these criteria before sign-off:
 
 | Sprint | Month | Specs | Backend | Frontend | Tests | Status |
 |--------|-------|-------|---------|----------|-------|--------|
-| 1-2 | 1 | ~42 | Auth + Tenants + Infra | -- | Infrastructure tests | Not Started |
+| 1-2 | 1 | ~42 | Auth + Tenants + Infra | -- | Infrastructure tests | In Progress |
 | 3-4 | 2 | ~53 | Users + Patients | Design system + Auth + Dashboard + Patients + Settings | Component + API tests | Not Started |
 | 5-6 | 3 | ~46 | Odontogram + Clinical Records (base) + Evolution Templates + Service Catalog | Odontogram + Clinical (base) | Odontogram tests | Not Started |
 | 7-8 | 4 | ~57 | Diagnoses + Procedures + Treatment + Consents + Rx + Quotation + Digital Sig + Tooth Photos | Clinical + Treatment + Consent + Rx screens | Clinical workflow tests | Not Started |

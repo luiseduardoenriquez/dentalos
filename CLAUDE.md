@@ -2,8 +2,22 @@
 
 Multi-tenant dental SaaS for LATAM (Colombia first). North star: "Si no es más rápido que el papel, fallamos."
 
-**Stack:** Python 3.12 + FastAPI | SQLAlchemy 2.0 + PostgreSQL 16 | Redis 7 | RabbitMQ 3 | Next.js 14 + TailwindCSS | Hetzner Cloud
+**Stack:** Python 3.12 + FastAPI | SQLAlchemy 2.0 + PostgreSQL 16 | Redis 7 | RabbitMQ 3 | Next.js 16 + TailwindCSS | Hetzner Cloud
 **UI language:** Spanish (es-419). **Code/comments:** English.
+
+---
+
+## Agent Model Selection — MANDATORY
+
+When launching agents via the Task tool, you MUST choose the appropriate model based on task complexity. This is a hard rule — never default to one model for everything.
+
+| Model | When to use | Examples |
+|-------|------------|---------|
+| **haiku** | Trivial lookups, quick searches, simple file reads | Find a file, search for a keyword, read a config |
+| **sonnet** | Mechanical/repetitive work, clear patterns, boilerplate | Create files following existing conventions, write CRUD endpoints, run tests, lint/format, update checklists, write unit tests with clear patterns, standard migrations, search + replace refactors |
+| **opus** | Architectural decisions, complex logic, security-critical code, hard debugging | Design APIs with edge cases, multi-domain integration, tenant isolation logic, auth/RBAC implementation, code reviews of critical systems, performance optimization, complex business rules |
+
+**Rule of thumb:** If the task follows an existing pattern or has a clear template → **sonnet**. If it requires judgment, trade-offs, or novel design → **opus**. If it's just a lookup → **haiku**. When in doubt, prefer sonnet over opus — don't waste tokens.
 
 ---
 
@@ -184,7 +198,7 @@ One user can belong to 2-6 clinics via `public.user_tenant_memberships`. Clinic 
 
 ## Frontend Conventions
 
-- **Framework:** Next.js 14 App Router with route groups: `(public)`, `(dashboard)`, `(portal)`, `(admin)`
+- **Framework:** Next.js 16 App Router with route groups: `(public)`, `(dashboard)`, `(portal)`, `(admin)`. Note: `proxy.ts` replaces `middleware.ts` in v16.
 - **Styling:** TailwindCSS with custom design tokens. Primary: teal/cyan (`primary-600: #0891B2`). Secondary: slate.
 - **State:** React Query (TanStack Query) for server state. Zustand for client state.
 - **Forms:** React Hook Form + Zod validation (mirrors Pydantic schemas)

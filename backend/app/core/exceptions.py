@@ -24,7 +24,14 @@ class DentalOSError(Exception):
 class AuthError(DentalOSError):
     """Base class for authentication/authorization errors."""
 
-    pass
+    def __init__(
+        self,
+        error: str = "AUTH_error",
+        message: str = "Authentication error.",
+        status_code: int = 401,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(error=error, message=message, status_code=status_code, details=details)
 
 
 # --- Tenant Errors ---
@@ -33,7 +40,33 @@ class AuthError(DentalOSError):
 class TenantError(DentalOSError):
     """Base class for tenant-related errors."""
 
-    pass
+    def __init__(
+        self,
+        error: str = "TENANT_error",
+        message: str = "Tenant error.",
+        status_code: int = 403,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(error=error, message=message, status_code=status_code, details=details)
+
+
+# --- Rate Limit Errors ---
+
+
+class RateLimitError(DentalOSError):
+    """Rate limit exceeded error."""
+
+    def __init__(
+        self,
+        message: str = "Too many requests. Please try again later.",
+        retry_after: int = 60,
+    ) -> None:
+        super().__init__(
+            error="SYSTEM_rate_limited",
+            message=message,
+            status_code=429,
+            details={"retry_after": retry_after},
+        )
 
 
 # --- Resource Errors ---
