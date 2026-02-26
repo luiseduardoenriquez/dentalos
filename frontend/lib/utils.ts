@@ -67,7 +67,8 @@ export function formatTime(date: string | Date): string {
  *
  * @param name - Full name string
  */
-export function getInitials(name: string): string {
+export function getInitials(name: string | undefined | null): string {
+  if (!name) return "";
   return name
     .trim()
     .split(/\s+/)

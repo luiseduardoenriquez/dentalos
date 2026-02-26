@@ -141,8 +141,7 @@ function validateDocumentNumber(document_type: string, document_number: string):
 
 // ─── Patient Create Schema ────────────────────────────────────────────────────
 
-export const patientCreateSchema = z
-  .object({
+const patientCreateBaseSchema = z.object({
     // Identity
     document_type: z.enum(DOCUMENT_TYPES, {
       errorMap: () => ({ message: "Selecciona un tipo de documento" }),
@@ -243,8 +242,10 @@ export const patientCreateSchema = z
       .optional()
       .or(z.literal(""))
       .transform((v) => (v === "" ? undefined : v?.trim())),
-  })
-  .superRefine((data, ctx) => {
+  });
+
+export const patientCreateSchema = patientCreateBaseSchema.superRefine(
+  (data, ctx) => {
     // Cross-field document number validation
     const error = validateDocumentNumber(data.document_type, data.document_number);
     if (error) {
@@ -254,7 +255,8 @@ export const patientCreateSchema = z
         path: ["document_number"],
       });
     }
-  });
+  },
+);
 
 export type PatientCreateFormValues = z.infer<typeof patientCreateSchema>;
 
@@ -264,7 +266,7 @@ export type PatientCreateFormValues = z.infer<typeof patientCreateSchema>;
  * All fields optional for partial updates.
  * Backend uses PUT (not PATCH) for MVP, but we still send only changed fields.
  */
-export const patientUpdateSchema = patientCreateSchema.partial().extend({
+export const patientUpdateSchema = patientCreateBaseSchema.partial().extend({
   // document_type and document_number remain required when updating identity,
   // but they can be omitted entirely for non-identity updates.
   document_type: z

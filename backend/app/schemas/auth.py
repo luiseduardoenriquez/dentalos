@@ -164,6 +164,7 @@ class LoginSuccessResponse(BaseModel):
 
 
 class LoginMultiTenantResponse(BaseModel):
+    requires_tenant_selection: bool = True
     pre_auth_token: str
     tenants: list[TenantListItem]
     message: str = "Please select a clinic to continue."

@@ -33,6 +33,10 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   /** Roles that can see this item. Omit to show to all. */
   roles?: UserRole[];
+  /** When true, renders as non-clickable with "(Próx.)" tooltip */
+  disabled?: boolean;
+  /** When true, use exact match for active state instead of startsWith */
+  exact?: boolean;
 }
 
 export interface SidebarProps {
@@ -56,33 +60,36 @@ const NAV_ITEMS: NavItem[] = [
     href: "/dashboard",
     label: "Panel",
     icon: LayoutDashboard,
+    exact: true,
   },
   {
-    href: "/dashboard/pacientes",
+    href: "/patients",
     label: "Pacientes",
     icon: Users,
     roles: ["clinic_owner", "doctor", "assistant", "receptionist"],
   },
   {
-    href: "/dashboard/agenda",
+    href: "/agenda",
     label: "Agenda",
     icon: Calendar,
     roles: ["clinic_owner", "doctor", "assistant", "receptionist"],
   },
   {
-    href: "/dashboard/facturacion",
+    href: "/billing",
     label: "Facturación",
     icon: Receipt,
     roles: ["clinic_owner", "receptionist"],
+    disabled: true,
   },
   {
-    href: "/dashboard/reportes",
+    href: "/reports",
     label: "Reportes",
     icon: BarChart3,
     roles: ["clinic_owner"],
+    disabled: true,
   },
   {
-    href: "/dashboard/configuracion",
+    href: "/settings",
     label: "Configuración",
     icon: Settings,
     roles: ["clinic_owner", "superadmin"],
@@ -103,20 +110,46 @@ interface NavLinkProps {
 }
 
 function NavLink({ item, collapsed, pathname }: NavLinkProps) {
-  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+  const isActive = item.exact
+    ? pathname === item.href
+    : pathname === item.href || pathname.startsWith(item.href + "/");
   const Icon = item.icon;
+
+  const sharedClasses = cn(
+    "flex items-center gap-3 rounded-md px-3 py-2.5",
+    "text-sm font-medium transition-colors duration-150",
+    collapsed && "justify-center px-2",
+  );
+
+  if (item.disabled) {
+    return (
+      <span
+        className={cn(
+          sharedClasses,
+          "opacity-50 cursor-not-allowed select-none",
+        )}
+        title={collapsed ? `${item.label} (Próx.)` : "Próximamente"}
+      >
+        <Icon className={cn("shrink-0 opacity-70", collapsed ? "h-5 w-5" : "h-4 w-4")} />
+        {!collapsed && (
+          <>
+            <span>{item.label}</span>
+            <span className="ml-auto text-[10px] text-[hsl(var(--muted-foreground))]">(Próx.)</span>
+          </>
+        )}
+      </span>
+    );
+  }
 
   return (
     <Link
       href={item.href}
       className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2.5",
-        "text-sm font-medium transition-colors duration-150",
+        sharedClasses,
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600",
         isActive
           ? "bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"
           : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-foreground",
-        collapsed && "justify-center px-2",
       )}
       title={collapsed ? item.label : undefined}
       aria-current={isActive ? "page" : undefined}

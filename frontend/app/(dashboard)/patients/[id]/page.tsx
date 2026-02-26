@@ -15,6 +15,8 @@ import {
   User,
   CalendarDays,
   Droplets,
+  ClipboardList,
+  FilePlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/empty-state";
+import { MedicalHistoryTimeline } from "@/components/medical-history-timeline";
 import { usePatient, useDeactivatePatient } from "@/lib/hooks/use-patients";
 import { formatDate, formatDateTime, getInitials } from "@/lib/utils";
 import {
@@ -311,10 +314,17 @@ export default function PatientDetailPage() {
               {/* Medical */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-primary-600" />
-                    Información médica
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-primary-600" />
+                      Información médica
+                    </CardTitle>
+                    <Button variant="ghost" size="sm" asChild className="h-7 text-xs">
+                      <Link href={`/patients/${patient.id}/anamnesis`}>
+                        Ver anamnesis
+                      </Link>
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -413,11 +423,31 @@ export default function PatientDetailPage() {
           </TabsContent>
 
           {/* ── Historial Tab ────────────────────────────────────────────── */}
-          <TabsContent value="historial" className="mt-4">
-            <EmptyState
-              title="Historial clinico"
-              description="Proximamente podras ver las evoluciones y anotaciones clinicas del paciente aqui."
-            />
+          <TabsContent value="historial" className="mt-4 space-y-4">
+            {/* Action bar */}
+            <div className="flex items-center justify-between">
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/patients/${patient.id}/clinical-records`}>
+                  <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
+                  Ver todos
+                </Link>
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/patients/${patient.id}/anamnesis`}>
+                    Anamnesis
+                  </Link>
+                </Button>
+                <Button size="sm" asChild>
+                  <Link href={`/patients/${patient.id}/clinical-records/new`}>
+                    <FilePlus className="mr-1.5 h-3.5 w-3.5" />
+                    Nueva nota clínica
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            <MedicalHistoryTimeline patientId={patient.id} />
           </TabsContent>
 
           {/* ── Tratamientos Tab ─────────────────────────────────────────── */}

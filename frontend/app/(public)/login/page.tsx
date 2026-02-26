@@ -73,9 +73,9 @@ function ClinicSelector({ tenants, onSelect, isLoading }: ClinicSelectorProps) {
       </div>
 
       <fieldset className="space-y-2" aria-label="Selección de clínica">
-        {tenants.map((tenant) => (
+        {tenants.map((tenant, idx) => (
           <label
-            key={tenant.tenant_id}
+            key={`${tenant.tenant_id}-${tenant.role ?? idx}`}
             htmlFor={`tenant-${tenant.tenant_id}`}
             className={cn(
               "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
@@ -167,6 +167,7 @@ export default function LoginPage() {
   const { error: toastError } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [tenants, setTenants] = useState<TenantListItem[] | null>(null);
+  const [preAuthToken, setPreAuthToken] = useState<string>("");
 
   const {
     register,
@@ -185,6 +186,7 @@ export default function LoginPage() {
         if (data.requires_tenant_selection && data.tenants) {
           // Show clinic selector
           setTenants(data.tenants);
+          setPreAuthToken(data.pre_auth_token ?? "");
         } else {
           // Direct redirect to dashboard
           router.replace("/dashboard");
@@ -203,7 +205,7 @@ export default function LoginPage() {
 
   function handleSelectTenant(tenant_id: string) {
     selectTenant(
-      { tenant_id },
+      { pre_auth_token: preAuthToken, tenant_id },
       {
         onSuccess: () => {
           router.replace("/dashboard");

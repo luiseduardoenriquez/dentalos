@@ -403,9 +403,9 @@ Required for treatment plan approvals and consent forms. Colombia Ley 527/1999 (
 
 ### Frontend: Clinical Records Screens (FE-CR-01 through FE-CR-07)
 
-- [ ] **FE-CR-01** Clinical records list (table with type icon, date, doctor, expandable preview)
-- [ ] **FE-CR-02** Create clinical record form (dynamic per type, rich text editor, **template selector for evolution notes**)
-- [ ] **FE-CR-03** Anamnesis questionnaire form (structured sections)
+- [x] **FE-CR-01** Clinical records list (table with type icon, date, doctor, expandable preview)
+- [x] **FE-CR-02** Create clinical record form (dynamic per type, rich text editor, **template selector for evolution notes**)
+- [x] **FE-CR-03** Anamnesis questionnaire form (structured sections)
 - [x] **FE-CR-04** Diagnosis form (CIE-10 autocomplete, severity, tooth link)
 - [x] **FE-CR-05** Procedure recording form (CUPS autocomplete, tooth/zone selector)
 - [x] **FE-CR-06** CIE-10 search component (reusable autocomplete)
@@ -423,7 +423,7 @@ Required for treatment plan approvals and consent forms. Colombia Ley 527/1999 (
 - [x] **FE-IC-01** Consent forms list (status badges, template name, date)
 - [x] **FE-IC-02** Create consent form (select template, preview, send/sign)
 - [x] **FE-IC-03** Consent signing screen (scroll-to-read, signature pad, submit)
-- [ ] **FE-IC-04** Custom consent template editor (rich text, placeholders, preview)
+- [x] **FE-IC-04** Custom consent template editor (rich text, placeholders, preview)
 
 ### Frontend: Prescription Screens (FE-RX-01 through FE-RX-03)
 

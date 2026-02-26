@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { apiPost } from "@/lib/api-client";
+import { apiGet, apiPost } from "@/lib/api-client";
 import { setAccessToken } from "@/lib/auth";
 import { useAuthStore } from "@/lib/hooks/use-auth";
 import type { LoginFormValues } from "@/lib/validations/auth";
@@ -22,10 +22,13 @@ export interface LoginResponse {
   access_token?: string;
   token_type?: string;
   expires_in?: number;
-  /** Present when login is complete — full user + tenant context. */
-  me?: MeResponse;
+  /** Present when login is complete — user + tenant context. */
+  user?: Record<string, unknown>;
+  tenant?: Record<string, unknown>;
   /** True when the user belongs to multiple clinics and must pick one. */
-  requires_tenant_selection: boolean;
+  requires_tenant_selection?: boolean;
+  /** Pre-auth token for tenant selection — only present when requires_tenant_selection = true. */
+  pre_auth_token?: string;
   /** List of clinics — only present when requires_tenant_selection = true. */
   tenants?: TenantListItem[];
 }
@@ -34,7 +37,8 @@ export interface SelectTenantResponse {
   access_token: string;
   token_type: string;
   expires_in: number;
-  me: MeResponse;
+  user: Record<string, unknown>;
+  tenant: Record<string, unknown>;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -44,15 +48,11 @@ export interface SelectTenantResponse {
  *
  * On success with a direct login (single tenant):
  *   - Stores the access token in memory.
- *   - Hydrates the auth store with user + tenant data.
+ *   - Fetches /auth/me to hydrate the auth store.
  *
  * On success with multi-tenant (requires_tenant_selection = true):
  *   - Returns the tenants list so the caller can show the clinic selector.
  *   - Does NOT set auth state yet — caller must call useSelectTenant next.
- *
- * @example
- * const { mutate: login, isPending, data } = useLogin();
- * login({ email, password });
  */
 export function useLogin() {
   const set_auth = useAuthStore((s) => s.set_auth);
@@ -61,11 +61,12 @@ export function useLogin() {
     mutationFn: (credentials: LoginFormValues) =>
       apiPost<LoginResponse>("/auth/login", credentials),
 
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Direct login — single clinic or pre-selected tenant
-      if (!data.requires_tenant_selection && data.access_token && data.me) {
+      if (!data.requires_tenant_selection && data.access_token) {
         setAccessToken(data.access_token);
-        set_auth(data.me);
+        const me = await apiGet<MeResponse>("/auth/me");
+        set_auth(me);
       }
       // Multi-tenant: caller handles the tenant selection UI
       // Auth state is set after useSelectTenant resolves
@@ -79,22 +80,29 @@ export function useLogin() {
  * Mutation hook for POST /auth/select-tenant.
  *
  * Called after a multi-clinic login to issue a tenant-scoped JWT.
- * On success, stores the token and hydrates the auth store.
- *
- * @example
- * const { mutate: selectTenant } = useSelectTenant();
- * selectTenant({ tenant_id: "tn_abc123" });
+ * On success, stores the token and fetches /auth/me to hydrate auth store.
  */
 export function useSelectTenant() {
   const set_auth = useAuthStore((s) => s.set_auth);
 
   return useMutation({
-    mutationFn: (payload: { tenant_id: string }) =>
-      apiPost<SelectTenantResponse>("/auth/select-tenant", payload),
-
-    onSuccess: (data) => {
+    mutationFn: async (payload: {
+      pre_auth_token: string;
+      tenant_id: string;
+    }) => {
+      const data = await apiPost<SelectTenantResponse>(
+        "/auth/select-tenant",
+        payload,
+      );
+      // Store token immediately so /auth/me can use it
       setAccessToken(data.access_token);
-      set_auth(data.me);
+      // Fetch full auth state (permissions, feature flags, plan limits)
+      const me = await apiGet<MeResponse>("/auth/me");
+      return me;
+    },
+
+    onSuccess: (me) => {
+      set_auth(me);
     },
   });
 }

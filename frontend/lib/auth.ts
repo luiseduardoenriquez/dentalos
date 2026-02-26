@@ -23,13 +23,28 @@ export function getAccessToken(): string | null {
 }
 
 /**
+ * Session indicator cookie name — used by Next.js middleware to decide
+ * whether to redirect to /login. This is NOT a security token; the real
+ * auth check happens via the JWT in the Authorization header.
+ */
+const SESSION_COOKIE = "dentalos_session";
+
+/**
  * Stores a new access token in memory.
  * Called after a successful login or token refresh.
+ * Also sets a session indicator cookie so the Next.js middleware
+ * can gate dashboard routes without seeing the HttpOnly refresh cookie.
  *
  * @param token - JWT access token string
  */
 export function setAccessToken(token: string | null): void {
   accessToken = token;
+  if (typeof document !== "undefined") {
+    if (token) {
+      // Set a session indicator cookie (same-site, 30 days, NOT HttpOnly)
+      document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=${30 * 86400}; samesite=strict`;
+    }
+  }
 }
 
 /**
@@ -38,6 +53,9 @@ export function setAccessToken(token: string | null): void {
  */
 export function clearAccessToken(): void {
   accessToken = null;
+  if (typeof document !== "undefined") {
+    document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0`;
+  }
 }
 
 /**

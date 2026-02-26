@@ -46,10 +46,12 @@ const ALWAYS_ACCESSIBLE_PREFIXES = [
 // ─── Cookie Name ──────────────────────────────────────────────────────────────
 
 /**
- * The refresh token cookie name set by the backend.
- * Must match `REFRESH_TOKEN_COOKIE_NAME` in backend config.
+ * Session indicator cookie set by the frontend after a successful login.
+ * This is NOT a security token — it's a lightweight flag so the middleware
+ * can gate routes without needing the HttpOnly refresh cookie (which is
+ * scoped to the backend origin/path and invisible here).
  */
-const REFRESH_TOKEN_COOKIE = "dentalos_refresh";
+const SESSION_COOKIE = "dentalos_session";
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 
@@ -64,7 +66,7 @@ export function middleware(request: NextRequest): NextResponse {
   }
 
   // Check if the user appears authenticated by refresh cookie presence
-  const hasRefreshCookie = request.cookies.has(REFRESH_TOKEN_COOKIE);
+  const hasSessionCookie = request.cookies.has(SESSION_COOKIE);
 
   const isPublicRoute = PUBLIC_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`),
@@ -84,7 +86,7 @@ export function middleware(request: NextRequest): NextResponse {
   const isPortalRoute = pathname.startsWith("/portal");
 
   // Case 1: Unauthenticated user trying to access protected dashboard routes
-  if (!hasRefreshCookie && isDashboardRoute) {
+  if (!hasSessionCookie && isDashboardRoute) {
     const loginUrl = new URL("/login", request.url);
     // Preserve the intended destination for post-login redirect
     loginUrl.searchParams.set("redirect", pathname);
@@ -92,20 +94,20 @@ export function middleware(request: NextRequest): NextResponse {
   }
 
   // Case 2: Unauthenticated user trying to access portal routes
-  if (!hasRefreshCookie && isPortalRoute) {
+  if (!hasSessionCookie && isPortalRoute) {
     const portalLoginUrl = new URL("/portal/login", request.url);
     portalLoginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(portalLoginUrl);
   }
 
   // Case 3: Authenticated user visiting a public auth route (login, register, etc.)
-  if (hasRefreshCookie && isPublicRoute) {
+  if (hasSessionCookie && isPublicRoute) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   // Case 4: Root redirect — "/" goes to dashboard if logged in, login if not
   if (pathname === "/") {
-    if (hasRefreshCookie) {
+    if (hasSessionCookie) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     } else {
       return NextResponse.redirect(new URL("/login", request.url));

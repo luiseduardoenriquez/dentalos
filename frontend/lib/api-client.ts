@@ -100,7 +100,7 @@ apiClient.interceptors.response.use(
     // and are not themselves the refresh endpoint (prevents infinite loop)
     const isUnauthorized = error.response?.status === 401;
     const isAlreadyRetried = originalRequest._retry;
-    const isRefreshEndpoint = originalRequest.url?.includes("/auth/refresh");
+    const isRefreshEndpoint = originalRequest.url?.includes("/auth/refresh-token");
 
     if (!isUnauthorized || isAlreadyRetried || isRefreshEndpoint) {
       return Promise.reject(error);
@@ -129,7 +129,7 @@ apiClient.interceptors.response.use(
 
     try {
       // Attempt silent refresh using the HttpOnly cookie (sent automatically via withCredentials)
-      const { data } = await apiClient.post<TokenResponse>("/auth/refresh", null, {
+      const { data } = await apiClient.post<TokenResponse>("/auth/refresh-token", null, {
         // Explicitly bypass the interceptor for the refresh call itself
         withCredentials: true,
       });

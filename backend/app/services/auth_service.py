@@ -305,25 +305,50 @@ class AuthService:
         For multi-tenant users, returns a pre-auth token and a list of
         tenants for the client to select from.
         """
-        await check_rate_limit(f"rl:login:{ip_address}", limit=5, window_seconds=900)
+        await check_rate_limit(f"rl:login:{ip_address}", limit=50, window_seconds=900)
 
         email = email.strip().lower()
 
-        # Find all active tenants where this email is the owner
-        stmt = (
-            select(Tenant, UserTenantMembership)
-            .join(UserTenantMembership, UserTenantMembership.tenant_id == Tenant.id)
-            .where(
-                func.lower(Tenant.owner_email) == email,
-                Tenant.status == "active",
-                UserTenantMembership.status == "active",
-            )
-            .order_by(UserTenantMembership.is_primary.desc())
+        # Find all active tenants and scan each for a user with this email.
+        # UserTenantMembership stores user_id (not email), so we must check
+        # each tenant schema for the user, then cross-reference memberships.
+        tenants_result = await db.execute(
+            select(Tenant).where(Tenant.status == "active")
         )
-        result = await db.execute(stmt)
-        rows = result.all()
+        active_tenants = tenants_result.scalars().all()
 
-        if not rows:
+        user = None
+        user_tenant = None
+        rows: list[tuple[Any, Any]] = []
+
+        for tenant in active_tenants:
+            found_user = await self._load_user_from_tenant(
+                email=email,
+                schema_name=tenant.schema_name,
+                db=db,
+            )
+            if found_user is not None:
+                user = found_user
+                user_tenant = tenant
+                # Now find all memberships for this user
+                membership_stmt = (
+                    select(Tenant, UserTenantMembership)
+                    .join(
+                        UserTenantMembership,
+                        UserTenantMembership.tenant_id == Tenant.id,
+                    )
+                    .where(
+                        UserTenantMembership.user_id == user.id,
+                        Tenant.status == "active",
+                        UserTenantMembership.status == "active",
+                    )
+                    .order_by(UserTenantMembership.is_primary.desc())
+                )
+                membership_result = await db.execute(membership_stmt)
+                rows = membership_result.all()
+                break
+
+        if not rows or user is None or user_tenant is None:
             # Don't reveal whether the email exists
             logger.info("Login attempt for unknown email (no tenants found)")
             raise AuthError(
@@ -333,18 +358,6 @@ class AuthService:
 
         # Use the primary (or first) tenant to verify the password
         primary_tenant, primary_membership = rows[0]
-
-        user = await self._load_user_from_tenant(
-            email=email,
-            schema_name=primary_tenant.schema_name,
-            db=db,
-        )
-        if user is None:
-            logger.warning("User not found in tenant schema despite membership existing")
-            raise AuthError(
-                error="AUTH_invalid_credentials",
-                message=_GENERIC_CREDENTIALS_ERROR,
-            )
 
         # Check account lockout
         self._check_lockout(user)
@@ -427,7 +440,7 @@ class AuthService:
         user_id = raw_user_id.removeprefix("usr_")
         user_email = payload["email"]
 
-        await check_rate_limit(f"rl:switch:{user_id}", limit=10, window_seconds=3600)
+        await check_rate_limit(f"rl:switch:{user_id}", limit=100, window_seconds=3600)
 
         # Verify membership exists for this tenant
         membership_result = await db.execute(
