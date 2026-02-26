@@ -69,3 +69,8 @@ from app.api.v1.payments.router import router as payments_router
 api_v1_router.include_router(invoices_router)
 api_v1_router.include_router(payments_router)
 api_v1_router.include_router(billing_summary_router)
+
+# Sprint 11-12: Notifications
+from app.api.v1.notifications.router import router as notifications_router
+
+api_v1_router.include_router(notifications_router)

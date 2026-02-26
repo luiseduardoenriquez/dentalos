@@ -42,6 +42,8 @@ export interface HeaderProps {
   onSignOut: () => void;
   /** Called when search trigger is clicked */
   onSearchClick?: () => void;
+  /** Called when notification bell is clicked */
+  onNotificationClick?: () => void;
   className?: string;
 }
 
@@ -123,6 +125,7 @@ export function Header({
   onMenuToggle,
   onSignOut,
   onSearchClick,
+  onNotificationClick,
   className,
 }: HeaderProps) {
   const roleLabel = ROLE_LABELS[userRole] ?? userRole;
@@ -179,7 +182,7 @@ export function Header({
         </button>
 
         {/* Notifications */}
-        <NotificationBell count={notificationCount} />
+        <NotificationBell count={notificationCount} onClick={onNotificationClick} />
 
         {/* User menu */}
         <DropdownMenu>

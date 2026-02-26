@@ -570,12 +570,12 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 
 ### Backend: Notifications (N-01 through N-05)
 
-- [ ] **N-01** `GET /api/v1/notifications` -- List in-app notifications
-- [ ] **N-02** `POST .../notifications/{notification_id}/read` -- Mark as read
-- [ ] **N-03** `POST /api/v1/notifications/read-all` -- Mark all as read
-- [ ] **N-04** `GET /api/v1/notifications/preferences` -- Get notification preferences
-- [ ] **N-05** Notification dispatch engine (routes to in-app, email, WhatsApp, SMS)
-- [ ] **U-09** `PUT /api/v1/users/me/notifications` -- Update notification preferences
+- [x] **N-01** `GET /api/v1/notifications` -- List in-app notifications
+- [x] **N-02** `POST .../notifications/{notification_id}/read` -- Mark as read
+- [x] **N-03** `POST /api/v1/notifications/read-all` -- Mark all as read
+- [x] **N-04** `GET /api/v1/notifications/preferences` -- Get notification preferences
+- [x] **N-05** Notification dispatch engine (routes to in-app, email, WhatsApp, SMS)
+- [x] **U-09** `PUT /api/v1/users/me/notifications` -- Update notification preferences
 
 ### Backend: Patient Portal (PP-01 through PP-13)
 

@@ -13,6 +13,11 @@ from app.models.tenant.evolution_template import (
     EvolutionTemplateVariable,
 )
 from app.models.tenant.invoice import Invoice, InvoiceItem
+from app.models.tenant.notification import (
+    Notification,
+    NotificationDeliveryLog,
+    NotificationPreference,
+)
 from app.models.tenant.odontogram import (
     OdontogramCondition,
     OdontogramHistory,
@@ -52,6 +57,9 @@ __all__ = [
     "EvolutionTemplateVariable",
     "Invoice",
     "InvoiceItem",
+    "Notification",
+    "NotificationDeliveryLog",
+    "NotificationPreference",
     "OdontogramCondition",
     "OdontogramHistory",
     "OdontogramSnapshot",

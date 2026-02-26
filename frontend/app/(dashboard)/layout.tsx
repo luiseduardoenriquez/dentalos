@@ -7,6 +7,7 @@ import { useAuthStore } from "@/lib/hooks/use-auth";
 import { clearAccessToken } from "@/lib/auth";
 import { apiPost } from "@/lib/api-client";
 import { useMe } from "@/lib/hooks/use-me";
+import { useUnreadCount } from "@/lib/hooks/use-notifications";
 import type { UserRole } from "@/components/layout/sidebar";
 
 // ─── Full-page Skeleton ───────────────────────────────────────────────────────
@@ -86,6 +87,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // Triggers GET /auth/me — hydrates store, redirects on 401
   useMe();
 
+  // Real-time unread notification count (polls every 30s)
+  const { data: unreadCount } = useUnreadCount();
+
   // Handle sign-out
   async function handleSignOut() {
     try {
@@ -109,7 +113,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       userName={user.name}
       clinicName={tenant.name}
       userAvatarUrl={user.avatar_url ?? undefined}
-      notificationCount={0}
+      notificationCount={unreadCount ?? 0}
       onSignOut={handleSignOut}
     >
       {children}

@@ -4,6 +4,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Sidebar, type UserRole } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { NotificationDrawer } from "@/components/notifications/notification-drawer";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ export function DashboardShell({
 }: DashboardShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [notificationDrawerOpen, setNotificationDrawerOpen] = React.useState(false);
 
   function handleToggleCollapse() {
     setSidebarCollapsed((prev) => !prev);
@@ -82,6 +84,7 @@ export function DashboardShell({
           onMenuToggle={handleMenuToggle}
           onSignOut={onSignOut}
           onSearchClick={onSearchClick}
+          onNotificationClick={() => setNotificationDrawerOpen(true)}
         />
 
         {/* Scrollable content area */}
@@ -91,6 +94,12 @@ export function DashboardShell({
           </div>
         </main>
       </div>
+
+      {/* Notification drawer */}
+      <NotificationDrawer
+        open={notificationDrawerOpen}
+        onOpenChange={setNotificationDrawerOpen}
+      />
     </div>
   );
 }

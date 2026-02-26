@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -30,6 +31,33 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
+
+
+@asynccontextmanager
+async def get_tenant_session(tenant_id: str) -> AsyncGenerator[AsyncSession, None]:
+    """Standalone async context manager for tenant-scoped DB sessions.
+
+    Used by workers and background tasks that run outside FastAPI request scope.
+    Resolves the tenant schema from the tenant_id prefix (e.g., "tn_abc123").
+    """
+    schema = tenant_id if tenant_id.startswith("tn_") else f"tn_{tenant_id}"
+
+    from app.core.tenant import validate_schema_name
+
+    if not validate_schema_name(schema):
+        raise ValueError(f"Invalid tenant schema: {schema}")
+
+    async with AsyncSessionLocal() as session:
+        try:
+            await session.execute(text(f"SET search_path TO {schema}, public"))
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.execute(text("SET search_path TO public"))
+            await session.commit()
 
 
 async def get_tenant_db() -> AsyncGenerator[AsyncSession, None]:
