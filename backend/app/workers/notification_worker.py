@@ -34,12 +34,45 @@ class NotificationWorker(BaseWorker):
     # ── Handlers (stubs — replace with real integrations) ─────────────────────
 
     async def _handle_email(self, message: QueueMessage) -> None:
-        # TODO: Integrate email service (SendGrid / AWS SES)
-        logger.info(
-            "Email send stub: tenant=%s message_id=%s",
-            message.tenant_id,
-            message.message_id,
+        """Dispatch email via EmailService using message payload."""
+        from app.core.email import email_service
+
+        payload = message.payload
+        to_email = payload.get("to_email", "")
+        to_name = payload.get("to_name", "")
+        subject = payload.get("subject", "")
+        template_name = payload.get("template_name", "")
+        context = payload.get("context", {})
+
+        if not to_email or not template_name:
+            logger.warning(
+                "Email skipped (missing to_email or template_name): message_id=%s",
+                message.message_id,
+            )
+            return
+
+        success = await email_service.send_email(
+            to_email=to_email,
+            to_name=to_name,
+            subject=subject,
+            template_name=template_name,
+            context=context,
         )
+
+        if success:
+            logger.info(
+                "Email dispatched: tenant=%s to=%s template=%s",
+                message.tenant_id,
+                to_email,
+                template_name,
+            )
+        else:
+            logger.error(
+                "Email dispatch failed: tenant=%s to=%s template=%s",
+                message.tenant_id,
+                to_email,
+                template_name,
+            )
 
     async def _handle_sms(self, message: QueueMessage) -> None:
         # TODO: Integrate Twilio SMS

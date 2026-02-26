@@ -17,9 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.error_codes import QuotationErrors
 from app.core.exceptions import DentalOSError, QuotationError, ResourceNotFoundError
+from app.core.queue import publish_message
 from app.models.tenant.patient import Patient
 from app.models.tenant.quotation import Quotation, QuotationItem
 from app.models.tenant.treatment_plan import TreatmentPlan
+from app.schemas.queue import QueueMessage
 from app.services.digital_signature_service import digital_signature_service
 
 logger = logging.getLogger("dentalos.quotation")
@@ -351,6 +353,78 @@ class QuotationService:
         logger.info("Quotation approved: number=%s", quotation.quotation_number)
 
         return _quotation_to_dict(quotation)
+
+    async def share_quotation(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+        quotation_id: str,
+        channel: str,
+        recipient_email: str | None = None,
+        recipient_phone: str | None = None,
+        message: str | None = None,
+        tenant_id: str,
+    ) -> dict[str, Any]:
+        """Share a quotation via email or WhatsApp.
+
+        Validates the quotation exists and enqueues a notification job.
+        Actual delivery is handled by the notification worker (Sprint 11-12).
+
+        Returns:
+            {shared: True, channel, sent_to}
+
+        Raises:
+            ResourceNotFoundError -- quotation not found.
+        """
+        pid = uuid.UUID(patient_id)
+        qid = uuid.UUID(quotation_id)
+
+        # Verify quotation exists
+        result = await db.execute(
+            select(Quotation).where(
+                Quotation.id == qid,
+                Quotation.patient_id == pid,
+                Quotation.is_active.is_(True),
+            )
+        )
+        quotation = result.scalar_one_or_none()
+
+        if quotation is None:
+            raise ResourceNotFoundError(
+                error="QUOTATION_not_found",
+                resource_name="Quotation",
+            )
+
+        sent_to = recipient_email if channel == "email" else recipient_phone
+
+        # Enqueue notification job
+        await publish_message(
+            "notifications",
+            QueueMessage(
+                tenant_id=tenant_id,
+                job_type="quotation.share",
+                payload={
+                    "quotation_id": quotation_id,
+                    "patient_id": patient_id,
+                    "channel": channel,
+                    "recipient": sent_to,
+                    "message": message,
+                },
+            ),
+        )
+
+        logger.info(
+            "Quotation share queued: quotation=%s channel=%s",
+            quotation_id[:8],
+            channel,
+        )
+
+        return {
+            "shared": True,
+            "channel": channel,
+            "sent_to": sent_to,
+        }
 
 
 # Module-level singleton

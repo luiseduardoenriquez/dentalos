@@ -20,6 +20,8 @@ from app.schemas.quotation import (
     QuotationCreate,
     QuotationListResponse,
     QuotationResponse,
+    QuotationShareRequest,
+    QuotationShareResponse,
 )
 from app.services.quotation_service import quotation_service
 
@@ -142,3 +144,39 @@ async def approve_quotation(
     )
 
     return QuotationResponse(**result)
+
+
+@router.post("/{quotation_id}/share", response_model=QuotationShareResponse)
+async def share_quotation(
+    patient_id: str,
+    quotation_id: str,
+    body: QuotationShareRequest,
+    request: Request,
+    current_user: AuthenticatedUser = Depends(
+        require_permission("quotations:write")
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> QuotationShareResponse:
+    """Share a quotation via email or WhatsApp."""
+    result = await quotation_service.share_quotation(
+        db=db,
+        patient_id=patient_id,
+        quotation_id=quotation_id,
+        channel=body.channel,
+        recipient_email=body.recipient_email,
+        recipient_phone=body.recipient_phone,
+        message=body.message,
+        tenant_id=current_user.tenant_id,
+    )
+
+    await audit_action(
+        request=request,
+        db=db,
+        current_user=current_user,
+        action="share",
+        resource_type="quotation",
+        resource_id=quotation_id,
+        changes={"channel": body.channel},
+    )
+
+    return QuotationShareResponse(**result)

@@ -6,6 +6,7 @@ from app.auth.context import AuthenticatedUser
 from app.auth.dependencies import get_current_user, require_permission, require_role
 from app.core.audit import audit_action
 from app.core.database import get_db, get_tenant_db
+from app.schemas.odontogram_settings import OdontogramSettingsResponse, OdontogramSettingsUpdate
 from app.schemas.reminder import ReminderConfigResponse, ReminderConfigUpdate
 from app.schemas.tenant import (
     PlanLimitsResponse,
@@ -13,6 +14,7 @@ from app.schemas.tenant import (
     TenantSettingsResponse,
     TenantSettingsUpdate,
 )
+from app.services.odontogram_settings_service import get_odontogram_settings, update_odontogram_settings
 from app.services.reminder_service import reminder_service
 from app.services.tenant_settings_service import (
     get_plan_limits,
@@ -141,3 +143,54 @@ async def update_reminder_config(
     )
 
     return ReminderConfigResponse(**result)
+
+
+# ─── Odontogram Configuration Endpoints (FE-S-04) ───────────────────────────
+
+
+@router.get("/odontogram", response_model=OdontogramSettingsResponse)
+async def get_odontogram_config(
+    current_user: AuthenticatedUser = Depends(require_role(["clinic_owner"])),
+    db: AsyncSession = Depends(get_db),
+) -> OdontogramSettingsResponse:
+    """Return the tenant's odontogram display configuration.
+
+    If no configuration has been saved, returns sensible defaults
+    (classic grid view, full dentition zoom, auto-save disabled).
+    Reads from the public.tenants settings JSONB column.
+    """
+    result = await get_odontogram_settings(
+        tenant_id=current_user.tenant.tenant_id,
+        db=db,
+    )
+    return OdontogramSettingsResponse(**result)
+
+
+@router.put("/odontogram", response_model=OdontogramSettingsResponse)
+async def update_odontogram_config(
+    body: OdontogramSettingsUpdate,
+    request: Request,
+    current_user: AuthenticatedUser = Depends(require_role(["clinic_owner"])),
+    db: AsyncSession = Depends(get_db),
+) -> OdontogramSettingsResponse:
+    """Update the tenant's odontogram display configuration.
+
+    Persists to the public.tenants settings JSONB column under the
+    "odontogram" key.
+    """
+    result = await update_odontogram_settings(
+        tenant_id=current_user.tenant.tenant_id,
+        db=db,
+        updates=body.model_dump(exclude_unset=True),
+    )
+
+    await audit_action(
+        request=request,
+        db=db,
+        current_user=current_user,
+        action="update",
+        resource_type="odontogram_settings",
+        resource_id="tenant",
+    )
+
+    return OdontogramSettingsResponse(**result)

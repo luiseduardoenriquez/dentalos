@@ -74,6 +74,12 @@ class Settings(BaseSettings):
     s3_bucket_name: str = "dentalos-dev"
     s3_region: str = "us-east-1"
 
+    # ─── Email (SendGrid) ──────────────────────────────
+    sendgrid_api_key: str = ""
+    email_from_name: str = "DentalOS"
+    email_from_address: str = "noreply@dentalos.app"
+    frontend_url: str = "http://localhost:3000"
+
     # ─── Sentry ───────────────────────────────────────
     sentry_dsn: str = ""
     sentry_traces_sample_rate: float = 0.0

@@ -14,7 +14,7 @@ IMPORTANT: /search is registered BEFORE /{patient_id} so FastAPI does not
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.context import AuthenticatedUser
@@ -32,7 +32,9 @@ from app.schemas.patient import (
     PatientSearchResult,
     PatientUpdate,
 )
+from app.schemas.patient_document import PatientDocumentListResponse, PatientDocumentResponse
 from app.services.medical_history_service import medical_history_service
+from app.services.patient_document_service import patient_document_service
 from app.services.patient_service import patient_service
 
 router = APIRouter(prefix="/patients", tags=["patients"])
@@ -318,3 +320,106 @@ async def get_medical_history(
         limit=limit,
     )
     return MedicalHistoryResponse(**result)
+
+
+# ─── P-12: List Documents ──────────────────────────────────────────────────────
+
+
+@router.get("/{patient_id}/documents", response_model=PatientDocumentListResponse)
+async def list_patient_documents(
+    patient_id: str,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    document_type: str | None = Query(default=None),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> PatientDocumentListResponse:
+    """List documents for a patient with optional type filter."""
+    result = await patient_document_service.list_documents(
+        db=db,
+        patient_id=patient_id,
+        document_type=document_type,
+        page=page,
+        page_size=page_size,
+    )
+    return PatientDocumentListResponse(**result)
+
+
+# ─── P-13: Upload Document ─────────────────────────────────────────────────────
+
+
+@router.post("/{patient_id}/documents", response_model=PatientDocumentResponse, status_code=201)
+async def upload_patient_document(
+    patient_id: str,
+    request: Request,
+    file: UploadFile = File(...),
+    document_type: str = Form(...),
+    description: str | None = Form(default=None),
+    tooth_number: int | None = Form(default=None),
+    current_user: AuthenticatedUser = Depends(require_permission("patients:write")),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> PatientDocumentResponse:
+    """Upload a document for a patient.
+
+    Accepts multipart form data with the file and metadata fields.
+    Validates MIME type and file size. Stores in S3 with tenant-scoped path.
+    """
+    file_data = await file.read()
+    result = await patient_document_service.upload_document(
+        db=db,
+        tenant_id=current_user.tenant.tenant_id,
+        patient_id=patient_id,
+        uploaded_by=current_user.user_id,
+        file_data=file_data,
+        file_name=file.filename or "unnamed",
+        file_size=len(file_data),
+        mime_type=file.content_type or "application/octet-stream",
+        document_type=document_type,
+        description=description,
+        tooth_number=tooth_number,
+    )
+
+    await audit_action(
+        request=request,
+        db=db,
+        current_user=current_user,
+        action="upload",
+        resource_type="patient_document",
+        resource_id=result["id"],
+    )
+
+    return PatientDocumentResponse(**result)
+
+
+# ─── P-14: Delete Document ─────────────────────────────────────────────────────
+
+
+@router.delete("/{patient_id}/documents/{document_id}", response_model=PatientDocumentResponse)
+async def delete_patient_document(
+    patient_id: str,
+    document_id: str,
+    request: Request,
+    current_user: AuthenticatedUser = Depends(require_permission("patients:write")),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> PatientDocumentResponse:
+    """Soft-delete a patient document.
+
+    Clinical data is never hard-deleted (Resolución 1888).
+    The file remains in S3 for regulatory compliance.
+    """
+    result = await patient_document_service.delete_document(
+        db=db,
+        patient_id=patient_id,
+        document_id=document_id,
+    )
+
+    await audit_action(
+        request=request,
+        db=db,
+        current_user=current_user,
+        action="delete",
+        resource_type="patient_document",
+        resource_id=document_id,
+    )
+
+    return PatientDocumentResponse(**result)

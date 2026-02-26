@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tu cita es en 2 horas — DentalOS</title>
+    <style>
+        /* Reset */
+        body, table, td { margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f4f4f5; color: #1a1a2e; font-size: 15px; line-height: 1.6; }
+        img { border: 0; display: block; }
+
+        /* Container */
+        .wrapper { width: 100%; background-color: #f4f4f5; padding: 24px 0; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+        /* Header */
+        .header { background-color: #0891B2; padding: 24px 32px; text-align: center; }
+        .header h1 { color: #ffffff; font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.3px; }
+        .header .clinic { color: rgba(255,255,255,0.85); font-size: 13px; margin-top: 4px; }
+
+        /* Countdown strip */
+        .countdown { background-color: #ecfeff; border-bottom: 1px solid #a5f3fc; padding: 16px 32px; text-align: center; }
+        .countdown p { margin: 0; font-size: 14px; font-weight: 600; color: #0e7490; }
+        .countdown .time-big { font-size: 28px; font-weight: 800; color: #0891B2; line-height: 1.2; display: block; margin-top: 4px; }
+
+        /* Body */
+        .content { padding: 32px; }
+        .greeting { font-size: 16px; font-weight: 600; color: #1a1a2e; margin-bottom: 16px; }
+        .message { color: #4a4a68; margin-bottom: 20px; }
+
+        /* Info box */
+        .info-box { background-color: #f0fdfa; border: 1px solid #99f6e4; border-radius: 8px; padding: 16px 20px; margin: 20px 0; }
+
+        /* Address box */
+        .address-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; margin: 20px 0; }
+        .address-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 6px; }
+        .address-text { font-size: 14px; color: #1a1a2e; font-weight: 500; }
+
+        /* Checklist */
+        .checklist { margin: 20px 0; }
+        .checklist p { font-size: 13px; color: #4a4a68; margin: 0 0 6px 0; padding-left: 20px; position: relative; }
+        .checklist p::before { content: '✓'; position: absolute; left: 0; color: #0891B2; font-weight: 700; }
+
+        /* Footer */
+        .footer { background-color: #f8fafc; padding: 20px 32px; text-align: center; border-top: 1px solid #e2e8f0; }
+        .footer p { color: #94a3b8; font-size: 12px; margin: 4px 0; }
+        .footer a { color: #0891B2; text-decoration: underline; }
+
+        /* Responsive */
+        @media only screen and (max-width: 620px) {
+            .container { margin: 0 12px; }
+            .content { padding: 24px 20px; }
+            .header { padding: 20px; }
+            .countdown { padding: 14px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <table role="presentation" width="100%"><tr><td align="center">
+            <div class="container">
+                <div class="header">
+                    <h1>DentalOS</h1>
+                    <div class="clinic">{{ clinic_name }}</div>
+                </div>
+
+                <div class="countdown">
+                    <p>Tu cita comienza en</p>
+                    <span class="time-big">2 horas</span>
+                </div>
+
+                <div class="content">
+                    <p class="greeting">Hola, {{ patient_name }}</p>
+                    <p class="message">
+                        ¡Ya casi es hora! Tu cita con <strong>{{ doctor_name }}</strong> está programada para las <strong>{{ time }}</strong> de hoy. Asegúrate de estar preparado/a a tiempo.
+                    </p>
+
+                    <div class="info-box">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                                <td style="font-weight: 600; color: #0e7490; width: 110px; font-size: 13px; padding-bottom: 8px; vertical-align: top;">Hora</td>
+                                <td style="color: #1a1a2e; font-size: 14px; padding-bottom: 8px;">{{ time }}</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: 600; color: #0e7490; width: 110px; font-size: 13px; padding-bottom: 8px; vertical-align: top;">Doctor/a</td>
+                                <td style="color: #1a1a2e; font-size: 14px; padding-bottom: 8px;">{{ doctor_name }}</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: 600; color: #0e7490; width: 110px; font-size: 13px; vertical-align: top;">Clínica</td>
+                                <td style="color: #1a1a2e; font-size: 14px;">{{ clinic_name }}</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div class="address-box">
+                        <div class="address-title">Dirección</div>
+                        <div class="address-text">{{ clinic_address }}</div>
+                    </div>
+
+                    <p class="message" style="font-weight: 600; margin-top: 24px;">Recuerda traer:</p>
+                    <div class="checklist">
+                        <p>Tu documento de identidad</p>
+                        <p>Autorización de tu EPS o seguro (si aplica)</p>
+                        <p>Radiografías anteriores (si las tienes)</p>
+                        <p>Lista de medicamentos actuales</p>
+                    </div>
+
+                    <p style="color: #94a3b8; font-size: 13px; text-align: center; margin-top: 24px;">
+                        Si necesitas llegar más tarde o no puedes asistir, comunícate directamente con {{ clinic_name }}.
+                    </p>
+                </div>
+                <div class="footer">
+                    <p>Este correo fue enviado por {{ clinic_name }} a través de DentalOS.</p>
+                    <p>Si no deseas recibir estos correos, <a href="{{ unsubscribe_url | default('#') }}">cancela tu suscripción</a>.</p>
+                    <p>&copy; {{ current_year | default('2026') }} DentalOS. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </td></tr></table>
+    </div>
+</body>
+</html>

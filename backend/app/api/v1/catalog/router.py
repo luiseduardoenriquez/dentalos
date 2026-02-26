@@ -16,7 +16,7 @@ from app.auth.context import AuthenticatedUser
 from app.auth.dependencies import get_current_user
 from app.core.database import get_tenant_db
 from app.core.odontogram_constants import ODONTOGRAM_CONDITIONS
-from app.schemas.catalog import CIE10SearchResponse, CUPSSearchResponse
+from app.schemas.catalog import CIE10SearchResponse, CUPSSearchResponse, MedicationSearchResponse
 from app.schemas.odontogram import CatalogConditionItem, CatalogConditionsResponse
 from app.services.catalog_service import catalog_service
 
@@ -77,3 +77,22 @@ async def search_cups(
     """
     result = await catalog_service.search_cups(db=db, q=q)
     return CUPSSearchResponse(**result)
+
+
+# ─── RX-05: Medication catalog search ────────────────────────────────────────
+
+
+@router.get("/medications", response_model=MedicationSearchResponse)
+async def search_medications(
+    q: str = Query(min_length=2, description="Search query — min 2 characters."),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> MedicationSearchResponse:
+    """Search the medication catalog for dental prescriptions.
+
+    Performs a substring match against the in-memory medication catalog.
+    Results are cached in Redis for 24 hours per query string. Returns
+    up to 20 matching medications ranked by name.
+    """
+    result = await catalog_service.search_medications(db=db, q=q)
+    return MedicationSearchResponse(**result)

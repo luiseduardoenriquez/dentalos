@@ -55,6 +55,33 @@ _ALLOWED_AUDIO_TYPES = frozenset({
     "audio/mp4",
 })
 
+# ── LLM Prompt for Dental NLP ──────────────────────────────────────────────
+
+DENTAL_NLP_PROMPT = """You are a dental NLP parser for DentalOS. Your task is to extract
+structured findings from Spanish dental dictation text.
+
+For each finding, extract:
+- tooth_number: FDI notation (11-48 for permanent, 51-85 for deciduous)
+- zone: one of "mesial", "distal", "oclusal", "vestibular", "lingual", "incisal", "full"
+- condition_code: one of "caries", "fractura", "corona", "resina", "amalgama", "ausente",
+  "endodoncia", "implante", "sellante", "protesis_fija", "protesis_removible", "movilidad"
+- confidence: float 0.0-1.0 indicating parsing confidence
+
+Return a JSON array of findings. Example:
+[
+  {"tooth_number": 36, "zone": "oclusal", "condition_code": "caries", "confidence": 0.95},
+  {"tooth_number": 11, "zone": "incisal", "condition_code": "fractura", "confidence": 0.90}
+]
+
+Important rules:
+- FDI notation only (not universal numbering)
+- Map Spanish dental terms to condition codes (e.g., "calza" -> "resina", "puente" -> "protesis_fija")
+- If tooth number is ambiguous, set confidence < 0.7
+- If zone is not mentioned, default to "full"
+- Ignore filler words and non-dental content
+- Return empty array if no dental findings detected
+"""
+
 
 # ── Serialization helpers ────────────────────────────────────────────────────
 
@@ -631,6 +658,108 @@ class VoiceService:
             "errors": errors,
         }
 
+    # ── 5b. Submit Feedback ─────────────────────────────────────────────
+
+    async def submit_feedback(
+        self,
+        *,
+        db: AsyncSession,
+        session_id: str,
+        findings_corrections: list[dict[str, Any]],
+        notes: str | None = None,
+    ) -> dict[str, Any]:
+        """Record doctor corrections on parsed voice findings.
+
+        Stores feedback as JSONB on the session row for quality tracking.
+        Computes correction_rate = corrections / total_findings.
+
+        Returns:
+            {session_id, feedback_recorded, correction_count, correction_rate}
+
+        Raises:
+            VoiceError(SESSION_NOT_FOUND) -- session not found.
+        """
+        sid = uuid.UUID(session_id)
+
+        # Load session with parses
+        session_result = await db.execute(
+            select(VoiceSession).where(
+                VoiceSession.id == sid,
+                VoiceSession.is_active.is_(True),
+            )
+        )
+        session = session_result.scalar_one_or_none()
+
+        if session is None:
+            raise VoiceError(
+                error=VoiceErrors.SESSION_NOT_FOUND,
+                message="Sesion de voz no encontrada.",
+                status_code=404,
+            )
+
+        # Count corrections (non-rejected items with actual changes)
+        correction_count = sum(
+            1 for c in findings_corrections
+            if c.get("corrected_tooth") is not None
+            or c.get("corrected_condition") is not None
+            or c.get("is_rejected", False)
+        )
+
+        # Compute correction rate from the latest parse
+        total_findings = 0
+        for p in session.parses:
+            if p.findings:
+                total_findings += len(p.findings)
+
+        correction_rate = (
+            correction_count / total_findings if total_findings > 0 else None
+        )
+
+        # Store feedback on the session (JSONB column)
+        # MVP: store in session metadata since we don't have a dedicated column yet
+        feedback_data = {
+            "corrections": findings_corrections,
+            "notes": notes,
+            "correction_count": correction_count,
+            "correction_rate": correction_rate,
+            "submitted_at": datetime.now(UTC).isoformat(),
+        }
+
+        # Update session status to reflect feedback received
+        session.status = "feedback_received"
+        # Store feedback in the session's existing JSONB metadata or create new
+        if hasattr(session, "metadata") and session.metadata:
+            session.metadata["feedback"] = feedback_data
+        else:
+            # Fallback: store as a new parse record with feedback type
+            feedback_parse = VoiceParse(
+                session_id=sid,
+                input_text="",
+                findings=[],
+                corrections=findings_corrections,
+                filtered_speech=[],
+                warnings=[],
+                llm_model="feedback",
+                status="feedback",
+            )
+            db.add(feedback_parse)
+
+        await db.flush()
+
+        logger.info(
+            "Voice feedback recorded: session=%s corrections=%d rate=%s",
+            session_id[:8],
+            correction_count,
+            f"{correction_rate:.2%}" if correction_rate is not None else "N/A",
+        )
+
+        return {
+            "session_id": session_id,
+            "feedback_recorded": True,
+            "correction_count": correction_count,
+            "correction_rate": correction_rate,
+        }
+
     # ── 6. Voice Settings ────────────────────────────────────────────────
 
     async def get_voice_settings(
@@ -681,28 +810,52 @@ class VoiceService:
 
     # ── Private Helpers ──────────────────────────────────────────────────
 
+    async def _transcribe_audio(self, s3_key: str) -> str:
+        """Transcribe audio using OpenAI Whisper API.
+
+        TODO: Replace with OpenAI Whisper API call.
+        Requires OPENAI_API_KEY environment variable.
+
+        Production implementation:
+            import openai
+            client = openai.AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
+            audio_file = await storage_client.download_file(s3_key)
+            transcription = await client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                language="es",
+                response_format="text",
+            )
+            return transcription.text
+
+        MVP stub returns a sample transcription for testing.
+        """
+        logger.info("Whisper transcription stub called (MVP mode) for key=%s", s3_key[:30])
+        return (
+            "El paciente presenta caries en el diente 36 cara oclusal "
+            "y fractura en el diente 11 borde incisal. "
+            "Se observa corona en el 46 y resina en el 24 cara mesial."
+        )
+
     def _parse_dental_text(self, text: str) -> list[dict[str, Any]]:
-        """MVP stub: simple dental finding extraction.
+        """Parse dental dictation text into structured findings using Claude.
 
-        In production, this calls Claude Haiku with a dental terminology
-        prompt that maps Spanish dental dictation to structured findings:
+        TODO: Replace with Anthropic Claude API call.
+        Requires ANTHROPIC_API_KEY environment variable.
 
-            claude_client.messages.create(
+        Production implementation:
+            import anthropic
+            client = anthropic.AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+            response = await client.messages.create(
                 model="claude-3-haiku-20240307",
-                system="You are a dental NLP parser...",
+                max_tokens=2048,
+                system=DENTAL_NLP_PROMPT,
                 messages=[{"role": "user", "content": text}],
             )
+            return json.loads(response.content[0].text)
 
-        For MVP, returns empty findings -- the real pipeline will be
+        MVP stub returns empty findings -- the real pipeline will be
         implemented when the Anthropic API integration is set up.
-
-        The production prompt will handle:
-          - Spanish dental terminology normalization
-          - FDI tooth numbering (11-48 for adults, 51-85 for deciduous)
-          - Zone mapping (mesial, distal, oclusal, vestibular, lingual, full)
-          - Condition code resolution against the DentalOS catalog
-          - Ambiguity detection (warnings)
-          - Filler word filtering
         """
         logger.info("Voice parse stub called (MVP mode)")
         return []

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verifica tu correo electrónico — DentalOS</title>
+    <style>
+        /* Reset */
+        body, table, td { margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f4f4f5; color: #1a1a2e; font-size: 15px; line-height: 1.6; }
+        img { border: 0; display: block; }
+
+        /* Container */
+        .wrapper { width: 100%; background-color: #f4f4f5; padding: 24px 0; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+        /* Header */
+        .header { background-color: #0891B2; padding: 24px 32px; text-align: center; }
+        .header h1 { color: #ffffff; font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.3px; }
+        .header .clinic { color: rgba(255,255,255,0.85); font-size: 13px; margin-top: 4px; }
+
+        /* Body */
+        .content { padding: 32px; }
+        .greeting { font-size: 16px; font-weight: 600; color: #1a1a2e; margin-bottom: 16px; }
+        .message { color: #4a4a68; margin-bottom: 20px; }
+
+        /* Info box */
+        .info-box { background-color: #f0fdfa; border: 1px solid #99f6e4; border-radius: 8px; padding: 16px 20px; margin: 20px 0; }
+        .info-row { display: flex; margin-bottom: 6px; }
+        .info-label { font-weight: 600; color: #0e7490; min-width: 100px; font-size: 13px; }
+        .info-value { color: #1a1a2e; font-size: 14px; }
+
+        /* CTA */
+        .cta-wrapper { text-align: center; margin: 28px 0; }
+        .cta-button { display: inline-block; background-color: #0891B2; color: #ffffff !important; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 15px; }
+
+        /* Footer */
+        .footer { background-color: #f8fafc; padding: 20px 32px; text-align: center; border-top: 1px solid #e2e8f0; }
+        .footer p { color: #94a3b8; font-size: 12px; margin: 4px 0; }
+        .footer a { color: #0891B2; text-decoration: underline; }
+
+        /* Responsive */
+        @media only screen and (max-width: 620px) {
+            .container { margin: 0 12px; }
+            .content { padding: 24px 20px; }
+            .header { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <table role="presentation" width="100%"><tr><td align="center">
+            <div class="container">
+                <div class="header">
+                    <h1>DentalOS</h1>
+                    <div class="clinic">{{ clinic_name }}</div>
+                </div>
+                <div class="content">
+                    <p class="greeting">Hola, {{ user_name }}</p>
+                    <p class="message">
+                        Gracias por registrarte en DentalOS. Para acceder a tu cuenta necesitas verificar tu correo electrónico haciendo clic en el botón a continuación.
+                    </p>
+                    <p class="message">
+                        Este enlace de verificación expira en <strong>24 horas</strong>.
+                    </p>
+
+                    <div class="cta-wrapper">
+                        <a href="{{ verification_link }}" class="cta-button">Verificar correo</a>
+                    </div>
+
+                    <p style="color: #94a3b8; font-size: 13px; text-align: center;">
+                        Si no creaste una cuenta en DentalOS, puedes ignorar este correo.
+                    </p>
+                </div>
+                <div class="footer">
+                    <p>Este correo fue enviado por {{ clinic_name }} a través de DentalOS.</p>
+                    <p>&copy; {{ current_year | default('2026') }} DentalOS. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </td></tr></table>
+    </div>
+</body>
+</html>

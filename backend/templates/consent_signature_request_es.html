@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solicitud de firma — Consentimiento informado — DentalOS</title>
+    <style>
+        /* Reset */
+        body, table, td { margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f4f4f5; color: #1a1a2e; font-size: 15px; line-height: 1.6; }
+        img { border: 0; display: block; }
+
+        /* Container */
+        .wrapper { width: 100%; background-color: #f4f4f5; padding: 24px 0; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+        /* Header */
+        .header { background-color: #0891B2; padding: 24px 32px; text-align: center; }
+        .header h1 { color: #ffffff; font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.3px; }
+        .header .clinic { color: rgba(255,255,255,0.85); font-size: 13px; margin-top: 4px; }
+
+        /* Body */
+        .content { padding: 32px; }
+        .greeting { font-size: 16px; font-weight: 600; color: #1a1a2e; margin-bottom: 16px; }
+        .message { color: #4a4a68; margin-bottom: 20px; }
+
+        /* Document card */
+        .doc-card { border: 2px solid #0891B2; border-radius: 10px; padding: 18px 22px; margin: 20px 0; position: relative; }
+        .doc-card-badge { display: inline-block; background-color: #0891B2; color: #ffffff; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+        .doc-card-title { font-size: 17px; font-weight: 700; color: #0c4a6e; margin-bottom: 4px; }
+        .doc-card-sub { font-size: 13px; color: #64748b; }
+
+        /* Legal notice */
+        .legal-box { background-color: #fefce8; border: 1px solid #fde68a; border-radius: 8px; padding: 14px 18px; margin: 20px 0; }
+        .legal-box p { font-size: 13px; color: #78350f; margin: 0; }
+
+        /* Steps */
+        .steps { margin: 20px 0; }
+        .step { display: flex; margin-bottom: 12px; align-items: flex-start; }
+        .step-num { background-color: #0891B2; color: #ffffff; font-size: 12px; font-weight: 700; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 10px; margin-top: 1px; }
+        .step-text { font-size: 14px; color: #4a4a68; }
+
+        /* CTA */
+        .cta-wrapper { text-align: center; margin: 28px 0; }
+        .cta-button { display: inline-block; background-color: #0891B2; color: #ffffff !important; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 15px; }
+
+        /* Footer */
+        .footer { background-color: #f8fafc; padding: 20px 32px; text-align: center; border-top: 1px solid #e2e8f0; }
+        .footer p { color: #94a3b8; font-size: 12px; margin: 4px 0; }
+        .footer a { color: #0891B2; text-decoration: underline; }
+
+        /* Responsive */
+        @media only screen and (max-width: 620px) {
+            .container { margin: 0 12px; }
+            .content { padding: 24px 20px; }
+            .header { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <table role="presentation" width="100%"><tr><td align="center">
+            <div class="container">
+                <div class="header">
+                    <h1>DentalOS</h1>
+                    <div class="clinic">{{ clinic_name }}</div>
+                </div>
+                <div class="content">
+                    <p class="greeting">Hola, {{ patient_name }}</p>
+                    <p class="message">
+                        El/La Dr./Dra. <strong>{{ doctor_name }}</strong> de <strong>{{ clinic_name }}</strong> solicita tu firma en el siguiente documento de consentimiento informado antes de proceder con tu tratamiento:
+                    </p>
+
+                    <div class="doc-card">
+                        <div class="doc-card-badge">Consentimiento informado</div>
+                        <div class="doc-card-title">{{ consent_name }}</div>
+                        <div class="doc-card-sub">Solicitado por {{ doctor_name }} &middot; {{ clinic_name }}</div>
+                    </div>
+
+                    <p class="message" style="font-weight: 600; margin-top: 24px;">Para firmar el documento:</p>
+
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 12px 0 20px 0;">
+                        <tr>
+                            <td style="width: 30px; vertical-align: top; padding-top: 2px;">
+                                <span style="display: inline-block; background-color: #0891B2; color: #ffffff; font-size: 12px; font-weight: 700; width: 22px; height: 22px; border-radius: 50%; text-align: center; line-height: 22px;">1</span>
+                            </td>
+                            <td style="font-size: 14px; color: #4a4a68; padding-bottom: 10px;">Haz clic en el botón "Firmar consentimiento" a continuación.</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 30px; vertical-align: top; padding-top: 2px;">
+                                <span style="display: inline-block; background-color: #0891B2; color: #ffffff; font-size: 12px; font-weight: 700; width: 22px; height: 22px; border-radius: 50%; text-align: center; line-height: 22px;">2</span>
+                            </td>
+                            <td style="font-size: 14px; color: #4a4a68; padding-bottom: 10px;">Lee cuidadosamente el documento de consentimiento.</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 30px; vertical-align: top; padding-top: 2px;">
+                                <span style="display: inline-block; background-color: #0891B2; color: #ffffff; font-size: 12px; font-weight: 700; width: 22px; height: 22px; border-radius: 50%; text-align: center; line-height: 22px;">3</span>
+                            </td>
+                            <td style="font-size: 14px; color: #4a4a68;">Dibuja tu firma digital en el espacio indicado y confirma.</td>
+                        </tr>
+                    </table>
+
+                    <div class="legal-box">
+                        <p>Tu firma digital tiene validez legal en Colombia de acuerdo con la Ley 527 de 1999 y equivale a una firma manuscrita. El documento firmado quedará almacenado de forma segura en tu historia clínica.</p>
+                    </div>
+
+                    <div class="cta-wrapper">
+                        <a href="{{ sign_url }}" class="cta-button">Firmar consentimiento</a>
+                    </div>
+
+                    <p style="color: #94a3b8; font-size: 13px; text-align: center;">
+                        Si tienes dudas sobre este consentimiento, comunícate con {{ clinic_name }} antes de firmar. Este enlace es de uso exclusivo para ti y expira en 72 horas.
+                    </p>
+                </div>
+                <div class="footer">
+                    <p>Este correo fue enviado por {{ clinic_name }} a través de DentalOS.</p>
+                    <p>Si no deseas recibir estos correos, <a href="{{ unsubscribe_url | default('#') }}">cancela tu suscripción</a>.</p>
+                    <p>&copy; {{ current_year | default('2026') }} DentalOS. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </td></tr></table>
+    </div>
+</body>
+</html>

@@ -94,3 +94,38 @@ class QuotationListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class QuotationShareRequest(BaseModel):
+    """Request body for sharing a quotation via email or WhatsApp."""
+
+    channel: str = Field(..., pattern=r"^(email|whatsapp)$")
+    recipient_email: str | None = Field(
+        default=None, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+    )
+    recipient_phone: str | None = Field(
+        default=None, pattern=r"^\+?[0-9]{7,15}$"
+    )
+    message: str | None = Field(default=None, max_length=500)
+
+    @field_validator("recipient_email")
+    @classmethod
+    def validate_email_when_email_channel(cls, v: str | None, info) -> str | None:
+        if info.data.get("channel") == "email" and not v:
+            raise ValueError("Se requiere recipient_email para el canal email.")
+        return v
+
+    @field_validator("recipient_phone")
+    @classmethod
+    def validate_phone_when_whatsapp_channel(cls, v: str | None, info) -> str | None:
+        if info.data.get("channel") == "whatsapp" and not v:
+            raise ValueError("Se requiere recipient_phone para el canal whatsapp.")
+        return v
+
+
+class QuotationShareResponse(BaseModel):
+    """Result of sharing a quotation."""
+
+    shared: bool
+    channel: str
+    sent_to: str

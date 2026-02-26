@@ -47,6 +47,8 @@ from app.models.public.user_tenant_membership import UserTenantMembership
 from app.models.tenant.user import User
 from app.models.tenant.user_invite import UserInvite
 from app.models.tenant.user_session import UserSession
+from app.core.queue import publish_message
+from app.schemas.queue import QueueMessage
 from app.services.tenant_service import (
     generate_schema_name,
     generate_slug,
@@ -769,7 +771,27 @@ class AuthService:
             ttl_seconds=_RESET_TOKEN_TTL,
         )
 
-        # TODO: Enqueue password reset email via RabbitMQ
+        # Enqueue password reset email
+        await publish_message(
+            "notifications",
+            QueueMessage(
+                tenant_id=str(tenant.id),
+                job_type="email.send",
+                payload={
+                    "to_email": user.email,
+                    "to_name": user.name or "",
+                    "subject": "Restablecer contraseña — DentalOS",
+                    "template_name": "password_reset_es.html",
+                    "context": {
+                        "user_name": user.name or user.email,
+                        "clinic_name": tenant.name,
+                        "expiry_minutes": str(_RESET_TOKEN_TTL // 60),
+                        "reset_link": f"{settings.frontend_url}/auth/reset-password?token={raw_token}",
+                        "current_year": "2026",
+                    },
+                },
+            ),
+        )
         logger.info(
             "Password reset token generated for tenant %s (token=%s...)",
             str(tenant.id)[:8],
@@ -1003,7 +1025,35 @@ class AuthService:
             db.add(invite)
             await db.commit()
 
-            # TODO: Enqueue invite email via RabbitMQ
+            # Resolve names for the invite email
+            inviter_name = inviter.name or inviter.email
+            tenant_record = await db.execute(
+                select(Tenant).where(Tenant.id == uuid.UUID(tenant_id))
+            )
+            tenant_obj = tenant_record.scalar_one_or_none()
+            clinic_name = tenant_obj.name if tenant_obj else ""
+
+            # Enqueue invite email
+            await publish_message(
+                "notifications",
+                QueueMessage(
+                    tenant_id=str(tenant_id),
+                    job_type="email.send",
+                    payload={
+                        "to_email": email,
+                        "to_name": "",
+                        "subject": f"Te invitaron a unirte a DentalOS",
+                        "template_name": "team_invite_es.html",
+                        "context": {
+                            "inviter_name": inviter_name,
+                            "clinic_name": clinic_name,
+                            "role_label": role,
+                            "invite_link": f"{settings.frontend_url}/auth/accept-invite?token={raw_token}",
+                            "current_year": "2026",
+                        },
+                    },
+                ),
+            )
             logger.info(
                 "Invite created in tenant %s for role=%s (token=%s...)",
                 str(tenant_id)[:8],

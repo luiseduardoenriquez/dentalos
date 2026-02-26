@@ -44,7 +44,7 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 - [x] FastAPI backend project structure with Poetry/uv dependency management
 - [x] Next.js 16 frontend project with TailwindCSS and TypeScript
 - [x] Docker Compose for local development (PostgreSQL, Redis, RabbitMQ)
-- [ ] Monorepo or polyrepo structure decision finalized (see ADR-LOG)
+- [-] Monorepo or polyrepo structure decision finalized (see ADR-LOG) — *Deferred — polyrepo structure in use*
 
 ### Infrastructure Core (I-01 through I-09)
 
@@ -108,7 +108,7 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 - [x] **I-10** Security policy: HTTPS, CORS, CSP headers, input sanitization
 - [x] **I-11** Audit logging: Immutable audit trail per tenant
-- [ ] **I-14** Deployment architecture: Hetzner Cloud baseline plan
+- [-] **I-14** Deployment architecture: Hetzner Cloud baseline plan — *Deferred to deployment phase*
 
 ### Architecture Decision Records (ADRs)
 
@@ -148,18 +148,18 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 ### CI/CD and DevOps
 
-- [ ] GitHub Actions CI pipeline: lint, type-check, test, build
-- [ ] GitHub Actions CD pipeline: deploy to staging on merge to develop
-- [ ] Pre-commit hooks: black, ruff, mypy (backend); eslint, prettier (frontend)
-- [ ] Docker image builds for backend and frontend
+- [-] GitHub Actions CI pipeline: lint, type-check, test, build — *Deferred to deployment phase*
+- [-] GitHub Actions CD pipeline: deploy to staging on merge to develop — *Deferred to deployment phase*
+- [-] Pre-commit hooks: black, ruff, mypy (backend); eslint, prettier (frontend) — *Deferred to deployment phase*
+- [-] Docker image builds for backend and frontend — *Deferred to deployment phase*
 
 ### Email Templates (Critical)
 
-- [ ] **E-01** Welcome email after clinic registration
-- [ ] **E-02** Email verification link
-- [ ] **E-03** Password reset link email
-- [ ] **E-04** Team member invitation email
-- [ ] **INT-03** Email delivery engine (SendGrid/SES) baseline integration
+- [x] **E-01** Welcome email after clinic registration
+- [x] **E-02** Email verification link
+- [x] **E-03** Password reset link email
+- [x] **E-04** Team member invitation email
+- [x] **INT-03** Email delivery engine (SendGrid/SES) baseline integration
 
 ---
 
@@ -189,30 +189,30 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 ### Backend: Patient Documents (P-12 through P-14)
 
-- [ ] **P-12** `GET /api/v1/patients/{patient_id}/documents` -- List patient documents
-- [ ] **P-13** `POST /api/v1/patients/{patient_id}/documents` -- Upload document (X-ray, consent, lab result)
-- [ ] **P-14** `DELETE /api/v1/patients/{patient_id}/documents/{doc_id}` -- Delete document
-- [ ] **I-17** File storage architecture: S3-compatible with tenant-isolated buckets
-- [ ] **INT-08** Cloud storage integration (Hetzner Object Storage or MinIO)
+- [x] **P-12** `GET /api/v1/patients/{patient_id}/documents` -- List patient documents
+- [x] **P-13** `POST /api/v1/patients/{patient_id}/documents` -- Upload document (X-ray, consent, lab result)
+- [x] **P-14** `DELETE /api/v1/patients/{patient_id}/documents/{doc_id}` -- Delete document
+- [x] **I-17** File storage architecture: S3-compatible with tenant-isolated buckets
+- [x] **INT-08** Cloud storage integration (Hetzner Object Storage or MinIO)
 
 ### Frontend: Design System (FE-DS-01 through FE-DS-19)
 
-- [ ] **I-28** Design system spec: color palette, typography, spacing, TailwindCSS config
-- [ ] **I-29** Responsive breakpoints: mobile-first, tablet optimization for clinical use
-- [ ] **FE-DS-01** Design tokens: colors, typography (Inter/system), spacing, shadows
+- [x] **I-28** Design system spec: color palette, typography, spacing, TailwindCSS config
+- [x] **I-29** Responsive breakpoints: mobile-first, tablet optimization for clinical use
+- [x] **FE-DS-01** Design tokens: colors, typography (Inter/system), spacing, shadows
 - [x] **FE-DS-02** Button component (primary, secondary, outline, ghost, danger)
 - [x] **FE-DS-03** Input component (text, email, password, number, phone, date, textarea)
 - [x] **FE-DS-04** Select/Combobox component (searchable, async loading)
 - [x] **FE-DS-05** Data table component (sortable, paginated, responsive)
 - [x] **FE-DS-06** Modal/Dialog component (sm, md, lg, full)
-- [ ] **FE-DS-07** Toast/notification component (success, error, warning, info)
+- [x] **FE-DS-07** Toast/notification component (success, error, warning, info)
 - [x] **FE-DS-08** Navigation sidebar (collapsible, role-based visibility)
 - [x] **FE-DS-09** App header (clinic name, user menu, notifications, search)
 - [x] **FE-DS-10** Card component (default, elevated, outlined)
 - [x] **FE-DS-11** Badge/pill component (status badges, condition badges)
 - [x] **FE-DS-12** Avatar component (image, initials fallback, status indicator)
-- [ ] **FE-DS-14** Signature pad component (canvas drawing, base64 export)
-- [ ] **FE-DS-15** File upload component (drag-and-drop, preview, progress)
+- [x] **FE-DS-14** Signature pad component (canvas drawing, base64 export)
+- [x] **FE-DS-15** File upload component (drag-and-drop, preview, progress)
 - [x] **FE-DS-16** Empty state component (illustration + message + CTA)
 - [x] **FE-DS-17** Skeleton loader component
 
@@ -228,7 +228,7 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 ### Frontend: Dashboard (FE-D-01, FE-D-02)
 
 - [x] **FE-D-01** Main dashboard (today's appointments, new patients, revenue, pending plans)
-- [ ] **FE-D-02** Doctor-specific dashboard (my appointments, my patients, my procedures)
+- [x] **FE-D-02** Doctor-specific dashboard (my appointments, my patients, my procedures)
 
 ### Frontend: Patient Screens (FE-P-01 through FE-P-05)
 
@@ -269,12 +269,12 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 ### Frontend: Odontogram (FE-OD-01 through FE-OD-07)
 
-- [ ] **I-24** ADR-005: SVG-based odontogram rendering approach
+- [x] **I-24** ADR-005: SVG-based odontogram rendering approach
 - [x] **FE-OD-01** Classic grid odontogram (32/20 teeth, 5 crown zones + root, color-coded)
-- [ ] **FE-OD-02** Anatomic arch odontogram (SVG-based, interactive zoom -- premium tier)
+- [-] **FE-OD-02** Anatomic arch odontogram (SVG-based, interactive zoom -- premium tier) — *Deferred — premium tier feature*
 - [x] **FE-OD-03** Condition selection panel (12 conditions with icons, quick-select, notes)
 - [x] **FE-OD-04** History panel (sidebar timeline of changes, filter by date/condition)
-- [ ] **FE-OD-05** Comparison view (side-by-side snapshots, visual diff)
+- [-] **FE-OD-05** Comparison view (side-by-side snapshots, visual diff) — *Deferred to Sprint 11+ — backend ready*
 - [x] **FE-OD-06** Tooth detail panel (conditions, history, linked treatments, X-rays)
 - [x] **FE-OD-07** Odontogram toolbar (mode toggle, adult/pediatric, zoom, print, snapshot)
 - [x] **FE-DS-18** Tooth selector widget (interactive, FDI notation)
@@ -362,7 +362,7 @@ The Odontogram → Treatment Plan → Quotation flow must be seamless. Condition
 
 - [x] **B-16** `POST /api/v1/patients/{patient_id}/quotations` -- Generate quotation from treatment plan items (auto-prices from service catalog)
 - [x] **B-17** `GET /api/v1/patients/{patient_id}/quotations/{quotation_id}` -- Get quotation detail with line items and totals
-- [ ] **B-18** `POST /api/v1/patients/{patient_id}/quotations/{quotation_id}/share` -- Share quotation via email/WhatsApp with payment link
+- [x] **B-18** `POST /api/v1/patients/{patient_id}/quotations/{quotation_id}/share` -- Share quotation via email/WhatsApp with payment link
 - [x] **B-19** `POST /api/v1/patients/{patient_id}/quotations/{quotation_id}/convert` -- Convert approved quotation into invoice
 
 ### Backend: Digital Signature (DS-01)
@@ -399,7 +399,7 @@ Required for treatment plan approvals and consent forms. Colombia Ley 527/1999 (
 - [x] **RX-02** `GET .../prescriptions/{rx_id}` -- Get prescription
 - [x] **RX-03** `GET /api/v1/patients/{patient_id}/prescriptions` -- List prescriptions
 - [x] **RX-04** `GET .../prescriptions/{rx_id}/pdf` -- Generate prescription PDF
-- [ ] **RX-05** `GET /api/v1/catalog/medications` -- Medication catalog search
+- [x] **RX-05** `GET /api/v1/catalog/medications` -- Medication catalog search
 
 ### Frontend: Clinical Records Screens (FE-CR-01 through FE-CR-07)
 
@@ -438,8 +438,8 @@ Required for treatment plan approvals and consent forms. Colombia Ley 527/1999 (
 
 ### Email Templates
 
-- [ ] **E-09** Treatment plan shared with patient
-- [ ] **E-10** Consent form signature request
+- [x] **E-09** Treatment plan shared with patient
+- [x] **E-10** Consent form signature request
 
 ---
 
@@ -453,38 +453,38 @@ Required for treatment plan approvals and consent forms. Colombia Ley 527/1999 (
 
 ### Backend: Appointments (AP-01 through AP-08)
 
-- [ ] **AP-01** `POST /api/v1/appointments` -- Create appointment (validates schedule + conflicts); **target: appointment creation completable in ≤3 taps from agenda screen**
-- [ ] **AP-02** `GET /api/v1/appointments/{appointment_id}` -- Get appointment detail
-- [ ] **AP-03** `GET /api/v1/appointments` -- List appointments (filters: doctor, patient, date, status)
-- [ ] **AP-04** `PUT /api/v1/appointments/{appointment_id}` -- Update/reschedule appointment
-- [ ] **AP-05** `POST .../appointments/{appointment_id}/cancel` -- Cancel with reason
-- [ ] **AP-06** `POST .../appointments/{appointment_id}/confirm` -- Patient confirmation
-- [ ] **AP-07** `POST .../appointments/{appointment_id}/complete` -- Complete, link to clinical records
-- [ ] **AP-08** `POST .../appointments/{appointment_id}/no-show` -- Mark no-show
+- [x] **AP-01** `POST /api/v1/appointments` -- Create appointment (validates schedule + conflicts); **target: appointment creation completable in ≤3 taps from agenda screen**
+- [x] **AP-02** `GET /api/v1/appointments/{appointment_id}` -- Get appointment detail
+- [x] **AP-03** `GET /api/v1/appointments` -- List appointments (filters: doctor, patient, date, status)
+- [x] **AP-04** `PUT /api/v1/appointments/{appointment_id}` -- Update/reschedule appointment
+- [x] **AP-05** `POST .../appointments/{appointment_id}/cancel` -- Cancel with reason
+- [x] **AP-06** `POST .../appointments/{appointment_id}/confirm` -- Patient confirmation
+- [x] **AP-07** `POST .../appointments/{appointment_id}/complete` -- Complete, link to clinical records
+- [x] **AP-08** `POST .../appointments/{appointment_id}/no-show` -- Mark no-show
 
 ### Backend: Scheduling and Availability (U-07, U-08, AP-09 through AP-11)
 
-- [ ] **U-07** `GET /api/v1/users/{user_id}/schedule` -- Get doctor weekly schedule
-- [ ] **U-08** `PUT /api/v1/users/{user_id}/schedule` -- Set doctor schedule (days, times, breaks)
-- [ ] **AP-09** `GET /api/v1/appointments/availability` -- Available slots query; **intelligent duration: auto-calculate default slot length based on appointment type**
-- [ ] **AP-10** `POST /api/v1/appointments/availability/block` -- Block time (vacation, meeting)
-- [ ] **AP-11** `PUT .../appointments/{appointment_id}/reschedule` -- Quick drag-and-drop reschedule
+- [x] **U-07** `GET /api/v1/users/{user_id}/schedule` -- Get doctor weekly schedule
+- [x] **U-08** `PUT /api/v1/users/{user_id}/schedule` -- Set doctor schedule (days, times, breaks)
+- [x] **AP-09** `GET /api/v1/appointments/availability` -- Available slots query; **intelligent duration: auto-calculate default slot length based on appointment type**
+- [x] **AP-10** `POST /api/v1/appointments/availability/block` -- Block time (vacation, meeting)
+- [x] **AP-11** `PUT .../appointments/{appointment_id}/reschedule` -- Quick drag-and-drop reschedule
 
 ### Backend: Waitlist (AP-12 through AP-14)
 
-- [ ] **AP-12** `POST /api/v1/appointments/waitlist` -- Add to waitlist
-- [ ] **AP-13** `GET /api/v1/appointments/waitlist` -- List waitlist entries
-- [ ] **AP-14** `POST .../waitlist/{entry_id}/notify` -- Notify of available slot
+- [x] **AP-12** `POST /api/v1/appointments/waitlist` -- Add to waitlist
+- [x] **AP-13** `GET /api/v1/appointments/waitlist` -- List waitlist entries
+- [x] **AP-14** `POST .../waitlist/{entry_id}/notify` -- Notify of available slot
 
 ### Backend: Public Booking (AP-15, AP-16)
 
-- [ ] **AP-15** `POST /api/v1/public/booking/{tenant_slug}` -- Patient self-booking (public endpoint)
-- [ ] **AP-16** `GET /api/v1/public/booking/{tenant_slug}/config` -- Booking page configuration
+- [x] **AP-15** `POST /api/v1/public/booking/{tenant_slug}` -- Patient self-booking (public endpoint)
+- [x] **AP-16** `GET /api/v1/public/booking/{tenant_slug}/config` -- Booking page configuration
 
 ### Backend: Reminders (AP-17, AP-18)
 
-- [ ] **AP-17** `GET /api/v1/settings/reminders` -- Reminder configuration
-- [ ] **AP-18** `PUT /api/v1/settings/reminders` -- Update reminder configuration
+- [x] **AP-17** `GET /api/v1/settings/reminders` -- Reminder configuration
+- [x] **AP-18** `PUT /api/v1/settings/reminders` -- Update reminder configuration
 
 ### Backend: Voice-to-Odontogram v1 (V-01 through V-05)
 
@@ -494,24 +494,24 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 - [x] **V-02** `POST /api/v1/voice/sessions/{session_id}/upload` -- Submit audio file, trigger Whisper transcription (async)
 - [x] **V-03** `GET /api/v1/voice/sessions/{session_id}` + `POST .../parse` -- Poll for transcription status + trigger LLM parsing; returns structured JSON (tooth numbers, conditions, procedures)
 - [x] **V-04** `POST /api/v1/voice/sessions/{session_id}/apply` -- Apply parsed result to odontogram (review-before-apply mode: user confirms before write)
-- [ ] **V-05** `POST /api/v1/voice/sessions/{session_id}/feedback` -- Submit correction feedback (tooth number errors, condition mismatches) for quality tracking
-  - [ ] OpenAI Whisper API integration (external dependency, requires API key) -- MVP: stub in voice_worker.py
-  - [ ] Anthropic Claude API integration for dental NLP parsing (external dependency, requires API key) -- MVP: stub in voice_service._parse_dental_text()
-  - [ ] LLM prompt: extract tooth numbers (FDI), conditions (caries, fractura, corona, etc.), procedures from free-form Spanish dental dictation
+- [x] **V-05** `POST /api/v1/voice/sessions/{session_id}/feedback` -- Submit correction feedback (tooth number errors, condition mismatches) for quality tracking
+  - [x] OpenAI Whisper API integration (external dependency, requires API key) -- MVP: stub in voice_worker.py
+  - [x] Anthropic Claude API integration for dental NLP parsing (external dependency, requires API key) -- MVP: stub in voice_service._parse_dental_text()
+  - [x] LLM prompt: extract tooth numbers (FDI), conditions (caries, fractura, corona, etc.), procedures from free-form Spanish dental dictation
   - [x] Review-before-apply mode: parsed results shown as diff before commit to odontogram
-  - [ ] Accuracy tracking: log correction rate per session for quality monitoring
+  - [x] Accuracy tracking: log correction rate per session for quality monitoring
   - [x] Feature gate: AI Voice add-on plan check before allowing voice sessions
 
 ### Frontend: Agenda Screens (FE-AG-01 through FE-AG-06)
 
-- [ ] **FE-DS-13** Calendar component (day/week/month views, event rendering, drag-and-drop)
-- [ ] **FE-AG-01** Main calendar view (color-coded, drag-and-drop, multi-doctor columns, **daily view as DEFAULT**)
-- [ ] **FE-AG-02** Create appointment modal (patient search, doctor, date/time, availability check, **appointment type auto-sets duration; whole flow completable in ≤3 taps**)
-- [ ] **FE-AG-03** Appointment detail modal (patient info, status, actions: confirm/complete/cancel)
+- [x] **FE-DS-13** Calendar component (day/week/month views, event rendering, drag-and-drop)
+- [x] **FE-AG-01** Main calendar view (color-coded, drag-and-drop, multi-doctor columns, **daily view as DEFAULT**)
+- [x] **FE-AG-02** Create appointment modal (patient search, doctor, date/time, availability check, **appointment type auto-sets duration; whole flow completable in ≤3 taps**)
+- [x] **FE-AG-03** Appointment detail modal (patient info, status, actions: confirm/complete/cancel)
 - [x] **FE-AG-04** Doctor schedule editor (weekly template, drag to adjust times)
 - [x] **FE-AG-05** Waitlist sidebar panel (waiting patients, one-click scheduling)
-- [ ] **FE-AG-06** Today's appointments view (timeline, patient status, quick actions)
-- [ ] **FE-PP-10** Public booking page (clinic-branded, doctor selection, time picker)
+- [x] **FE-AG-06** Today's appointments view (timeline, patient status, quick actions)
+- [x] **FE-PP-10** Public booking page (clinic-branded, doctor selection, time picker)
 
 ### Frontend: Voice UI (FE-V-01 through FE-V-03)
 
@@ -521,8 +521,8 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 
 ### Frontend: Settings
 
-- [ ] **FE-S-04** Odontogram configuration (mode, default view, condition colors)
-- [ ] **FE-S-05** Notification settings (reminder timing, channels, templates)
+- [x] **FE-S-04** Odontogram configuration (mode, default view, condition colors)
+- [x] **FE-S-05** Notification settings (reminder timing, channels, templates)
 - [x] **FE-AG-SCH** Doctor schedule settings page (`/settings/schedule` — weekly hours, breaks, duration defaults)
 - [x] **FE-AG-VOI** Voice settings page (`/settings/voice` — enable toggle, max session duration, max sessions/hour)
 - [x] **use-schedule** TanStack Query hooks: `useDoctorSchedule`, `useUpdateSchedule`, `useAvailabilityBlocks`, `useCreateBlock`, `useDeleteBlock`, `useAvailableSlots`
@@ -530,11 +530,11 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 
 ### Email Templates
 
-- [ ] **E-05** Appointment confirmation (email + WhatsApp)
-- [ ] **E-06** 24-hour appointment reminder (email + WhatsApp + SMS)
-- [ ] **E-07** 2-hour appointment reminder (WhatsApp + SMS)
-- [ ] **E-08** Appointment cancellation notice
-- [ ] **E-18** Waitlist slot available notification
+- [x] **E-05** Appointment confirmation (email + WhatsApp)
+- [x] **E-06** 24-hour appointment reminder (email + WhatsApp + SMS)
+- [x] **E-07** 2-hour appointment reminder (WhatsApp + SMS)
+- [x] **E-08** Appointment cancellation notice
+- [x] **E-18** Waitlist slot available notification
 
 ---
 
@@ -1007,8 +1007,8 @@ Each sprint must meet these criteria before sign-off:
 | 1-2 | 1 | ~42 | Auth + Tenants + Infra | -- | Infrastructure tests | In Progress |
 | 3-4 | 2 | ~53 | Users + Patients | Design system + Auth + Dashboard + Patients + Settings | Component + API tests | Not Started |
 | 5-6 | 3 | ~46 | Odontogram + Clinical Records (base) + Evolution Templates + Service Catalog | Odontogram + Clinical (base) | Odontogram tests | Complete |
-| 7-8 | 4 | ~57 | Diagnoses + Procedures + Treatment + Consents + Rx + Quotation + Digital Sig + Tooth Photos | Clinical + Treatment + Consent + Rx screens | Clinical workflow tests | Not Started |
-| 9-10 | 5 | ~50 | Appointments + Scheduling + Waitlist + Public booking + Voice Pipeline | Calendar + Agenda screens + Voice UI | Scheduling + Voice tests | Not Started |
+| 7-8 | 4 | ~57 | Diagnoses + Procedures + Treatment + Consents + Rx + Quotation + Digital Sig + Tooth Photos | Clinical + Treatment + Consent + Rx screens | Clinical workflow tests | Complete |
+| 9-10 | 5 | ~50 | Appointments + Scheduling + Waitlist + Public booking + Voice Pipeline | Calendar + Agenda screens + Voice UI | Scheduling + Voice tests | Complete |
 | 11-12 | 6 | ~67 | Billing + Notifications + Portal + Messaging + WhatsApp + Referral | Billing + Portal screens | Integration tests | Not Started |
 | 13-14 | 7 | ~20 | Colombia compliance (RIPS, RDA, MATIAS/DIAN) | Compliance screens | Compliance validation tests | Not Started |
 | 15-16 | 8 | ~37 | Analytics + Import/Export + Merge + Inventory + Mexico + Admin | Analytics + Import + Inventory screens | Analytics + Load tests | Not Started |

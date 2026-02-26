@@ -21,6 +21,8 @@ from app.schemas.voice import (
     ApplyRequest,
     ApplyResponse,
     AudioUploadResponse,
+    FeedbackCreate,
+    FeedbackResponse,
     ParseResponse,
     VoiceSessionCreate,
     VoiceSessionResponse,
@@ -203,6 +205,52 @@ async def apply_findings(
     )
 
     return ApplyResponse(**result)
+
+
+# ── V-05: Submit Feedback ────────────────────────────────────────────────────
+
+
+@router.post(
+    "/sessions/{session_id}/feedback",
+    response_model=FeedbackResponse,
+)
+async def submit_feedback(
+    session_id: str,
+    body: FeedbackCreate,
+    request: Request,
+    current_user: AuthenticatedUser = Depends(
+        require_permission("voice:write")
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> FeedbackResponse:
+    """Submit correction feedback on parsed voice findings.
+
+    Doctors can report which findings were incorrect -- wrong tooth number,
+    wrong condition, or entirely rejected. This data is stored for
+    accuracy tracking and model improvement.
+    """
+    result = await voice_service.submit_feedback(
+        db=db,
+        session_id=session_id,
+        findings_corrections=[c.model_dump() for c in body.findings_corrections],
+        notes=body.notes,
+    )
+
+    # Audit the feedback action
+    await audit_action(
+        request=request,
+        db=db,
+        current_user=current_user,
+        action="submit_voice_feedback",
+        resource_type="voice_session",
+        resource_id=session_id,
+        changes={
+            "correction_count": result["correction_count"],
+            "correction_rate": result["correction_rate"],
+        },
+    )
+
+    return FeedbackResponse(**result)
 
 
 # ── V-05a: Get Voice Settings ────────────────────────────────────────────────

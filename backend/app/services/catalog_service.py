@@ -29,6 +29,32 @@ logger = logging.getLogger("dentalos.catalog")
 
 _CIE10_CACHE_TTL = 3600   # 1 hour — catalog changes are infrequent
 _CUPS_CACHE_TTL = 3600    # 1 hour
+_MEDICATION_CACHE_TTL = 86400  # 24 hours
+
+# MVP: In-memory medication catalog for dental prescriptions
+# In production, this would be a public.medication_catalog table
+_MEDICATION_CATALOG: list[dict[str, str]] = [
+    {"id": "med_001", "name": "Ibuprofeno 400mg", "active_ingredient": "Ibuprofeno", "presentation": "Tableta", "concentration": "400mg"},
+    {"id": "med_002", "name": "Ibuprofeno 600mg", "active_ingredient": "Ibuprofeno", "presentation": "Tableta", "concentration": "600mg"},
+    {"id": "med_003", "name": "Acetaminofén 500mg", "active_ingredient": "Acetaminofén", "presentation": "Tableta", "concentration": "500mg"},
+    {"id": "med_004", "name": "Acetaminofén 1g", "active_ingredient": "Acetaminofén", "presentation": "Tableta", "concentration": "1000mg"},
+    {"id": "med_005", "name": "Amoxicilina 500mg", "active_ingredient": "Amoxicilina", "presentation": "Cápsula", "concentration": "500mg"},
+    {"id": "med_006", "name": "Amoxicilina 875mg + Ácido Clavulánico 125mg", "active_ingredient": "Amoxicilina/Clavulanato", "presentation": "Tableta", "concentration": "875/125mg"},
+    {"id": "med_007", "name": "Clindamicina 300mg", "active_ingredient": "Clindamicina", "presentation": "Cápsula", "concentration": "300mg"},
+    {"id": "med_008", "name": "Azitromicina 500mg", "active_ingredient": "Azitromicina", "presentation": "Tableta", "concentration": "500mg"},
+    {"id": "med_009", "name": "Metronidazol 500mg", "active_ingredient": "Metronidazol", "presentation": "Tableta", "concentration": "500mg"},
+    {"id": "med_010", "name": "Diclofenaco 50mg", "active_ingredient": "Diclofenaco", "presentation": "Tableta", "concentration": "50mg"},
+    {"id": "med_011", "name": "Nimesulida 100mg", "active_ingredient": "Nimesulida", "presentation": "Tableta", "concentration": "100mg"},
+    {"id": "med_012", "name": "Dexametasona 4mg", "active_ingredient": "Dexametasona", "presentation": "Tableta", "concentration": "4mg"},
+    {"id": "med_013", "name": "Ketorolaco 10mg", "active_ingredient": "Ketorolaco", "presentation": "Tableta", "concentration": "10mg"},
+    {"id": "med_014", "name": "Tramadol 50mg", "active_ingredient": "Tramadol", "presentation": "Cápsula", "concentration": "50mg"},
+    {"id": "med_015", "name": "Clorhexidina 0.12%", "active_ingredient": "Clorhexidina", "presentation": "Enjuague bucal", "concentration": "0.12%"},
+    {"id": "med_016", "name": "Lidocaína 2% con Epinefrina", "active_ingredient": "Lidocaína/Epinefrina", "presentation": "Inyectable", "concentration": "2%/1:80000"},
+    {"id": "med_017", "name": "Mepivacaína 3%", "active_ingredient": "Mepivacaína", "presentation": "Inyectable", "concentration": "3%"},
+    {"id": "med_018", "name": "Naproxeno 250mg", "active_ingredient": "Naproxeno", "presentation": "Tableta", "concentration": "250mg"},
+    {"id": "med_019", "name": "Cefalexina 500mg", "active_ingredient": "Cefalexina", "presentation": "Cápsula", "concentration": "500mg"},
+    {"id": "med_020", "name": "Fluconazol 150mg", "active_ingredient": "Fluconazol", "presentation": "Cápsula", "concentration": "150mg"},
+]
 
 
 # ─── Cache helpers ────────────────────────────────────────────────────────────
@@ -208,6 +234,45 @@ class CatalogService:
         # 3. Cache result
         with contextlib.suppress(Exception):
             await set_cached(cache_key, response, ttl_seconds=_CUPS_CACHE_TTL)
+
+        return response
+
+    async def search_medications(
+        self, *, db: AsyncSession, q: str
+    ) -> dict[str, Any]:
+        """Search the medication catalog with a substring match.
+
+        MVP: searches the in-memory constant list.
+        Production: would use FTS against public.medication_catalog table.
+
+        Results are cached in Redis for 24 hours per query string.
+        """
+        q_normalised = q.strip().lower()
+
+        # Check Redis cache first
+        cache_key = f"dentalos:shared:catalog:medications:search:{hashlib.md5(q_normalised.encode()).hexdigest()[:12]}"  # noqa: S324
+        cached = None
+        with contextlib.suppress(Exception):
+            cached = await get_cached(cache_key)
+
+        if cached is not None:
+            return cached
+
+        # Search in-memory catalog
+        results = [
+            med for med in _MEDICATION_CATALOG
+            if q_normalised in med["name"].lower()
+            or q_normalised in med["active_ingredient"].lower()
+        ]
+
+        response: dict[str, Any] = {
+            "items": results[:20],
+            "total": len(results),
+        }
+
+        # Cache the result
+        with contextlib.suppress(Exception):
+            await set_cached(cache_key, response, ttl_seconds=_MEDICATION_CACHE_TTL)
 
         return response
 

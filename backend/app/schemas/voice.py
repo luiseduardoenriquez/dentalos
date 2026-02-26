@@ -123,3 +123,31 @@ class VoiceSettingsUpdate(BaseModel):
     voice_enabled: bool | None = None
     max_session_duration_seconds: int | None = Field(default=None, ge=60, le=3600)
     max_sessions_per_hour: int | None = Field(default=None, ge=1, le=200)
+
+
+# ─── Feedback Schemas ────────────────────────────────────────────────────────
+
+
+class FeedbackCorrectionItem(BaseModel):
+    """A single correction from the doctor on a parsed finding."""
+
+    finding_index: int = Field(ge=0)
+    corrected_tooth: int | None = None
+    corrected_condition: str | None = None
+    is_rejected: bool = False
+
+
+class FeedbackCreate(BaseModel):
+    """Doctor feedback on parsed voice findings for quality tracking."""
+
+    findings_corrections: list[FeedbackCorrectionItem]
+    notes: str | None = Field(default=None, max_length=1000)
+
+
+class FeedbackResponse(BaseModel):
+    """Result of submitting feedback on a voice session."""
+
+    session_id: str
+    feedback_recorded: bool
+    correction_count: int
+    correction_rate: float | None = None

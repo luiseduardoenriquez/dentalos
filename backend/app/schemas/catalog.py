@@ -36,3 +36,23 @@ class CUPSSearchResponse(BaseModel):
 
     items: list[CUPSSearchResult]
     count: int
+
+
+# ─── Medication Schemas ──────────────────────────────────────────────────────
+
+
+class MedicationItem(BaseModel):
+    """Single medication catalog result."""
+
+    id: str
+    name: str
+    active_ingredient: str
+    presentation: str
+    concentration: str | None = None
+
+
+class MedicationSearchResponse(BaseModel):
+    """Response envelope for medication search results."""
+
+    items: list[MedicationItem]
+    total: int

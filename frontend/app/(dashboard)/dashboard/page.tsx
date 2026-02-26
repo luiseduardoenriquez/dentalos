@@ -14,6 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/hooks/use-auth";
+import { usePatients } from "@/lib/hooks/use-patients";
 import { cn } from "@/lib/utils";
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
@@ -72,41 +73,7 @@ function KpiCard({
 }
 
 // ─── KPI data ─────────────────────────────────────────────────────────────────
-
-const KPI_CARDS: KpiCardProps[] = [
-  {
-    title: "Pacientes activos",
-    value: "0",
-    subtitle: "Registra tu primer paciente",
-    icon: Users,
-    iconColor: "text-primary-600",
-    iconBg: "bg-primary-50 dark:bg-primary-900/30",
-  },
-  {
-    title: "Citas hoy",
-    value: "0",
-    subtitle: "Sin citas programadas",
-    icon: CalendarDays,
-    iconColor: "text-secondary-600",
-    iconBg: "bg-secondary-50 dark:bg-secondary-900/30",
-  },
-  {
-    title: "Tratamientos pendientes",
-    value: "0",
-    subtitle: "Al día con los tratamientos",
-    icon: ClipboardList,
-    iconColor: "text-accent-600",
-    iconBg: "bg-accent-50 dark:bg-accent-900/30",
-  },
-  {
-    title: "Ingresos del mes",
-    value: "$0",
-    subtitle: "Acumulado este mes",
-    icon: DollarSign,
-    iconColor: "text-success-600",
-    iconBg: "bg-success-50 dark:bg-success-700/20",
-  },
-];
+// Computed dynamically inside the component — see DashboardPage.
 
 // ─── Quick Actions ────────────────────────────────────────────────────────────
 
@@ -205,6 +172,72 @@ export default function DashboardPage() {
   // Derive first name from full name for the greeting
   const firstName = user?.name?.split(" ")[0] ?? "Doctor";
 
+  const { data: patients, isLoading: patientsLoading } = usePatients({ page: 1, page_size: 1 });
+  const role = user?.role;
+
+  // ── Role-based welcome subtitle ──────────────────────────────────────────
+  let welcomeSubtitle: React.ReactNode;
+  if (role === "clinic_owner") {
+    welcomeSubtitle = (
+      <>
+        Panel de{" "}
+        <span className="font-medium text-foreground">{tenant?.name}</span>
+        {" "}— aquí tienes el resumen de hoy.
+      </>
+    );
+  } else if (role === "doctor") {
+    welcomeSubtitle = (
+      <>
+        Tu resumen personal —{" "}
+        <span className="font-medium text-foreground">{tenant?.name}</span>.
+      </>
+    );
+  } else {
+    welcomeSubtitle = (
+      <>
+        Panel de{" "}
+        <span className="font-medium text-foreground">{tenant?.name}</span>.
+      </>
+    );
+  }
+
+  // ── Dynamic KPI cards ────────────────────────────────────────────────────
+  const patientTotal = patients?.total ?? 0;
+  const kpiCards: KpiCardProps[] = [
+    {
+      title: "Pacientes activos",
+      value: patientsLoading ? "..." : String(patientTotal),
+      subtitle: patientTotal === 0 ? "Registra tu primer paciente" : `${patientTotal} registrados`,
+      icon: Users,
+      iconColor: "text-primary-600",
+      iconBg: "bg-primary-50 dark:bg-primary-900/30",
+    },
+    {
+      title: role === "doctor" ? "Mis citas hoy" : "Citas hoy (clínica)",
+      value: "0",
+      subtitle: "Sin citas programadas",
+      icon: CalendarDays,
+      iconColor: "text-secondary-600",
+      iconBg: "bg-secondary-50 dark:bg-secondary-900/30",
+    },
+    {
+      title: "Tratamientos pendientes",
+      value: "—",
+      subtitle: "Próximamente",
+      icon: ClipboardList,
+      iconColor: "text-accent-600",
+      iconBg: "bg-accent-50 dark:bg-accent-900/30",
+    },
+    {
+      title: "Ingresos del mes",
+      value: "—",
+      subtitle: "Próximamente",
+      icon: DollarSign,
+      iconColor: "text-success-600",
+      iconBg: "bg-success-50 dark:bg-success-700/20",
+    },
+  ];
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* ── Welcome header ── */}
@@ -213,16 +246,14 @@ export default function DashboardPage() {
           Bienvenido, {firstName}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Panel de{" "}
-          <span className="font-medium text-foreground">{tenant?.name}</span>
-          {" "}— aquí tienes el resumen de hoy.
+          {welcomeSubtitle}
         </p>
       </div>
 
       {/* ── KPI cards ── */}
       <section aria-label="Indicadores clave">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {KPI_CARDS.map((kpi) => (
+          {kpiCards.map((kpi) => (
             <KpiCard key={kpi.title} {...kpi} />
           ))}
         </div>
@@ -253,12 +284,14 @@ export default function DashboardPage() {
       </section>
 
       {/* ── Empty state / Getting started ── */}
-      <section aria-label="Primeros pasos">
-        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
-          Primeros pasos
-        </h2>
-        <EmptyState />
-      </section>
+      {!patientsLoading && patientTotal === 0 && (
+        <section aria-label="Primeros pasos">
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+            Primeros pasos
+          </h2>
+          <EmptyState />
+        </section>
+      )}
     </div>
   );
 }
