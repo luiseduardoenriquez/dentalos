@@ -200,7 +200,7 @@ N/A
    - Si `email` en canales: verificar que el paciente tiene email registrado (o se provee `recipient_email`). Si no, excluir canal email y loguear advertencia (no bloquear).
 8. **Generar PDF:**
    a. Recopilar datos: branding del tenant (logo, nombre, NIT, direccion), datos del paciente (nombre, documento), items de cotizacion, totales, numero, vigencia, notas.
-   b. Renderizar PDF con template HTML + WeasyPrint (o equivalente). Incluir tabla de procedimientos, precios formateados en moneda del tenant, total destacado, fecha de validez.
+   b. Renderizar PDF con template HTML + Playwright. Incluir tabla de procedimientos, precios formateados en moneda del tenant, total destacado, fecha de validez.
    c. Subir PDF a S3 en ruta: `{tenant_id}/quotations/{quotation_number}.pdf`.
    d. Generar URL firmada con expiracion de 24 horas.
 9. Actualizar `quotation.status = "sent"` y `quotation.sent_at = now()`.

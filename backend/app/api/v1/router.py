@@ -49,3 +49,14 @@ api_v1_router.include_router(quotations_router)
 api_v1_router.include_router(consent_templates_router)
 api_v1_router.include_router(consents_router)
 api_v1_router.include_router(prescriptions_router)
+
+# Sprint 9-10: Agenda + Voice
+from app.api.v1.appointments.router import router as appointments_router
+from app.api.v1.appointments.public_router import router as public_booking_router
+from app.api.v1.appointments.waitlist_router import router as waitlist_router
+from app.api.v1.voice.router import router as voice_router
+
+api_v1_router.include_router(appointments_router)
+api_v1_router.include_router(waitlist_router)
+api_v1_router.include_router(public_booking_router)
+api_v1_router.include_router(voice_router)

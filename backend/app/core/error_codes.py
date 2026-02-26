@@ -107,6 +107,48 @@ class AppointmentErrors:
     DOCTOR_NOT_AVAILABLE = "APPOINTMENT_doctor_not_available"
     ALREADY_CANCELLED = "APPOINTMENT_already_cancelled"
     ALREADY_CONFIRMED = "APPOINTMENT_already_confirmed"
+    PAST_START_TIME = "APPOINTMENT_past_start_time"
+    SCHEDULE_CONFLICT = "APPOINTMENT_schedule_conflict"
+    DURING_BREAK = "APPOINTMENT_during_break"
+    CANNOT_COMPLETE = "APPOINTMENT_cannot_complete"
+    CANNOT_NO_SHOW = "APPOINTMENT_cannot_no_show"
+    MIN_CANCEL_NOTICE = "APPOINTMENT_min_cancel_notice"
+
+
+class ScheduleErrors:
+    """SCHEDULE domain — doctor schedule and availability error codes."""
+
+    NOT_FOUND = "SCHEDULE_not_found"
+    INVALID_DAY = "SCHEDULE_invalid_day"
+    OVERLAP = "SCHEDULE_overlap"
+    BLOCK_CONFLICT = "SCHEDULE_block_conflict"
+    INVALID_TIME_RANGE = "SCHEDULE_invalid_time_range"
+    BLOCK_IN_PAST = "SCHEDULE_block_in_past"
+    MISSING_WORKING_HOURS = "SCHEDULE_missing_working_hours"
+    BREAK_OUTSIDE_HOURS = "SCHEDULE_break_outside_hours"
+
+
+class WaitlistErrors:
+    """WAITLIST domain — appointment waitlist error codes."""
+
+    NOT_FOUND = "WAITLIST_not_found"
+    ALREADY_EXISTS = "WAITLIST_already_exists"
+    ALREADY_NOTIFIED = "WAITLIST_already_notified"
+    EXPIRED = "WAITLIST_expired"
+    PATIENT_NOT_FOUND = "WAITLIST_patient_not_found"
+
+
+class VoiceErrors:
+    """VOICE domain — voice-to-odontogram pipeline error codes."""
+
+    SESSION_NOT_FOUND = "VOICE_session_not_found"
+    SESSION_EXPIRED = "VOICE_session_expired"
+    ADDON_REQUIRED = "VOICE_addon_required"
+    RATE_LIMIT_EXCEEDED = "VOICE_rate_limit_exceeded"
+    UPLOAD_FAILED = "VOICE_upload_failed"
+    TRANSCRIPTION_FAILED = "VOICE_transcription_failed"
+    PARSE_FAILED = "VOICE_parse_failed"
+    APPLY_FAILED = "VOICE_apply_failed"
 
 
 class BillingErrors:

@@ -11,6 +11,7 @@ from app.core.database import engine
 from app.core.exception_handlers import register_exception_handlers
 from app.core.logging_config import setup_logging
 from app.core.middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
+from app.core.pdf import shutdown_pdf_engine
 from app.core.queue import close_rabbitmq, connect_rabbitmq
 from app.core.redis import redis_client
 
@@ -33,6 +34,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await engine.dispose()
     await redis_client.aclose()
     await close_rabbitmq()
+    await shutdown_pdf_engine()
 
 
 app = FastAPI(

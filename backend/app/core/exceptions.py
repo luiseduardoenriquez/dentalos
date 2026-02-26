@@ -162,3 +162,21 @@ class PrescriptionError(DentalOSError):
     """Base class for prescription errors."""
 
     pass
+
+
+class AppointmentError(DentalOSError):
+    """Base class for appointment/agenda errors."""
+
+    pass
+
+
+class ScheduleError(DentalOSError):
+    """Base class for doctor schedule errors."""
+
+    pass
+
+
+class VoiceError(DentalOSError):
+    """Base class for voice-to-odontogram errors."""
+
+    pass

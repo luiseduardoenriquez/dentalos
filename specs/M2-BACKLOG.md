@@ -98,7 +98,7 @@ Complete the clinical data capture loop: consent management, prescriptions, digi
 | 9 | Implement `POST /treatment-plans/{id}/items` — add item to plan | TP-05 | P0 | 1d | TP-01, CR-11 | CUPS code, tooth, zone, estimated_cost, priority_order; auto-price from service catalog |
 | 10 | Implement `PUT /items/{id}` and `POST /items/{id}/complete` | TP-06, TP-07 | P0 | 1d | TP-05, CR-12 | Item complete links to procedure record; plan progress% recalculated |
 | 11 | Implement `POST /treatment-plans/{id}/approve` — digital signature capture | TP-08 | P0 | 1d | TP-01, DS-01 | Signature image (base64 PNG); timestamp + IP + user-agent stored; Ley 527/1999 metadata logged |
-| 12 | Implement `GET /treatment-plans/{id}/pdf` — generate branded PDF | TP-09 | P1 | 1.5d | TP-02, OD-05 | Includes procedures, costs, odontogram snapshot, clinic branding, patient info; wkhtmltopdf or WeasyPrint |
+| 12 | Implement `GET /treatment-plans/{id}/pdf` — generate branded PDF | TP-09 | P1 | 1.5d | TP-02, OD-05 | Includes procedures, costs, odontogram snapshot, clinic branding, patient info; Playwright headless Chromium |
 | 13 | Implement `POST /treatment-plans/{id}/share` — share via email/WhatsApp | TP-10 | P1 | 0.5d | TP-09 | Queued email via RabbitMQ; temporary portal link with 7-day expiry |
 | 14 | Implement DS-01: digital signature service (canvas PNG + SHA-256 + audit) | DS-01 | P0 | 1.5d | I-11 | `POST /api/v1/signatures`; signer name, role, timestamp (UTC), IP, user-agent logged; audit entry created |
 | 15 | Implement auto-quotation `POST /quotations` from treatment plan | B-16 | P0 | 1.5d | TP-01, B-14 | Pulls prices from service catalog; creates line items; status: draft |

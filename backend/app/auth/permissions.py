@@ -15,6 +15,14 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         # Appointments
         "appointments:read", "appointments:write", "appointments:delete",
         "appointments:manage",
+        # Schedules
+        "schedule:read", "schedule:write",
+        # Waitlist
+        "waitlist:read", "waitlist:write",
+        # Voice
+        "voice:read", "voice:write",
+        # Reminders
+        "reminders:read", "reminders:write",
         # Billing
         "billing:read", "billing:write", "billing:delete", "billing:manage",
         # Consents
@@ -50,6 +58,10 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "clinical_records:read", "clinical_records:write",
         "treatment_plans:read", "treatment_plans:write",
         "appointments:read", "appointments:write",
+        "schedule:read", "schedule:write",
+        "waitlist:read",
+        "voice:read", "voice:write",
+        "reminders:read",
         "billing:read",
         "consents:read", "consents:write",
         "prescriptions:read", "prescriptions:write",
@@ -68,6 +80,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "clinical_records:read", "clinical_records:write",
         "treatment_plans:read",
         "appointments:read", "appointments:write",
+        "waitlist:read", "waitlist:write",
+        "voice:read", "voice:write",
         "billing:read",
         "consents:read",
         "prescriptions:read",
@@ -82,6 +96,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "receptionist": frozenset({
         "patients:read", "patients:write",
         "appointments:read", "appointments:write", "appointments:manage",
+        "waitlist:read", "waitlist:write",
+        "reminders:read",
         "billing:read", "billing:write",
         "quotations:read", "quotations:write",
         "messages:read", "messages:write",

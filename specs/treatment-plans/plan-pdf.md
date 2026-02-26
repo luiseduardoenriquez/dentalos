@@ -192,7 +192,7 @@ None. GET request.
      10. Plan status and priority badge
      11. Approval section (if approved): patient signature image, signer name, signer document, approval date, IP
      12. Footer: page number, generation timestamp, legal disclaimer (firma digital)
-8. Convert rendered HTML to PDF using WeasyPrint (or equivalent headless renderer). A4 page size, 15mm margins.
+8. Convert rendered HTML to PDF using Playwright headless Chromium. A4 page size, 15mm margins.
 9. Upload generated PDF to S3: `tenants/{tenant_id}/pdfs/plans/{plan_id}/plan_{timestamp}.pdf`.
 10. Store metadata in `plan_pdfs` table: plan_id, s3_key, generated_at, page_count, file_size_bytes, generated_by.
 11. Write audit log entry (action: read (pdf_export), resource: treatment_plan, PHI: yes).
@@ -390,7 +390,7 @@ session.merge(pdf_record)  # Upsert on plan_id
    - **Then:** 429 Too Many Requests
 
 3. PDF rendering failure
-   - **Given:** WeasyPrint raises exception
+   - **Given:** Playwright raises exception
    - **When:** GET /pdf
    - **Then:** 500 pdf_generation_failed
 
@@ -402,7 +402,7 @@ session.merge(pdf_record)  # Upsert on plan_id
 
 ### Mocking Strategy
 
-- WeasyPrint: Mock render call, return known byte string in unit tests; integration tests use real renderer
+- Playwright: Mock render call, return known byte string in unit tests; integration tests use real renderer
 - S3: Mock boto3 put_object and generate_presigned_url in unit tests; use localstack for integration
 - Odontogram snapshot: Fixture returning PNG bytes
 - Redis cache: fakeredis for cache hit/miss tests
@@ -481,7 +481,7 @@ session.merge(pdf_record)  # Upsert on plan_id
 ### Hook 6: Testability
 - [x] Test cases enumerated (happy + edge + error)
 - [x] Test data requirements specified
-- [x] Mocking strategy for external services (WeasyPrint, S3)
+- [x] Mocking strategy for external services (Playwright, S3)
 - [x] Acceptance criteria stated
 
 **Overall Status:** PASS

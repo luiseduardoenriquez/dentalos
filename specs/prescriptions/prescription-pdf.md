@@ -386,7 +386,7 @@ Content-Length: {bytes}
 ### Mocking Strategy
 
 - S3 / object storage: Mock GET (cache hit), mock PUT (first generation upload)
-- PDF generation engine: Integration test with real engine (WeasyPrint) in test environment; mock in unit tests
+- PDF generation engine: Integration test with real engine (Playwright) in test environment; mock in unit tests
 - Doctor signature lookup: Seeded test fixture with and without digital signature record
 
 ---

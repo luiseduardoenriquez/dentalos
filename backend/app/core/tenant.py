@@ -8,7 +8,7 @@ _current_tenant: ContextVar["TenantContext | None"] = ContextVar(
     "current_tenant", default=None
 )
 
-SCHEMA_NAME_PATTERN = re.compile(r"^tn_[a-f0-9]{8,12}$")
+SCHEMA_NAME_PATTERN = re.compile(r"^tn_[a-z0-9_]{3,40}$")
 
 
 @dataclass(frozen=True)

@@ -351,7 +351,7 @@ class ConsentService:
 
         return _consent_to_dict(consent)
 
-    def generate_pdf(
+    async def generate_pdf(
         self,
         *,
         consent_data: dict[str, Any],
@@ -359,7 +359,7 @@ class ConsentService:
         watermark: str | None = None,
     ) -> bytes:
         """Generate a PDF for a consent document."""
-        return render_pdf(
+        return await render_pdf(
             template_name="consent_es.html",
             context={
                 "consent": consent_data,

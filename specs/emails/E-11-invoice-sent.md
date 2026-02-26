@@ -145,7 +145,7 @@ Color: #2563EB (azul)
 
 ```
 Archivo adjunto: factura_{{invoice_number}}.pdf
-Generado por: servicio de generación de PDFs (ReportLab o WeasyPrint)
+Generado por: servicio de generación de PDFs (Playwright headless Chromium)
 Tamaño máximo: 2MB
 Contenido: Factura completa con logo, detalles, tabla de ítems, totales, firma electrónica (si DIAN)
 ```

@@ -179,7 +179,7 @@ X-Content-Hash: {SHA256 hex of PDF file} — for signed consents only
    - If `voided` and requester is not `clinic_owner`: return 409.
    - If `voided` and requester is `clinic_owner`: generate PDF with void watermark.
 6. Check object storage cache: look for pre-generated PDF at `s3://bucket/tenant/{tenant_id}/consents/{consent_id}/consent_{consent_id}.pdf`. If exists and consent is `signed` (immutable), return the cached PDF directly (no re-generation needed).
-7. If no cached PDF (or consent is `draft`): generate PDF on demand using HTML-to-PDF engine (WeasyPrint or equivalent).
+7. If no cached PDF (or consent is `draft`): generate PDF on demand using Playwright headless Chromium.
    - Fetch consent record with all signatures and signature image URLs.
    - Fetch tenant profile (logo URL, name, address, NIT, colors).
    - Compose PDF template with all sections per structure above.
@@ -381,7 +381,7 @@ X-Content-Hash: {SHA256 hex of PDF file} — for signed consents only
 ### Mocking Strategy
 
 - S3 / object storage: Mock GET (return pre-built test PDF bytes), mock PUT
-- PDF generation engine (WeasyPrint): Integration test with real engine in test environment; mock in unit tests
+- PDF generation engine (Playwright): Integration test with real engine in test environment; mock in unit tests
 - Sentry: Mock capture_exception; assert called on tamper detection
 - Signature image URLs: Mock S3 pre-signed URL response
 

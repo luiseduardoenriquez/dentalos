@@ -1,0 +1,212 @@
+"""Public booking API routes — AP-15 and AP-16.
+
+These endpoints require NO authentication. They use a tenant slug from the URL
+path to resolve the clinic context. Patient data is never logged.
+
+Endpoint map:
+  GET  /public/booking/{slug}  — AP-15: Get booking configuration for a clinic
+  POST /public/booking/{slug}  — AP-16: Create a public self-booking
+"""
+
+import logging
+import uuid
+from datetime import UTC, datetime, timedelta
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
+from app.models.public.tenant import Tenant
+from app.schemas.public_booking import (
+    BookingConfigResponse,
+    PublicBookingRequest,
+    PublicBookingResponse,
+)
+
+logger = logging.getLogger("dentalos.public_booking")
+
+router = APIRouter(prefix="/public/booking", tags=["public-booking"])
+
+
+# ─── Tenant resolution helper ─────────────────────────────────────────────────
+
+
+async def resolve_tenant_by_slug(slug: str, db: AsyncSession) -> Tenant:
+    """Resolve an active tenant from a URL slug.
+
+    Queries public.tenants and returns the Tenant ORM object.
+
+    Raises:
+        HTTPException (404) — slug does not exist or tenant is not active.
+    """
+    result = await db.execute(
+        select(Tenant).where(
+            Tenant.slug == slug,
+            Tenant.status == "active",
+        )
+    )
+    tenant = result.scalar_one_or_none()
+    if tenant is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "TENANT_not_found",
+                "message": "No se encontro una clinica activa con ese enlace.",
+                "details": {},
+            },
+        )
+    return tenant
+
+
+# ─── AP-15: Get booking configuration ────────────────────────────────────────
+
+
+@router.get("/{slug}", response_model=BookingConfigResponse)
+async def get_booking_config(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+) -> BookingConfigResponse:
+    """Return the public booking configuration for a clinic (AP-15).
+
+    No authentication required. Returns clinic name, available doctors,
+    supported appointment types, and the next 30 days with open slots.
+
+    For MVP: available_dates returns the next 30 calendar days. A future
+    iteration will filter by actual schedule availability.
+    """
+    tenant = await resolve_tenant_by_slug(slug, db)
+
+    # Build the next 30 calendar days starting from tomorrow
+    today = datetime.now(UTC).date()
+    available_dates = [
+        (today + timedelta(days=i)).isoformat()
+        for i in range(1, 31)
+    ]
+
+    # For MVP: doctors list is stubbed — a full implementation would
+    # query the tenant schema for active doctors. We keep this lightweight
+    # since public endpoints must not set up tenant search_path.
+    return BookingConfigResponse(
+        clinic_name=tenant.name,
+        clinic_slug=tenant.slug,
+        doctors=[],  # Populated by the frontend after the tenant schedules are implemented
+        appointment_types=["consultation", "follow_up"],
+        available_dates=available_dates,
+    )
+
+
+# ─── AP-16: Create public booking ─────────────────────────────────────────────
+
+
+@router.post("/{slug}", response_model=PublicBookingResponse, status_code=201)
+async def create_public_booking(
+    slug: str,
+    body: PublicBookingRequest,
+    db: AsyncSession = Depends(get_db),
+) -> PublicBookingResponse:
+    """Create a self-booking for a patient (AP-16).
+
+    No authentication required. Flow:
+      1. Resolve tenant by slug.
+      2. Log a warning if captcha_token is absent (CAPTCHA stub for MVP).
+      3. Switch to tenant schema.
+      4. Find or create the patient by document_number.
+      5. Create the appointment.
+      6. Return booking confirmation.
+
+    PHI is never logged (patient names, document numbers, phone, email).
+    """
+    tenant = await resolve_tenant_by_slug(slug, db)
+
+    # CAPTCHA stub: log a warning if no token is present (MVP)
+    if body.captcha_token is None:
+        logger.warning(
+            "Public booking submitted without captcha token for tenant=%s",
+            tenant.slug,
+        )
+
+    # Set the tenant search_path for the remainder of this operation
+    schema = tenant.schema_name
+    await db.execute(__import__("sqlalchemy").text(f"SET search_path TO {schema}, public"))
+
+    # Resolve or create patient
+    from app.models.tenant.patient import Patient
+
+    patient_result = await db.execute(
+        select(Patient).where(
+            Patient.document_number == body.patient_document_number,
+            Patient.is_active.is_(True),
+        )
+    )
+    patient = patient_result.scalar_one_or_none()
+
+    if patient is None:
+        # Auto-create a minimal patient record
+        patient = Patient(
+            first_name=body.patient_first_name.strip(),
+            last_name=body.patient_last_name.strip(),
+            document_type=body.patient_document_type,
+            document_number=body.patient_document_number,
+            phone=body.patient_phone,
+            email=body.patient_email,
+            is_active=True,
+        )
+        db.add(patient)
+        await db.flush()
+        await db.refresh(patient)
+        logger.info("Public booking: auto-created patient record")
+
+    # Resolve doctor name (best-effort, non-blocking)
+    from app.models.tenant.user import User
+
+    doctor_result = await db.execute(
+        select(User.name).where(User.id == uuid.UUID(body.doctor_id))
+    )
+    doctor_name = doctor_result.scalar_one_or_none() or "Doctor"
+
+    # Create appointment
+    from datetime import timedelta as _td
+
+    duration_defaults = {"consultation": 30, "procedure": 60, "follow_up": 20}
+    duration = duration_defaults.get(body.type, 30)
+    end_time = body.start_time + _td(minutes=duration)
+
+    from app.models.tenant.appointment import Appointment
+
+    appointment = Appointment(
+        patient_id=patient.id,
+        doctor_id=uuid.UUID(body.doctor_id),
+        start_time=body.start_time,
+        end_time=end_time,
+        duration_minutes=duration,
+        type=body.type,
+        status="scheduled",
+        completion_notes=body.notes,
+        # Public bookings are not linked to a staff creator
+        created_by=patient.id,
+        is_active=True,
+    )
+    db.add(appointment)
+    await db.flush()
+    await db.refresh(appointment)
+
+    logger.info(
+        "Public booking created: appointment=%s tenant=%s",
+        str(appointment.id)[:8],
+        tenant.slug,
+    )
+
+    return PublicBookingResponse(
+        appointment_id=str(appointment.id),
+        patient_id=str(patient.id),
+        doctor_name=doctor_name,
+        start_time=appointment.start_time,
+        end_time=appointment.end_time,
+        type=appointment.type,
+        status=appointment.status,
+        confirmation_message=(
+            f"Su cita ha sido agendada exitosamente en {tenant.name}. "
+            "Le enviaremos un recordatorio antes de su cita."
+        ),
+    )

@@ -10,7 +10,7 @@
 
 **Priority:** Low
 
-**Dependencies:** INV-05 (sterilization-create.md), infra/authentication-rules.md, infra/caching.md, PDF generation library (WeasyPrint or ReportLab)
+**Dependencies:** INV-05 (sterilization-create.md), infra/authentication-rules.md, infra/caching.md, PDF generation library (Playwright headless Chromium)
 
 ---
 
@@ -37,7 +37,7 @@ Accept: application/pdf
 
 **Rate Limiting:**
 - Inherits global rate limit (100 requests per minute per user)
-- PDF generation is rate-limited additionally: 5 PDF exports per minute per user (WeasyPrint is CPU-intensive)
+- PDF generation is rate-limited additionally: 5 PDF exports per minute per user (Playwright headless rendering is CPU-intensive)
 
 ---
 
@@ -239,7 +239,7 @@ Content-Disposition: attachment; filename="esterilizacion_{tenant_slug}_{date_fr
 8. Run summary count query: `SELECT COUNT(*), SUM(CASE WHEN is_compliant THEN 1 ELSE 0 END) FROM sterilization_records WHERE tenant_id = :tenant_id [+ date filters]`.
 9. For JSON: build paginated response.
 10. For PDF:
-    a. Render PDF using WeasyPrint or ReportLab with clinic header from tenant settings.
+    a. Render PDF using Playwright headless Chromium with clinic header from tenant settings.
     b. Return binary PDF with appropriate headers.
     c. Rate check: PDF export limit (5/min per user).
 11. Return 200.

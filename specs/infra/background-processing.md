@@ -91,7 +91,7 @@ Each worker connects to tenant schemas dynamically using the `tenant_id` from th
 
 **Workers:** 2 concurrent workers. PDF generation is CPU-bound; workers are isolated to prevent resource contention with API processes.
 
-**Concurrency rationale:** Clinical document generation involves PDF rendering (WeasyPrint/ReportLab) which is CPU-intensive. Two workers prevent a single long PDF job from blocking other clinical tasks.
+**Concurrency rationale:** Clinical document generation involves PDF rendering (Playwright headless Chromium) which is CPU-intensive. Two workers prevent a single long PDF job from blocking other clinical tasks.
 
 ### 3. `import` Queue
 

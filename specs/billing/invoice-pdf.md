@@ -143,7 +143,7 @@ Content-Disposition: attachment; filename="FAC-2026-00001.pdf"
 **When:** Rate limit excedido (30/min — PDF generation es costoso).
 
 #### 500 Internal Server Error
-**When:** Error al renderizar el HTML, generar el PDF con WeasyPrint, o subir a S3.
+**When:** Error al renderizar el HTML, generar el PDF con Playwright, o subir a S3.
 
 ---
 
@@ -170,7 +170,7 @@ Content-Disposition: attachment; filename="FAC-2026-00001.pdf"
       - Formatear fechas en formato local del pais del tenant.
       - Calcular `balance_due = total - amount_paid`.
    f. Renderizar template HTML `invoice_pdf.html` con Jinja2.
-   g. Convertir HTML a PDF con WeasyPrint (`HTML(string=html_content).write_pdf()`).
+   g. Convertir HTML a PDF con Playwright (`page.set_content(html) + page.pdf()`).
    h. Subir bytes del PDF a S3: `{tenant_id}/invoices/{invoice_number}.pdf`.
    i. Generar URL firmada con expiracion de 1 hora.
    j. Actualizar `invoice.pdf_url` con el path S3 (sin firma — la firma se genera on-demand).
@@ -286,7 +286,7 @@ await session.commit()
 
 ### Expected Response Time
 - **Target:** < 100ms (si PDF existe en S3 — solo regenerar URL firmada)
-- **Maximum acceptable:** < 4000ms (generacion completa de PDF con WeasyPrint)
+- **Maximum acceptable:** < 4000ms (generacion completa de PDF con Playwright)
 
 ### Caching Strategy
 - **Strategy:** S3 para persistencia del archivo; Redis para URL firmada cacheada
@@ -416,7 +416,7 @@ await session.commit()
 ### Mocking Strategy
 
 - **S3:** Mock de boto3 con response simulado para put_object y generate_presigned_url; mock de head_object para verificar existencia
-- **WeasyPrint:** Mock en unit tests (retorna bytes fijos); test real en integration tests
+- **Playwright:** Mock en unit tests (retorna bytes fijos); test real en integration tests
 - **Jinja2:** Usar templates reales pero con datos de prueba
 - **Redis:** fakeredis para cache de URL firmada
 
@@ -471,7 +471,7 @@ await session.commit()
 - [x] Follows service boundaries (billing domain)
 - [x] Uses tenant schema isolation
 - [x] Matches FastAPI conventions (async, StreamingResponse o RedirectResponse)
-- [x] S3 + WeasyPrint como dependencias externas documentadas
+- [x] S3 + Playwright como dependencias externas documentadas
 
 ### Hook 3: Security & Privacy
 - [x] Auth level stated (patient restriction)
@@ -493,7 +493,7 @@ await session.commit()
 
 ### Hook 6: Testability
 - [x] Test cases enumerated (cache hit, S3 miss, generacion)
-- [x] Mocking strategy (S3, WeasyPrint, Redis)
+- [x] Mocking strategy (S3, Playwright, Redis)
 - [x] Acceptance criteria stated
 
 **Overall Status:** PASS

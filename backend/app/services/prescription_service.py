@@ -202,7 +202,7 @@ class PrescriptionService:
             prescription_id[:8],
         )
 
-        return render_pdf(
+        return await render_pdf(
             template_name="prescription_es.html",
             context={
                 "patient": {

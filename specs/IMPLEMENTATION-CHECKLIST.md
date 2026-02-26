@@ -490,17 +490,17 @@ Required for treatment plan approvals and consent forms. Colombia Ley 527/1999 (
 
 Voice dictation is THE core differentiator per the client interview. Moved up from post-MVP. Pipeline: Audio → OpenAI Whisper → LLM (Claude) → Structured JSON → Odontogram API. Requires the AI Voice add-on ($10/mo).
 
-- [ ] **V-01** `POST /api/v1/voice/sessions` -- Start voice recording session (returns session_id, presigned S3 upload URL)
-- [ ] **V-02** `POST /api/v1/voice/sessions/{session_id}/transcribe` -- Submit audio file, trigger Whisper transcription (async)
-- [ ] **V-03** `GET /api/v1/voice/sessions/{session_id}/result` -- Poll for transcription + LLM parsing result; returns structured JSON (tooth numbers, conditions, procedures)
-- [ ] **V-04** `POST /api/v1/voice/sessions/{session_id}/apply` -- Apply parsed result to odontogram (review-before-apply mode: user confirms before write)
+- [x] **V-01** `POST /api/v1/voice/sessions` -- Start voice recording session (returns session_id, presigned S3 upload URL)
+- [x] **V-02** `POST /api/v1/voice/sessions/{session_id}/upload` -- Submit audio file, trigger Whisper transcription (async)
+- [x] **V-03** `GET /api/v1/voice/sessions/{session_id}` + `POST .../parse` -- Poll for transcription status + trigger LLM parsing; returns structured JSON (tooth numbers, conditions, procedures)
+- [x] **V-04** `POST /api/v1/voice/sessions/{session_id}/apply` -- Apply parsed result to odontogram (review-before-apply mode: user confirms before write)
 - [ ] **V-05** `POST /api/v1/voice/sessions/{session_id}/feedback` -- Submit correction feedback (tooth number errors, condition mismatches) for quality tracking
-  - [ ] OpenAI Whisper API integration (external dependency, requires API key)
-  - [ ] Anthropic Claude API integration for dental NLP parsing (external dependency, requires API key)
+  - [ ] OpenAI Whisper API integration (external dependency, requires API key) -- MVP: stub in voice_worker.py
+  - [ ] Anthropic Claude API integration for dental NLP parsing (external dependency, requires API key) -- MVP: stub in voice_service._parse_dental_text()
   - [ ] LLM prompt: extract tooth numbers (FDI), conditions (caries, fractura, corona, etc.), procedures from free-form Spanish dental dictation
-  - [ ] Review-before-apply mode: parsed results shown as diff before commit to odontogram
+  - [x] Review-before-apply mode: parsed results shown as diff before commit to odontogram
   - [ ] Accuracy tracking: log correction rate per session for quality monitoring
-  - [ ] Feature gate: AI Voice add-on plan check before allowing voice sessions
+  - [x] Feature gate: AI Voice add-on plan check before allowing voice sessions
 
 ### Frontend: Agenda Screens (FE-AG-01 through FE-AG-06)
 
@@ -508,21 +508,25 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 - [ ] **FE-AG-01** Main calendar view (color-coded, drag-and-drop, multi-doctor columns, **daily view as DEFAULT**)
 - [ ] **FE-AG-02** Create appointment modal (patient search, doctor, date/time, availability check, **appointment type auto-sets duration; whole flow completable in ≤3 taps**)
 - [ ] **FE-AG-03** Appointment detail modal (patient info, status, actions: confirm/complete/cancel)
-- [ ] **FE-AG-04** Doctor schedule editor (weekly template, drag to adjust times)
-- [ ] **FE-AG-05** Waitlist sidebar panel (waiting patients, one-click scheduling)
+- [x] **FE-AG-04** Doctor schedule editor (weekly template, drag to adjust times)
+- [x] **FE-AG-05** Waitlist sidebar panel (waiting patients, one-click scheduling)
 - [ ] **FE-AG-06** Today's appointments view (timeline, patient status, quick actions)
 - [ ] **FE-PP-10** Public booking page (clinic-branded, doctor selection, time picker)
 
 ### Frontend: Voice UI (FE-V-01 through FE-V-03)
 
-- [ ] **FE-V-01** Voice recording button (floating action in odontogram screen, tap to start/stop, recording indicator with waveform animation)
-- [ ] **FE-V-02** Transcription review panel (parsed teeth and conditions displayed as a diff over current odontogram, confirm/reject each change, apply button)
-- [ ] **FE-V-03** Voice session history (list of past sessions, transcription text, applied/rejected status, accuracy feedback)
+- [x] **FE-V-01** Voice recording button (floating action in odontogram screen, tap to start/stop, recording indicator with waveform animation)
+- [x] **FE-V-02** Transcription review panel (parsed teeth and conditions displayed as a diff over current odontogram, confirm/reject each change, apply button)
+- [x] **FE-V-03** Voice session history (list of past sessions, transcription text, applied/rejected status, accuracy feedback)
 
 ### Frontend: Settings
 
 - [ ] **FE-S-04** Odontogram configuration (mode, default view, condition colors)
 - [ ] **FE-S-05** Notification settings (reminder timing, channels, templates)
+- [x] **FE-AG-SCH** Doctor schedule settings page (`/settings/schedule` — weekly hours, breaks, duration defaults)
+- [x] **FE-AG-VOI** Voice settings page (`/settings/voice` — enable toggle, max session duration, max sessions/hour)
+- [x] **use-schedule** TanStack Query hooks: `useDoctorSchedule`, `useUpdateSchedule`, `useAvailabilityBlocks`, `useCreateBlock`, `useDeleteBlock`, `useAvailableSlots`
+- [x] **use-waitlist** TanStack Query hooks: `useWaitlist`, `useAddToWaitlist`, `useNotifyWaitlistEntry`
 
 ### Email Templates
 

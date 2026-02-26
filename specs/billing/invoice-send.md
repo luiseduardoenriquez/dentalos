@@ -211,7 +211,7 @@ N/A
     a. Cargar items de la factura y datos de la clinica (nombre, NIT/RUT, logo, direccion).
     b. Cargar datos del paciente (nombre, documento, email).
     c. Renderizar HTML con el template de factura (`invoice_pdf.html`).
-    d. Convertir a PDF con WeasyPrint.
+    d. Convertir a PDF con Playwright.
     e. Subir a S3 en ruta `{tenant_id}/invoices/{invoice_number}.pdf`.
     f. Generar URL firmada con expiracion de 24 horas.
 11. Actualizar `invoice.status = 'sent'`, `invoice.sent_at = now()`, `invoice.sent_by = user_id`, `invoice.pdf_url = pdf_s3_path`.
@@ -453,7 +453,7 @@ await session.commit()
 
 - **RabbitMQ:** Mock del publisher — verificar job encolado con payload correcto
 - **S3:** Mock de upload — retornar URL firmada simulada
-- **WeasyPrint:** Mock para retornar bytes de PDF en unit tests
+- **Playwright:** Mock para retornar bytes de PDF en unit tests
 - **Redis:** fakeredis para rate limiting
 
 ---
@@ -529,7 +529,7 @@ await session.commit()
 ### Hook 6: Testability
 - [x] Test cases enumerated (happy + edge + error)
 - [x] Test data requirements specified
-- [x] Mocking strategy (RabbitMQ, S3, WeasyPrint)
+- [x] Mocking strategy (RabbitMQ, S3, Playwright)
 - [x] Acceptance criteria stated
 
 **Overall Status:** PASS

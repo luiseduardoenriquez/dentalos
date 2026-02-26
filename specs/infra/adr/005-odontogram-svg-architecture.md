@@ -152,7 +152,7 @@ SVG renders natively to PDF via the browser's print stylesheet without rasteriza
 - Adds a border and patient header information above the odontogram.
 - Renders at the SVG's intrinsic viewBox resolution, producing crisp vector output at any DPI.
 
-For server-side PDF generation (treatment plan documents), the SVG markup is passed to WeasyPrint or embedded directly in the PDF template as inline SVG.
+For server-side PDF generation (treatment plan documents), the SVG markup is passed to Playwright headless Chromium or embedded directly in the PDF template as inline SVG.
 
 ### ARIA Accessibility
 

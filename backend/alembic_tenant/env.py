@@ -3,6 +3,7 @@ from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool, text
+from sqlalchemy.schema import CreateSchema
 
 from app.core.config import settings
 from app.models.base import TenantBase
@@ -19,7 +20,7 @@ config.set_main_option("sqlalchemy.url", settings.database_sync_url)
 
 target_metadata = TenantBase.metadata
 
-SCHEMA_PATTERN = re.compile(r"^tn_[a-f0-9]{8,12}$")
+SCHEMA_PATTERN = re.compile(r"^tn_[a-z0-9_]{3,40}$")
 
 
 def get_tenant_schema() -> str:
@@ -44,6 +45,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         version_table_schema=schema,
+        include_schemas=True,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -57,13 +59,15 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        # Set search_path to tenant schema before running migrations
+        # Set search_path so all CREATE TABLE statements go to the tenant schema
         connection.execute(text(f"SET search_path TO {schema}, public"))
-        connection.execute(text("COMMIT"))
+        connection.commit()
+
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
             version_table_schema=schema,
+            include_schemas=True,
         )
         with context.begin_transaction():
             context.run_migrations()

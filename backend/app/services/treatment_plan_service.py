@@ -440,7 +440,7 @@ class TreatmentPlanService:
 
         return _plan_to_dict(plan)
 
-    def generate_pdf(
+    async def generate_pdf(
         self,
         *,
         plan_data: dict[str, Any],
@@ -448,7 +448,7 @@ class TreatmentPlanService:
         watermark: str | None = None,
     ) -> bytes:
         """Generate a PDF for a treatment plan."""
-        return render_pdf(
+        return await render_pdf(
             template_name="treatment_plan_es.html",
             context={
                 "plan": plan_data,

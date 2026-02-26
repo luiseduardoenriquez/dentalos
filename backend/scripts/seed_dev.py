@@ -26,6 +26,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import uuid
+from datetime import date
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -162,9 +163,9 @@ SAMPLE_PATIENTS: list[dict] = [
     {
         "first_name": "María",
         "last_name": "González Rodríguez",
-        "document_type": "cedula",
+        "document_type": "CC",
         "document_number": "52814763",
-        "date_of_birth": "1985-03-12",
+        "birthdate": date(1985, 3, 12),
         "gender": "female",
         "phone": "+5716234567",
         "email": "maria.gonzalez@gmail.com",
@@ -174,9 +175,9 @@ SAMPLE_PATIENTS: list[dict] = [
     {
         "first_name": "Carlos",
         "last_name": "Martínez López",
-        "document_type": "cedula",
+        "document_type": "CC",
         "document_number": "80295143",
-        "date_of_birth": "1979-07-28",
+        "birthdate": date(1979, 7, 28),
         "gender": "male",
         "phone": "+5716891234",
         "email": "carlos.martinez@hotmail.com",
@@ -186,9 +187,9 @@ SAMPLE_PATIENTS: list[dict] = [
     {
         "first_name": "Sofía",
         "last_name": "Hernández Castro",
-        "document_type": "cedula",
+        "document_type": "CC",
         "document_number": "1020345678",
-        "date_of_birth": "1998-11-05",
+        "birthdate": date(1998, 11, 5),
         "gender": "female",
         "phone": "+5716452890",
         "email": "sofia.hernandez@outlook.com",
@@ -198,9 +199,9 @@ SAMPLE_PATIENTS: list[dict] = [
     {
         "first_name": "Luis",
         "last_name": "Jiménez Reyes",
-        "document_type": "cedula",
+        "document_type": "CC",
         "document_number": "71634892",
-        "date_of_birth": "1972-02-18",
+        "birthdate": date(1972, 2, 18),
         "gender": "male",
         "phone": "+5716789012",
         "email": "luis.jimenez@gmail.com",
@@ -210,9 +211,9 @@ SAMPLE_PATIENTS: list[dict] = [
     {
         "first_name": "Isabela",
         "last_name": "Sánchez Peña",
-        "document_type": "cedula",
+        "document_type": "CC",
         "document_number": "1013598427",
-        "date_of_birth": "2001-09-22",
+        "birthdate": date(2001, 9, 22),
         "gender": "female",
         "phone": "+5716123456",
         "email": "isabela.sanchez@gmail.com",
@@ -344,10 +345,10 @@ async def provision_schema(schema_name: str, db: AsyncSession) -> bool:
             "alembic",
             "-c",
             "alembic_tenant/alembic.ini",
-            "upgrade",
-            "head",
             "-x",
             f"schema={schema_name}",
+            "upgrade",
+            "head",
         ],
         capture_output=True,
         text=True,
@@ -517,7 +518,7 @@ async def seed_patients(schema_name: str, db: AsyncSession) -> None:
                     id,
                     first_name, last_name,
                     document_type, document_number,
-                    date_of_birth, gender,
+                    birthdate, gender,
                     phone, email, address,
                     blood_type,
                     is_active,
@@ -526,7 +527,7 @@ async def seed_patients(schema_name: str, db: AsyncSession) -> None:
                     gen_random_uuid(),
                     :first_name, :last_name,
                     :document_type, :document_number,
-                    :date_of_birth, :gender,
+                    :birthdate, :gender,
                     :phone, :email, :address,
                     :blood_type,
                     true,
