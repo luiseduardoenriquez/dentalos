@@ -1,23 +1,27 @@
-"""Billing summary API routes — B-11, B-12, B-13.
+"""Billing summary API routes — B-11, B-12, B-12b, B-13.
 
 Endpoint map:
   GET /billing/summary       — B-11: Billing summary (totals for dashboard)
   GET /billing/aging-report  — B-12: Aging report (overdue invoices by age)
+  GET /billing/commissions   — B-12b: Doctor commissions report
   GET /billing/revenue       — B-13: Revenue report (collected by period)
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime as dt, timedelta
+from uuid import UUID as PyUUID
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import case, func, select
+from sqlalchemy import Date, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.context import AuthenticatedUser
 from app.auth.dependencies import require_permission
 from app.core.database import get_tenant_db
-from app.models.tenant.invoice import Invoice
+from app.core.exceptions import BusinessValidationError
+from app.models.tenant.invoice import Invoice, InvoiceItem
 from app.models.tenant.payment import Payment
+from app.models.tenant.user import User
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -221,4 +225,166 @@ async def revenue_report(
         collected=collected,
         invoice_count=invoice_count,
         payment_count=payment_count,
+    )
+
+
+# ─── Commissions schemas ─────────────────────────────────────────────────────
+
+
+class CommissionDoctor(BaseModel):
+    id: str
+    name: str
+    specialty: str | None
+
+
+class CommissionEntry(BaseModel):
+    doctor: CommissionDoctor
+    procedure_count: int
+    total_revenue: int  # cents
+    commission_percentage: float
+    commission_amount: int  # cents
+
+
+class CommissionTotals(BaseModel):
+    total_revenue: int  # cents
+    total_commission: int  # cents
+
+
+class CommissionPeriod(BaseModel):
+    date_from: str
+    date_to: str
+
+
+class CommissionsReportResponse(BaseModel):
+    period: CommissionPeriod
+    currency: str
+    commissions: list[CommissionEntry]
+    totals: CommissionTotals
+    generated_at: str
+
+
+# ─── B-12b: Commissions report ──────────────────────────────────────────────
+
+
+@router.get("/commissions", response_model=CommissionsReportResponse)
+async def commissions_report(
+    date_from: date = Query(..., description="Start date (inclusive)"),
+    date_to: date = Query(..., description="End date (inclusive)"),
+    doctor_id: PyUUID | None = Query(default=None, description="Filter to single doctor"),
+    status: str = Query(
+        default="paid",
+        pattern=r"^(paid|all)$",
+        description="Invoice status filter: 'paid' or 'all'",
+    ),
+    current_user: AuthenticatedUser = Depends(
+        require_permission("billing:read")
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> CommissionsReportResponse:
+    """Doctor commission report for a date range.
+
+    Calculates per-doctor: procedure count, total revenue, commission amount.
+    Uses invoice.created_by as the doctor reference. Commission percentage
+    is configured per doctor on their user profile.
+    """
+    today = date.today()
+
+    # Validate date range
+    if date_from > date_to:
+        raise BusinessValidationError(
+            "Rango de fechas inválido.",
+            field_errors={"date_from": ["La fecha de inicio debe ser anterior a la fecha de fin."]},
+        )
+    if date_to > today:
+        raise BusinessValidationError(
+            "Rango de fechas inválido.",
+            field_errors={"date_to": ["La fecha de fin no puede ser futura."]},
+        )
+    if (date_to - date_from).days > 366:
+        raise BusinessValidationError(
+            "Rango de fechas inválido.",
+            field_errors={"date_range": ["El rango de fechas no puede superar 366 días."]},
+        )
+
+    # Build status filter
+    if status == "paid":
+        status_filter = ["paid"]
+    else:
+        status_filter = ["draft", "sent", "partial", "paid", "overdue"]
+
+    # Doctor filter
+    doctor_filter = []
+    if doctor_id is not None:
+        doctor_filter.append(User.id == doctor_id)
+
+    # Main aggregation query
+    # Join: users LEFT JOIN invoices (filtered by date/status) LEFT JOIN invoice_items
+    stmt = (
+        select(
+            User.id,
+            User.name,
+            User.specialties,
+            User.commission_percentage,
+            func.coalesce(func.count(InvoiceItem.id), 0).label("procedure_count"),
+            func.coalesce(func.sum(InvoiceItem.line_total), 0).label("total_revenue"),
+        )
+        .outerjoin(
+            Invoice,
+            (Invoice.created_by == User.id)
+            & (Invoice.status.in_(status_filter))
+            & (func.cast(Invoice.created_at, Date) >= date_from)
+            & (func.cast(Invoice.created_at, Date) <= date_to)
+            & (Invoice.is_active.is_(True)),
+        )
+        .outerjoin(InvoiceItem, InvoiceItem.invoice_id == Invoice.id)
+        .where(
+            User.role == "doctor",
+            User.is_active.is_(True),
+            *doctor_filter,
+        )
+        .group_by(User.id, User.name, User.specialties, User.commission_percentage)
+        .order_by(func.coalesce(func.sum(InvoiceItem.line_total), 0).desc())
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    commissions = []
+    total_rev = 0
+    total_comm = 0
+
+    for row in rows:
+        pct = float(row.commission_percentage) if row.commission_percentage is not None else 0.0
+        revenue = int(row.total_revenue)
+        comm_amount = int(revenue * pct / 100)  # floor via int()
+        specialty = row.specialties[0] if row.specialties else None
+
+        commissions.append(
+            CommissionEntry(
+                doctor=CommissionDoctor(
+                    id=str(row.id),
+                    name=row.name,
+                    specialty=specialty,
+                ),
+                procedure_count=int(row.procedure_count),
+                total_revenue=revenue,
+                commission_percentage=pct,
+                commission_amount=comm_amount,
+            )
+        )
+        total_rev += revenue
+        total_comm += comm_amount
+
+    return CommissionsReportResponse(
+        period=CommissionPeriod(
+            date_from=date_from.isoformat(),
+            date_to=date_to.isoformat(),
+        ),
+        currency="COP",
+        commissions=commissions,
+        totals=CommissionTotals(
+            total_revenue=total_rev,
+            total_commission=total_comm,
+        ),
+        generated_at=dt.now().isoformat(),
     )

@@ -610,12 +610,12 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 ### Frontend: Billing Screens (FE-B-01 through FE-B-08)
 
 - [x] **FE-B-01** Invoice list page (patient invoices tab + hooks)
-- [ ] **FE-B-02** Create invoice form (patient, line items, tax, total)
-- [ ] **FE-B-03** Invoice detail page (line items, payments, balance, PDF, send)
-- [ ] **FE-B-04** Record payment modal (amount, method, partial support)
-- [ ] **FE-B-05** Payment plan creation and management
+- [x] **FE-B-02** Create invoice form (patient, line items, tax, total)
+- [x] **FE-B-03** Invoice detail page (line items, payments, balance, PDF, send)
+- [x] **FE-B-04** Record payment modal (amount, method, partial support)
+- [x] **FE-B-05** Payment plan creation and management
 - [x] **FE-B-06** Service/procedure price catalog management
-- [ ] **FE-B-07** Doctor commissions report page
+- [x] **FE-B-07** Doctor commissions report page
 - [x] **FE-B-08** Billing overview dashboard (summary cards, sidebar enabled)
 
 ### Frontend: Patient Portal (FE-PP-01 through FE-PP-09)

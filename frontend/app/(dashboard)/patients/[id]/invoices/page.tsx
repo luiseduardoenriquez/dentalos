@@ -8,7 +8,9 @@ import {
   AlertCircle,
   Receipt,
   Clock,
+  Plus,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
@@ -130,14 +132,23 @@ export default function InvoicesPage() {
       </nav>
 
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <Receipt className="h-5 w-5 text-primary-600" />
-        <h1 className="text-lg font-semibold text-foreground">Facturas</h1>
-        {invoicesData && (
-          <Badge variant="secondary" className="text-xs">
-            {invoicesData.total}
-          </Badge>
-        )}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Receipt className="h-5 w-5 text-primary-600" />
+          <h1 className="text-lg font-semibold text-foreground">Facturas</h1>
+          {invoicesData && (
+            <Badge variant="secondary" className="text-xs">
+              {invoicesData.total}
+            </Badge>
+          )}
+        </div>
+        <Button
+          size="sm"
+          onClick={() => router.push(`/patients/${patientId}/invoices/new`)}
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Nueva factura
+        </Button>
       </div>
 
       {/* Invoices Table */}
@@ -147,8 +158,8 @@ export default function InvoicesPage() {
           title="Sin facturas"
           description="Las facturas se crean desde cotizaciones aprobadas o manualmente."
           action={{
-            label: "Ver cotizaciones",
-            href: `/patients/${patientId}/quotations`,
+            label: "Nueva factura",
+            href: `/patients/${patientId}/invoices/new`,
           }}
         />
       ) : (

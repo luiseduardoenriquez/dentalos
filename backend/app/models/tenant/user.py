@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     func,
@@ -41,6 +42,9 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
     # Professional
     professional_license: Mapped[str | None] = mapped_column(String(50), nullable=True)
     specialties: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
+    commission_percentage: Mapped[float | None] = mapped_column(
+        Numeric(5, 2), nullable=True
+    )
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
