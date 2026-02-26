@@ -148,6 +148,58 @@ def hash_refresh_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode()).hexdigest()
 
 
+# ─── Portal JWT Tokens ───────────────────────────────
+
+
+def create_portal_access_token(
+    patient_id: str,
+    tenant_id: str,
+    email: str,
+    name: str,
+) -> str:
+    """Create an RS256 JWT access token for portal patients.
+
+    Portal tokens use scope='portal' and sub='pat_{patient_id}' to clearly
+    distinguish them from staff tokens (scope is absent, sub='usr_{user_id}').
+    Portal access tokens have a 30-minute TTL (longer than staff 15min since
+    patients are less frequent users).
+    """
+    now = datetime.now(UTC)
+    jti = f"ptok_{uuid.uuid4().hex}"
+    payload: dict[str, Any] = {
+        "sub": f"pat_{patient_id}",
+        "tid": f"tn_{tenant_id}" if not tenant_id.startswith("tn_") else tenant_id,
+        "scope": "portal",
+        "role": "patient",
+        "pid": patient_id,
+        "email": email,
+        "name": name,
+        "iat": now,
+        "exp": now + timedelta(minutes=30),
+        "iss": settings.jwt_issuer,
+        "aud": settings.jwt_audience,
+        "jti": jti,
+    }
+    headers = {"kid": settings.jwt_key_id}
+    return jwt.encode(
+        payload,
+        _load_private_key(),
+        algorithm=settings.jwt_algorithm,
+        headers=headers,
+    )
+
+
+def create_portal_refresh_token() -> tuple[str, str]:
+    """Create a portal refresh token.
+
+    Returns (raw_token, sha256_hash). Uses 'portal:' prefix to distinguish
+    from staff refresh tokens in Redis/DB storage.
+    """
+    raw = f"portal:{uuid.uuid4()}"
+    hashed = hashlib.sha256(raw.encode()).hexdigest()
+    return raw, hashed
+
+
 # ─── Pre-auth tokens (multi-tenant selection) ────────
 
 

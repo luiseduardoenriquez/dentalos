@@ -94,7 +94,14 @@ export function middleware(request: NextRequest): NextResponse {
   }
 
   // Case 2: Unauthenticated user trying to access portal routes
-  if (!hasSessionCookie && isPortalRoute) {
+  // Portal login and registration pages are always accessible
+  const isPortalPublicRoute =
+    pathname === "/portal/login" ||
+    pathname.startsWith("/portal/login/") ||
+    pathname === "/portal/register" ||
+    pathname.startsWith("/portal/register/");
+
+  if (!hasSessionCookie && isPortalRoute && !isPortalPublicRoute) {
     const portalLoginUrl = new URL("/portal/login", request.url);
     portalLoginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(portalLoginUrl);

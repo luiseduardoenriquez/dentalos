@@ -579,20 +579,20 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 
 ### Backend: Patient Portal (PP-01 through PP-13)
 
-- [ ] **P-11** `POST /api/v1/patients/{patient_id}/portal-access` -- Grant/revoke portal access
-- [ ] **PP-01** `POST /api/v1/portal/auth/login` -- Patient portal login
-- [ ] **PP-02** `GET /api/v1/portal/me` -- Patient's own profile
-- [ ] **PP-03** `GET /api/v1/portal/appointments` -- Patient's appointments
-- [ ] **PP-04** `GET /api/v1/portal/treatment-plans` -- View treatment plans
-- [ ] **PP-05** `POST .../portal/treatment-plans/{plan_id}/approve` -- Approve plan (digital signature)
-- [ ] **PP-06** `GET /api/v1/portal/invoices` -- View invoices and payment history
-- [ ] **PP-07** `GET /api/v1/portal/documents` -- View documents (X-rays, consents)
-- [ ] **PP-08** `POST /api/v1/portal/appointments` -- Book appointment from portal
-- [ ] **PP-09** `POST .../portal/appointments/{appointment_id}/cancel` -- Cancel own appointment
-- [ ] **PP-10** `GET /api/v1/portal/messages` -- Message threads
-- [ ] **PP-11** `POST /api/v1/portal/messages` -- Send message to clinic
-- [ ] **PP-12** `POST .../portal/consents/{consent_id}/sign` -- Sign consent from portal
-- [ ] **PP-13** `GET /api/v1/portal/odontogram` -- View own odontogram (read-only)
+- [x] **P-11** `POST /api/v1/patients/{patient_id}/portal-access` -- Grant/revoke portal access
+- [x] **PP-01** `POST /api/v1/portal/auth/login` -- Patient portal login
+- [x] **PP-02** `GET /api/v1/portal/me` -- Patient's own profile
+- [x] **PP-03** `GET /api/v1/portal/appointments` -- Patient's appointments
+- [x] **PP-04** `GET /api/v1/portal/treatment-plans` -- View treatment plans
+- [x] **PP-05** `POST .../portal/treatment-plans/{plan_id}/approve` -- Approve plan (digital signature)
+- [x] **PP-06** `GET /api/v1/portal/invoices` -- View invoices and payment history
+- [x] **PP-07** `GET /api/v1/portal/documents` -- View documents (X-rays, consents)
+- [x] **PP-08** `POST /api/v1/portal/appointments` -- Book appointment from portal
+- [x] **PP-09** `POST .../portal/appointments/{appointment_id}/cancel` -- Cancel own appointment
+- [x] **PP-10** `GET /api/v1/portal/messages` -- Message threads
+- [x] **PP-11** `POST /api/v1/portal/messages` -- Send message to clinic
+- [x] **PP-12** `POST .../portal/consents/{consent_id}/sign` -- Sign consent from portal
+- [x] **PP-13** `GET /api/v1/portal/odontogram` -- View own odontogram (read-only)
 
 ### Backend: Messaging (MS-01 through MS-05)
 
@@ -620,15 +620,15 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 
 ### Frontend: Patient Portal (FE-PP-01 through FE-PP-09)
 
-- [ ] **FE-PP-01** Patient portal login (clinic-branded)
-- [ ] **FE-PP-02** Portal dashboard (next appointment, plans, messages, consents)
-- [ ] **FE-PP-03** Portal appointments list (upcoming, past, book new, confirm/cancel)
-- [ ] **FE-PP-04** Portal treatment plans (progress, approve with signature)
-- [ ] **FE-PP-05** Portal document viewer (X-rays, consents, prescriptions)
-- [ ] **FE-PP-06** Portal chat interface (messages, attachments)
-- [ ] **FE-PP-07** Portal invoices and payment history
-- [ ] **FE-PP-08** Portal consent signing (full document, signature pad)
-- [ ] **FE-PP-09** Portal odontogram (read-only, color-coded, educational tooltips)
+- [x] **FE-PP-01** Patient portal login (clinic-branded)
+- [x] **FE-PP-02** Portal dashboard (next appointment, plans, messages, consents)
+- [x] **FE-PP-03** Portal appointments list (upcoming, past, book new, confirm/cancel)
+- [x] **FE-PP-04** Portal treatment plans (progress, approve with signature)
+- [x] **FE-PP-05** Portal document viewer (X-rays, consents, prescriptions)
+- [x] **FE-PP-06** Portal chat interface (messages, attachments)
+- [x] **FE-PP-07** Portal invoices and payment history
+- [x] **FE-PP-08** Portal consent signing (full document, signature pad)
+- [x] **FE-PP-09** Portal odontogram (read-only, color-coded, educational tooltips)
 
 ### Frontend: Settings
 
@@ -640,7 +640,7 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 - [ ] **E-11** Invoice sent to patient
 - [ ] **E-12** Payment received confirmation
 - [ ] **E-13** Overdue payment reminder
-- [ ] **E-14** Patient portal access invitation
+- [x] **E-14** Patient portal access invitation
 - [ ] **E-15** New message notification
 
 ---

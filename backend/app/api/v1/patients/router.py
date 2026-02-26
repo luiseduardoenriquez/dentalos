@@ -33,9 +33,15 @@ from app.schemas.patient import (
     PatientUpdate,
 )
 from app.schemas.patient_document import PatientDocumentListResponse, PatientDocumentResponse
+from app.schemas.portal import (
+    PortalAccessGrantResponse,
+    PortalAccessRequest,
+    PortalAccessRevokeResponse,
+)
 from app.services.medical_history_service import medical_history_service
 from app.services.patient_document_service import patient_document_service
 from app.services.patient_service import patient_service
+from app.services.portal_access_service import portal_access_service
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
@@ -423,3 +429,61 @@ async def delete_patient_document(
     )
 
     return PatientDocumentResponse(**result)
+
+
+# ─── P-11: Portal Access ─────────────────────────────────────────────────────
+
+
+@router.post(
+    "/{patient_id}/portal-access",
+    response_model=PortalAccessGrantResponse | PortalAccessRevokeResponse,
+)
+async def manage_portal_access(
+    patient_id: str,
+    body: PortalAccessRequest,
+    request: Request,
+    current_user: AuthenticatedUser = Depends(
+        require_role(["clinic_owner", "receptionist"])
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> PortalAccessGrantResponse | PortalAccessRevokeResponse:
+    """Grant or revoke portal access for a patient (P-11).
+
+    Only clinic_owner and receptionist roles can manage portal access.
+    """
+    if body.action == "grant":
+        result = await portal_access_service.grant_access(
+            db=db,
+            patient_id=patient_id,
+            invitation_channel=body.invitation_channel,
+            created_by=current_user.user_id,
+            tenant_id=current_user.tenant.tenant_id,
+        )
+
+        await audit_action(
+            request=request,
+            db=db,
+            current_user=current_user,
+            action="grant_portal_access",
+            resource_type="patient",
+            resource_id=patient_id,
+        )
+
+        return PortalAccessGrantResponse(**result)
+    else:
+        result = await portal_access_service.revoke_access(
+            db=db,
+            patient_id=patient_id,
+            tenant_id=current_user.tenant.tenant_id,
+        )
+
+        await audit_action(
+            request=request,
+            db=db,
+            current_user=current_user,
+            action="revoke_portal_access",
+            resource_type="patient",
+            resource_id=patient_id,
+        )
+
+        return PortalAccessRevokeResponse(**result)

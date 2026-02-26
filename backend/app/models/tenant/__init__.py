@@ -26,6 +26,7 @@ from app.models.tenant.odontogram import (
 )
 from app.models.tenant.patient import Patient
 from app.models.tenant.patient_document import PatientDocument
+from app.models.tenant.portal import PortalCredentials, PortalInvitation
 from app.models.tenant.payment import Payment
 from app.models.tenant.payment_plan import PaymentPlan, PaymentPlanInstallment
 from app.models.tenant.prescription import Prescription
@@ -66,6 +67,8 @@ __all__ = [
     "OdontogramState",
     "Patient",
     "PatientDocument",
+    "PortalCredentials",
+    "PortalInvitation",
     "Payment",
     "PaymentPlan",
     "PaymentPlanInstallment",

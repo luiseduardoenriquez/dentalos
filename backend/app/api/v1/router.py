@@ -74,3 +74,14 @@ api_v1_router.include_router(billing_summary_router)
 from app.api.v1.notifications.router import router as notifications_router
 
 api_v1_router.include_router(notifications_router)
+
+# Sprint 11-12: Patient Portal
+from app.api.v1.portal.auth_router import router as portal_auth_router
+from app.api.v1.portal.access_router import router as portal_access_router
+from app.api.v1.portal.data_router import router as portal_data_router
+from app.api.v1.portal.action_router import router as portal_action_router
+
+api_v1_router.include_router(portal_auth_router)
+api_v1_router.include_router(portal_access_router)
+api_v1_router.include_router(portal_data_router)
+api_v1_router.include_router(portal_action_router)
