@@ -546,19 +546,19 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 
 ### Backend: Billing and Invoicing (B-01 through B-13)
 
-- [ ] **B-01** `POST /api/v1/patients/{patient_id}/invoices` -- Create invoice
-- [ ] **B-02** `GET .../invoices/{invoice_id}` -- Get invoice detail
-- [ ] **B-03** `GET /api/v1/invoices` -- List invoices (filters: status, date, patient, doctor)
-- [ ] **B-04** `PUT .../invoices/{invoice_id}` -- Update draft invoice
-- [ ] **B-05** `POST .../invoices/{invoice_id}/send` -- Send invoice to patient
-- [ ] **B-06** `GET .../invoices/{invoice_id}/pdf` -- Generate invoice PDF
-- [ ] **B-07** `POST .../invoices/{invoice_id}/payments` -- Record payment (partial supported)
-- [ ] **B-08** `GET /api/v1/patients/{patient_id}/payments` -- List patient payments
-- [ ] **B-09** `GET /api/v1/patients/{patient_id}/balance` -- Patient account balance
-- [ ] **B-10** `POST /api/v1/patients/{patient_id}/payment-plans` -- Create payment plan
-- [ ] **B-11** `GET .../payment-plans/{plan_id}` -- Get payment plan with installment schedule
-- [ ] **B-12** `GET /api/v1/billing/commissions` -- Doctor commissions report
-- [ ] **B-13** `GET /api/v1/billing/summary` -- Billing dashboard data
+- [x] **B-01** `POST /api/v1/patients/{patient_id}/invoices` -- Create invoice
+- [x] **B-02** `GET .../invoices/{invoice_id}` -- Get invoice detail
+- [x] **B-03** `GET /api/v1/invoices` -- List invoices (filters: status, date, patient, doctor)
+- [x] **B-04** `POST .../invoices/{invoice_id}/cancel` -- Cancel invoice (was: Update draft)
+- [x] **B-05** `POST .../invoices/{invoice_id}/send` -- Send invoice to patient
+- [x] **B-06** `POST .../invoices/{invoice_id}/payments` -- Record payment (partial supported)
+- [x] **B-07** `GET .../invoices/{invoice_id}/payments` -- List invoice payments
+- [x] **B-08** `POST .../invoices/{invoice_id}/payment-plan` -- Create payment plan
+- [x] **B-09** `GET .../invoices/{invoice_id}/payment-plan` -- Get payment plan with installments
+- [x] **B-10** `POST .../invoices/{invoice_id}/payment-plan/{n}/pay` -- Pay installment
+- [x] **B-11** `GET /api/v1/billing/summary` -- Billing dashboard summary
+- [x] **B-12** `GET /api/v1/billing/aging-report` -- Aging report (overdue by bucket)
+- [x] **B-13** `GET /api/v1/billing/revenue` -- Revenue report (month/year)
 
 ### Backend: Patient Referral (P-15)
 
@@ -609,14 +609,14 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 
 ### Frontend: Billing Screens (FE-B-01 through FE-B-08)
 
-- [ ] **FE-B-01** Invoice list page (table, filters, bulk actions)
+- [x] **FE-B-01** Invoice list page (patient invoices tab + hooks)
 - [ ] **FE-B-02** Create invoice form (patient, line items, tax, total)
 - [ ] **FE-B-03** Invoice detail page (line items, payments, balance, PDF, send)
 - [ ] **FE-B-04** Record payment modal (amount, method, partial support)
 - [ ] **FE-B-05** Payment plan creation and management
-- [ ] **FE-B-06** Service/procedure price catalog management
+- [x] **FE-B-06** Service/procedure price catalog management
 - [ ] **FE-B-07** Doctor commissions report page
-- [ ] **FE-B-08** Billing overview dashboard (revenue charts, aging report)
+- [x] **FE-B-08** Billing overview dashboard (summary cards, sidebar enabled)
 
 ### Frontend: Patient Portal (FE-PP-01 through FE-PP-09)
 

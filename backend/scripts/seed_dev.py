@@ -521,7 +521,7 @@ async def seed_patients(schema_name: str, db: AsyncSession) -> None:
                     birthdate, gender,
                     phone, email, address,
                     blood_type,
-                    is_active,
+                    is_active, no_show_count, portal_access,
                     created_at, updated_at
                 ) VALUES (
                     gen_random_uuid(),
@@ -530,7 +530,7 @@ async def seed_patients(schema_name: str, db: AsyncSession) -> None:
                     :birthdate, :gender,
                     :phone, :email, :address,
                     :blood_type,
-                    true,
+                    true, 0, false,
                     now(), now()
                 )
                 """

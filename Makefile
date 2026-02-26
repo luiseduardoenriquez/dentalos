@@ -3,7 +3,8 @@
 # ═══════════════════════════════════════════════════════
 
 .PHONY: help setup start stop restart logs status \
-        db-migrate db-revision db-downgrade db-current \
+        db-migrate db-migrate-tenant db-revision db-downgrade db-current \
+        db-keys db-seed db-reset onboard \
         backend frontend worker \
         test test-unit test-integration test-cov \
         lint format typecheck quality \
@@ -58,6 +59,24 @@ db-downgrade: ## Rollback one migration
 
 db-current: ## Show current migration state
 	cd backend && uv run alembic current
+
+db-keys: ## Generate JWT RS256 key pair
+	cd backend && uv run python scripts/generate_keys.py
+
+db-migrate-tenant: ## Run tenant migrations (usage: make db-migrate-tenant SCHEMA=tn_demodent)
+	cd backend && uv run alembic -c alembic_tenant/alembic.ini -x schema=$(SCHEMA) upgrade head
+
+db-seed: ## Seed dev database (plans, tenant, users, patients)
+	cd backend && uv run python scripts/seed_dev.py
+
+db-reset: ## Reset database completely (WARNING: destroys all data)
+	docker compose down -v && docker compose up -d
+	@echo "Waiting for services..."
+	@sleep 5
+	$(MAKE) db-migrate
+	$(MAKE) db-seed
+
+onboard: db-keys db-migrate db-seed ## First-time DB setup (run after 'make setup' + .env config)
 
 # ─── Application Servers ─────────────────────────────
 backend: ## Start FastAPI dev server (port 8000)
