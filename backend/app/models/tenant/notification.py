@@ -50,7 +50,7 @@ class Notification(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
     read_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    meta_data: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     # Soft delete
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

@@ -33,11 +33,23 @@ class ConsentTemplateResponse(BaseModel):
     updated_at: datetime
 
 
+class ConsentTemplateUpdate(BaseModel):
+    """Fields to update a tenant consent template (all optional)."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=300)
+    category: str | None = None
+    description: str | None = None
+    content: str | None = Field(default=None, min_length=1)
+    signature_positions: list[dict] | None = None
+
+
 class ConsentTemplateListResponse(BaseModel):
-    """List of consent templates."""
+    """Paginated list of consent templates."""
 
     items: list[ConsentTemplateResponse]
     total: int
+    page: int = 1
+    page_size: int = 50
 
 
 class ConsentCreate(BaseModel):

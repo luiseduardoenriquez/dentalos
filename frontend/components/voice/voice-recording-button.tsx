@@ -77,7 +77,7 @@ export function VoiceRecordingButton({
   // ─── Check browser compatibility ───────────────────────────────────────────
   const isMediaRecorderSupported = React.useMemo(() => {
     if (typeof window === "undefined") return false;
-    return Boolean(navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== "undefined");
+    return Boolean(typeof navigator.mediaDevices?.getUserMedia === "function" && typeof MediaRecorder !== "undefined");
   }, []);
 
   // ─── Waveform animation ─────────────────────────────────────────────────────

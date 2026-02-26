@@ -31,7 +31,7 @@ export interface NotificationResponse {
   body: string;
   read_at: string | null;
   created_at: string;
-  metadata: {
+  meta_data: {
     resource_type?: string;
     resource_id?: string;
     action_url?: string;

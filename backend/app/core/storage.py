@@ -26,6 +26,8 @@ ALLOWED_MIME_TYPES = frozenset({
     "image/png",
     "application/pdf",
     "application/dicom",
+    "text/plain",
+    "application/xml",
 })
 
 MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25MB

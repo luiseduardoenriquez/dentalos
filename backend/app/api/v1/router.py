@@ -85,3 +85,15 @@ api_v1_router.include_router(portal_auth_router)
 api_v1_router.include_router(portal_access_router)
 api_v1_router.include_router(portal_data_router)
 api_v1_router.include_router(portal_action_router)
+
+# Sprint 11-12: Messaging + Referrals
+from app.api.v1.messages.router import router as messages_router
+from app.api.v1.referrals.router import router as referrals_router
+
+api_v1_router.include_router(messages_router)
+api_v1_router.include_router(referrals_router)
+
+# Sprint 13-14: Compliance
+from app.api.v1.compliance.router import router as compliance_router
+
+api_v1_router.include_router(compliance_router)

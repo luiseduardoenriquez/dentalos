@@ -8,7 +8,8 @@ Both catalogs are read-only for tenants and are populated via seeder scripts.
 Full-text search is supported through PostgreSQL GIN indexes on tsvector columns.
 """
 
-from sqlalchemy import Index, String, Text, func
+import sqlalchemy as sa
+from sqlalchemy import Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import PublicBase, TimestampMixin, UUIDPrimaryKeyMixin
@@ -26,7 +27,7 @@ class CIE10Catalog(UUIDPrimaryKeyMixin, TimestampMixin, PublicBase):
     __table_args__ = (
         Index(
             "idx_cie10_catalog_description_fts",
-            func.to_tsvector("spanish", Text("description")),
+            sa.text("to_tsvector('spanish', description)"),
             postgresql_using="gin",
         ),
         Index("idx_cie10_catalog_code", "code"),
@@ -57,7 +58,7 @@ class CUPSCatalog(UUIDPrimaryKeyMixin, TimestampMixin, PublicBase):
     __table_args__ = (
         Index(
             "idx_cups_catalog_description_fts",
-            func.to_tsvector("spanish", Text("description")),
+            sa.text("to_tsvector('spanish', description)"),
             postgresql_using="gin",
         ),
         Index("idx_cups_catalog_code", "code"),

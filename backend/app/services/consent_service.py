@@ -73,27 +73,54 @@ class ConsentService:
         self,
         *,
         db: AsyncSession,
+        search: str | None = None,
+        category: str | None = None,
+        page: int = 1,
+        page_size: int = 50,
     ) -> dict[str, Any]:
-        """List all consent templates (public builtin + tenant custom)."""
+        """List all consent templates (public builtin + tenant custom).
+
+        Supports search by name, filter by category, and pagination.
+        """
         # Tenant templates
+        tenant_conditions = [ConsentTemplate.is_active.is_(True)]
+        if search:
+            tenant_conditions.append(
+                ConsentTemplate.name.ilike(f"%{search}%")
+            )
+        if category:
+            tenant_conditions.append(ConsentTemplate.category == category)
+
         tenant_result = await db.execute(
-            select(ConsentTemplate).where(ConsentTemplate.is_active.is_(True))
+            select(ConsentTemplate).where(*tenant_conditions)
         )
         tenant_templates = tenant_result.scalars().all()
 
         # Public builtin templates
-        public_result = await db.execute(
-            select(PublicConsentTemplate).where(
-                PublicConsentTemplate.is_active.is_(True),
-                PublicConsentTemplate.builtin.is_(True),
+        public_conditions = [
+            PublicConsentTemplate.is_active.is_(True),
+            PublicConsentTemplate.builtin.is_(True),
+        ]
+        if search:
+            public_conditions.append(
+                PublicConsentTemplate.name.ilike(f"%{search}%")
             )
+        if category:
+            public_conditions.append(PublicConsentTemplate.category == category)
+
+        public_result = await db.execute(
+            select(PublicConsentTemplate).where(*public_conditions)
         )
         public_templates = public_result.scalars().all()
 
-        items = [_template_to_dict(t, is_builtin=True) for t in public_templates]
-        items.extend([_template_to_dict(t) for t in tenant_templates])
+        all_items = [_template_to_dict(t, is_builtin=True) for t in public_templates]
+        all_items.extend([_template_to_dict(t) for t in tenant_templates])
 
-        return {"items": items, "total": len(items)}
+        total = len(all_items)
+        offset = (page - 1) * page_size
+        paginated = all_items[offset : offset + page_size]
+
+        return {"items": paginated, "total": total, "page": page, "page_size": page_size}
 
     async def create_template(
         self,
@@ -152,6 +179,80 @@ class ConsentService:
             return _template_to_dict(public_template, is_builtin=True)
 
         return None
+
+    async def update_template(
+        self,
+        *,
+        db: AsyncSession,
+        template_id: str,
+        name: str | None = None,
+        category: str | None = None,
+        description: str | None = None,
+        content: str | None = None,
+        signature_positions: list[dict] | None = None,
+    ) -> dict[str, Any]:
+        """Update a tenant consent template. Increments version on content change."""
+        result = await db.execute(
+            select(ConsentTemplate).where(
+                ConsentTemplate.id == uuid.UUID(template_id),
+                ConsentTemplate.is_active.is_(True),
+            )
+        )
+        template = result.scalar_one_or_none()
+
+        if template is None:
+            raise ResourceNotFoundError(
+                error="CONSENT_template_not_found",
+                resource_name="ConsentTemplate",
+            )
+
+        if name is not None:
+            template.name = name
+        if category is not None:
+            template.category = category
+        if description is not None:
+            template.description = description
+        if signature_positions is not None:
+            template.signature_positions = signature_positions
+
+        # Increment version if content changes
+        if content is not None and content != template.content:
+            template.content = content
+            template.version += 1
+
+        await db.flush()
+
+        logger.info("Template updated: id=%s", template_id[:8])
+
+        return _template_to_dict(template)
+
+    async def deactivate_template(
+        self,
+        *,
+        db: AsyncSession,
+        template_id: str,
+    ) -> dict[str, Any]:
+        """Soft-delete a tenant consent template."""
+        result = await db.execute(
+            select(ConsentTemplate).where(
+                ConsentTemplate.id == uuid.UUID(template_id),
+                ConsentTemplate.is_active.is_(True),
+            )
+        )
+        template = result.scalar_one_or_none()
+
+        if template is None:
+            raise ResourceNotFoundError(
+                error="CONSENT_template_not_found",
+                resource_name="ConsentTemplate",
+            )
+
+        template.is_active = False
+        await db.flush()
+
+        logger.info("Template deactivated: id=%s", template_id[:8])
+
+        return _template_to_dict(template)
 
     # ─── Consents ─────────────────────────────────────────────────────────
 

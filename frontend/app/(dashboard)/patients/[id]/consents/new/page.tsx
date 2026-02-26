@@ -233,7 +233,7 @@ export default function NewConsentPage() {
                         <SelectLabel>
                           {CATEGORY_LABELS[category] ?? category}
                         </SelectLabel>
-                        {templates_by_category[category].map((template) => (
+                        {templates_by_category[category]?.map((template) => (
                           <SelectItem key={template.id} value={template.id}>
                             {template.name}
                             {template.builtin && (

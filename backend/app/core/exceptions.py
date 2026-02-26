@@ -180,3 +180,9 @@ class VoiceError(DentalOSError):
     """Base class for voice-to-odontogram errors."""
 
     pass
+
+
+class ComplianceError(DentalOSError):
+    """Base class for compliance errors (RIPS, RDA, e-invoicing)."""
+
+    pass

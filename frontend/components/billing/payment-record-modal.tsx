@@ -64,7 +64,7 @@ export function PaymentRecordModal({
     resolver: zodResolver(paymentRecordSchema),
     defaultValues: {
       amount_display: String(Math.round(defaultAmount / 100)),
-      payment_method: "cash" as const,
+      payment_method: "cash" as "cash" | "card" | "transfer" | "other",
       reference_number: "",
       notes: "",
     },
@@ -95,7 +95,8 @@ export function PaymentRecordModal({
 
   const showReference = watchedMethod === "card" || watchedMethod === "transfer";
 
-  function onSubmit(values: { amount_display: number; payment_method: "cash" | "card" | "transfer" | "other"; reference_number?: string | null; notes?: string | null }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function onSubmit(values: any) {
     recordPayment(
       {
         amount: values.amount_display, // already transformed to cents by zod

@@ -63,7 +63,6 @@ export function ProcedureForm({ patientId, onSuccess }: ProcedureFormProps) {
 
   const { fields: materialFields, append: appendMaterial, remove: removeMaterial } = useFieldArray({
     control,
-    // @ts-expect-error — useFieldArray requires array field name
     name: "materials_used",
   });
 

@@ -85,5 +85,11 @@ class Settings(BaseSettings):
     sentry_traces_sample_rate: float = 0.0
     sentry_environment: str = "development"
 
+    # ─── MATIAS / DIAN E-Invoicing ────────────────────
+    matias_client_id: str = ""
+    matias_secret: str = ""
+    matias_base_url: str = "https://api.matias.com.co"
+    matias_environment: str = "test"  # "test" or "production"
+
 
 settings = Settings()

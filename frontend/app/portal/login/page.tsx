@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setPortalAccessToken, portalApiPost } from "@/lib/portal-api-client";
 import { usePortalAuthStore } from "@/lib/stores/portal-auth-store";
@@ -31,6 +31,14 @@ interface MagicLinkResponse {
 // ─── Login Page ─────────────────────────────────────────────────────────────
 
 export default function PortalLoginPage() {
+  return (
+    <Suspense>
+      <PortalLoginContent />
+    </Suspense>
+  );
+}
+
+function PortalLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/portal/dashboard";

@@ -106,7 +106,7 @@ function ConditionPanel({
           <p className="text-xs text-[hsl(var(--muted-foreground))]">
             Zona seleccionada:{" "}
             <span className="font-medium text-foreground">
-              {ZONE_LABELS[selectedZone] ?? selectedZone}
+              {ZONE_LABELS[selectedZone as keyof typeof ZONE_LABELS] ?? selectedZone}
             </span>
           </p>
         ) : (

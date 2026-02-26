@@ -28,7 +28,7 @@ import {
 import { usePatient } from "@/lib/hooks/use-patients";
 import { useAuth } from "@/lib/hooks/use-auth";
 
-import type { DentitionType } from "@/lib/validations/odontogram";
+import type { DentitionType, ConditionCreateValues } from "@/lib/validations/odontogram";
 
 // ─── Loading Skeleton ─────────────────────────────────────────────────────────
 
@@ -164,9 +164,9 @@ export default function OdontogramPage() {
         patientId,
         data: {
           tooth_number: selectedTooth,
-          zone: selectedZone,
-          condition_code: selectedCondition,
-          severity: severity ?? null,
+          zone: selectedZone as ConditionCreateValues["zone"],
+          condition_code: selectedCondition as ConditionCreateValues["condition_code"],
+          severity: (severity as ConditionCreateValues["severity"]) ?? null,
           notes: notes.trim() || null,
           source: "manual",
         },

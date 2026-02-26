@@ -10,6 +10,7 @@ import {
   Receipt,
   BarChart3,
   Settings,
+  ShieldCheck,
   X,
   ChevronLeft,
   ChevronRight,
@@ -79,6 +80,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Facturación",
     icon: Receipt,
     roles: ["clinic_owner", "receptionist"],
+  },
+  {
+    href: "/compliance",
+    label: "Cumplimiento",
+    icon: ShieldCheck,
+    roles: ["clinic_owner"],
   },
   {
     href: "/reports",

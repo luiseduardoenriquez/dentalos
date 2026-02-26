@@ -106,6 +106,33 @@ PLANS: list[dict] = [
         "is_active": True,
         "sort_order": 1,
     },
+    {
+        "name": "Enterprise",
+        "slug": "enterprise",
+        "description": "Plan empresarial sin límites — todas las funcionalidades habilitadas.",
+        "max_patients": 999999,
+        "max_doctors": 999,
+        "max_users": 999,
+        "max_storage_mb": 102400,
+        "features": {
+            "odontogram": True,
+            "appointments": True,
+            "clinical_records": True,
+            "billing": True,
+            "portal": True,
+            "analytics": True,
+            "ai_voice": True,
+            "ai_radiograph": True,
+        },
+        "price_cents": 0,
+        "currency": "USD",
+        "billing_period": "monthly",
+        "pricing_model": "custom",
+        "included_doctors": 999,
+        "additional_doctor_price_cents": 0,
+        "is_active": True,
+        "sort_order": 4,
+    },
 ]
 
 # ---------------------------------------------------------------------------
@@ -272,7 +299,7 @@ async def seed_plans(db: AsyncSession) -> dict[str, Plan]:
     return result
 
 
-async def seed_tenant(db: AsyncSession, starter_plan: Plan) -> Tenant:
+async def seed_tenant(db: AsyncSession, plan: Plan) -> Tenant:
     """Create the demo tenant (Clínica Demo Dental) if it doesn't exist."""
     _print_section("Tenant")
 
@@ -280,7 +307,12 @@ async def seed_tenant(db: AsyncSession, starter_plan: Plan) -> Tenant:
     existing = (await db.execute(stmt)).scalar_one_or_none()
 
     if existing:
-        _print_skip(f"Tenant '{existing.name}' (slug={DEMO_TENANT_SLUG})")
+        if existing.plan_id != plan.id:
+            existing.plan_id = plan.id
+            await db.commit()
+            _print_ok(f"Tenant '{existing.name}' plan updated to '{plan.name}'")
+        else:
+            _print_skip(f"Tenant '{existing.name}' (slug={DEMO_TENANT_SLUG})")
         return existing
 
     tenant = Tenant(
@@ -291,7 +323,7 @@ async def seed_tenant(db: AsyncSession, starter_plan: Plan) -> Tenant:
         timezone="America/Bogota",
         currency_code="COP",
         locale="es-CO",
-        plan_id=starter_plan.id,
+        plan_id=plan.id,
         owner_email="owner@demo.dentalos.co",
         owner_user_id=None,  # Updated after user creation
         phone="+5716001234",
@@ -584,10 +616,10 @@ async def main() -> None:
     async with AsyncSessionLocal() as db:
         # 1. Plans
         plans = await seed_plans(db)
-        starter_plan = plans["starter"]
+        enterprise_plan = plans["enterprise"]
 
         # 2. Tenant
-        tenant = await seed_tenant(db, starter_plan)
+        tenant = await seed_tenant(db, enterprise_plan)
 
         # 3. Schema provisioning (CREATE SCHEMA + Alembic migrations)
         await provision_schema(DEMO_SCHEMA_NAME, db)

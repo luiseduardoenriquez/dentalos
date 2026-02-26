@@ -2,14 +2,40 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { FilePlus, FileText, AlertCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { FilePlus, FileText, AlertCircle, Search, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { DataTable, type ColumnDef } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
 import {
   useConsentTemplates,
+  useDeleteConsentTemplate,
   type ConsentTemplateResponse,
 } from "@/lib/hooks/use-consent-templates";
 
@@ -48,9 +74,25 @@ function ConsentTemplatesListSkeleton() {
   );
 }
 
+// ─── Category Options ────────────────────────────────────────────────────────
+
+const CATEGORY_OPTIONS = [
+  { value: "all", label: "Todas" },
+  { value: "general", label: "General" },
+  { value: "surgery", label: "Cirugía" },
+  { value: "sedation", label: "Sedación" },
+  { value: "orthodontics", label: "Ortodoncia" },
+  { value: "implants", label: "Implantes" },
+  { value: "endodontics", label: "Endodoncia" },
+  { value: "pediatric", label: "Pediátrico" },
+];
+
 // ─── Column Definitions ──────────────────────────────────────────────────────
 
-function buildColumns(): ColumnDef<ConsentTemplateResponse>[] {
+function buildColumns(
+  onEdit: (id: string) => void,
+  onDelete: (template: ConsentTemplateResponse) => void,
+): ColumnDef<ConsentTemplateResponse>[] {
   return [
     {
       key: "name",
@@ -98,14 +140,60 @@ function buildColumns(): ColumnDef<ConsentTemplateResponse>[] {
           <Badge variant="secondary">Inactiva</Badge>
         ),
     },
+    {
+      key: "actions",
+      header: "",
+      cell: (row) =>
+        !row.builtin ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreHorizontal className="h-4 w-4" />
+                <span className="sr-only">Acciones</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onEdit(row.id)}>
+                <Pencil className="mr-2 h-3.5 w-3.5" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => onDelete(row)}
+              >
+                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                Eliminar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null,
+    },
   ];
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function ConsentTemplatesPage() {
+  const router = useRouter();
   const { data: templates, isLoading, isError } = useConsentTemplates();
-  const columns = buildColumns();
+  const { mutate: deleteTemplate, isPending: isDeleting } = useDeleteConsentTemplate();
+
+  const [search, setSearch] = React.useState("");
+  const [categoryFilter, setCategoryFilter] = React.useState("all");
+  const [deleteTarget, setDeleteTarget] = React.useState<ConsentTemplateResponse | null>(null);
+
+  function handleEdit(id: string) {
+    router.push(`/settings/consent-templates/${id}/editar`);
+  }
+
+  function handleDeleteConfirm() {
+    if (!deleteTarget) return;
+    deleteTemplate(deleteTarget.id, {
+      onSuccess: () => setDeleteTarget(null),
+    });
+  }
+
+  const columns = buildColumns(handleEdit, setDeleteTarget);
 
   if (isLoading) {
     return <ConsentTemplatesListSkeleton />;
@@ -120,6 +208,15 @@ export default function ConsentTemplatesPage() {
       />
     );
   }
+
+  // Client-side filtering
+  const filtered = (templates ?? []).filter((t) => {
+    const matchesSearch =
+      !search || t.name.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory =
+      categoryFilter === "all" || t.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
 
   const isEmpty = !templates || templates.length === 0;
 
@@ -143,6 +240,33 @@ export default function ConsentTemplatesPage() {
         </Button>
       </div>
 
+      {/* ─── Filters ──────────────────────────────────────────────────────── */}
+      {!isEmpty && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+            <Input
+              placeholder="Buscar plantilla..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[180px]" aria-label="Filtrar por categoría">
+              <SelectValue placeholder="Categoría" />
+            </SelectTrigger>
+            <SelectContent>
+              {CATEGORY_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* ─── Table or Empty State ────────────────────────────────────────── */}
       {isEmpty ? (
         <EmptyState
@@ -157,13 +281,36 @@ export default function ConsentTemplatesPage() {
       ) : (
         <DataTable<ConsentTemplateResponse>
           columns={columns}
-          data={templates}
+          data={filtered}
           loading={isLoading}
           skeletonRows={6}
           rowKey="id"
-          emptyMessage="No hay plantillas de consentimiento."
+          emptyMessage="No hay plantillas que coincidan con los filtros."
         />
       )}
+
+      {/* ─── Delete Confirmation Dialog ──────────────────────────────────── */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar plantilla</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que deseas eliminar la plantilla &quot;{deleteTarget?.name}&quot;?
+              Esta acción desactivará la plantilla y no se podrá usar para nuevos consentimientos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Eliminando..." : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

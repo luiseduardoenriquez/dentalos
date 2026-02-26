@@ -92,7 +92,7 @@ function SkeletonRows({ columns, rows }: { columns: number; rows: number }) {
 
 // ─── DataTable ────────────────────────────────────────────────────────────────
 
-export function DataTable<TData extends Record<string, unknown>>({
+export function DataTable<TData extends object>({
   columns,
   data,
   loading = false,

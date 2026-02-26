@@ -456,16 +456,16 @@ class PortalDataService:
     ) -> dict[str, Any]:
         """List message threads for a patient (PP-10).
 
-        Note: Messaging tables don't exist yet. Returns empty list as placeholder.
+        Delegates to the messaging service for real thread data.
         """
-        # TODO: Implement when messaging tables are created
-        return {
-            "data": [],
-            "pagination": {
-                "next_cursor": None,
-                "has_more": False,
-            },
-        }
+        from app.services.messaging_service import messaging_service
+
+        return await messaging_service.list_threads(
+            db=db,
+            patient_id=patient_id,
+            cursor=cursor,
+            limit=limit,
+        )
 
     async def get_odontogram(
         self,

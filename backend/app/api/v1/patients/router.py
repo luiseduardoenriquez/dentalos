@@ -1,4 +1,4 @@
-"""Patient API routes — P-01 through P-06.
+"""Patient API routes — P-01 through P-06, P-15.
 
 Endpoint map:
   GET  /patients/search          — P-01: Type-ahead search (any staff)
@@ -7,6 +7,8 @@ Endpoint map:
   POST /patients/                — P-04: Create patient   (patients:write)
   PUT  /patients/{patient_id}    — P-05: Update patient   (patients:write)
   POST /patients/{patient_id}/deactivate — P-06: Soft-delete (clinic_owner)
+  POST /patients/{patient_id}/referrals  — P-15: Create referral (doctor)
+  GET  /patients/{patient_id}/referrals  — P-15: List referrals  (staff)
 
 IMPORTANT: /search is registered BEFORE /{patient_id} so FastAPI does not
            treat the literal string "search" as a UUID path parameter.
@@ -487,3 +489,79 @@ async def manage_portal_access(
         )
 
         return PortalAccessRevokeResponse(**result)
+
+
+# ─── P-15: Referrals ─────────────────────────────────────────────────────────
+
+
+from app.schemas.referral import ReferralCreate, ReferralListResponse, ReferralResponse
+from app.services.referral_service import referral_service
+
+
+@router.post(
+    "/{patient_id}/referrals",
+    response_model=ReferralResponse,
+    status_code=201,
+    tags=["referrals"],
+)
+async def create_referral(
+    patient_id: str,
+    body: ReferralCreate,
+    request: Request,
+    current_user: AuthenticatedUser = Depends(
+        require_role(["clinic_owner", "doctor"])
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> ReferralResponse:
+    """Create a patient referral to another doctor (P-15)."""
+    result = await referral_service.create_referral(
+        db=db,
+        tenant_id=current_user.tenant.tenant_id,
+        patient_id=patient_id,
+        from_doctor_id=current_user.user_id,
+        to_doctor_id=body.to_doctor_id,
+        reason=body.reason,
+        priority=body.priority,
+        specialty=body.specialty,
+        notes=body.notes,
+    )
+
+    await audit_action(
+        request=request,
+        db=db,
+        current_user=current_user,
+        action="create",
+        resource_type="patient_referral",
+        resource_id=result["id"],
+    )
+
+    return ReferralResponse(**result)
+
+
+@router.get(
+    "/{patient_id}/referrals",
+    response_model=ReferralListResponse,
+    tags=["referrals"],
+)
+async def list_referrals(
+    patient_id: str,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    current_user: AuthenticatedUser = Depends(
+        require_permission("patients:read")
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> ReferralListResponse:
+    """List referrals for a patient (P-15)."""
+    result = await referral_service.list_referrals(
+        db=db,
+        patient_id=patient_id,
+        page=page,
+        page_size=page_size,
+    )
+    return ReferralListResponse(
+        items=[ReferralResponse(**r) for r in result["items"]],
+        total=result["total"],
+        page=result["page"],
+        page_size=result["page_size"],
+    )

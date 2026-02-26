@@ -133,7 +133,7 @@ export default function NewTreatmentPlanPage() {
       cups_description: "",
       tooth_number: undefined,
       estimated_cost_display: "",
-    } as unknown as FormValues["items"][0]);
+    } as unknown as NonNullable<FormValues["items"]>[0]);
   }
 
   function onSubmit(values: FormValues) {

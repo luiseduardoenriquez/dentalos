@@ -59,7 +59,7 @@ export const medicationItemSchema = z.object({
     .min(1, "Mínimo 1 día")
     .max(365, "Máximo 365 días"),
 
-  via: z.string().default("oral").max(30, "Vía de administración inválida"),
+  via: z.string().max(30, "Vía de administración inválida").default("oral"),
 
   instrucciones: z
     .string()
@@ -69,7 +69,14 @@ export const medicationItemSchema = z.object({
     .transform((v) => v?.trim() || null),
 });
 
-export type MedicationItemFormValues = z.infer<typeof medicationItemSchema>;
+export interface MedicationItemFormValues {
+  name: string;
+  dosis: string;
+  frecuencia: string;
+  duracion_dias: number;
+  via: string;
+  instrucciones: string | null;
+}
 
 // ─── Prescription Create Schema ───────────────────────────────────────────────
 

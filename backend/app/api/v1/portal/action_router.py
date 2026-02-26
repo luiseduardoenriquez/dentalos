@@ -86,6 +86,7 @@ async def send_message(
     """Send a message from the portal."""
     return await portal_action_service.send_message(
         db=db,
+        tenant_id=portal_user.tenant.tenant_id,
         patient_id=portal_user.patient_id,
         thread_id=body.thread_id,
         body=body.body,

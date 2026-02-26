@@ -20,6 +20,7 @@ class NotificationType(StrEnum):
     treatment_plan_approved = "treatment_plan_approved"
     consent_signed = "consent_signed"
     message_received = "message_received"
+    referral_received = "referral_received"
     inventory_alert = "inventory_alert"
     system_update = "system_update"
 
@@ -57,7 +58,7 @@ class NotificationResponse(BaseModel):
     body: str
     read_at: datetime | None = None
     created_at: datetime
-    metadata: dict = Field(default_factory=dict)
+    meta_data: dict = Field(default_factory=dict)
 
 
 class NotificationPagination(BaseModel):

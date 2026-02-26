@@ -91,7 +91,7 @@ export const ZONES = [
 export type Zone = (typeof ZONES)[number];
 
 /** Spanish labels for tooth zones — used in zone selectors and detail views. */
-export const ZONE_LABELS: Record<Zone, string> = {
+export const ZONE_LABELS: Record<string, string> = {
   mesial: "Mesial",
   distal: "Distal",
   vestibular: "Vestibular",

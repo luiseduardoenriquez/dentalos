@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost } from "@/lib/api-client";
+import { apiGet, apiPost, apiClient } from "@/lib/api-client";
 import { useToast } from "@/lib/hooks/use-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -101,6 +101,70 @@ export function useCreateConsentTemplate() {
           ? err.message
           : "No se pudo crear la plantilla. Inténtalo de nuevo.";
       error("Error al crear plantilla", message);
+    },
+  });
+}
+
+// ─── Types (Update) ──────────────────────────────────────────────────────────
+
+export interface ConsentTemplateUpdate {
+  name?: string | null;
+  category?: string | null;
+  description?: string | null;
+  content?: string | null;
+  signature_positions?: SignaturePosition[] | null;
+}
+
+// ─── useUpdateConsentTemplate ────────────────────────────────────────────────
+
+/**
+ * PUT /consent-templates/{id} — updates an existing consent template.
+ * Requires consents:write permission. On success: invalidates templates list.
+ */
+export function useUpdateConsentTemplate() {
+  const queryClient = useQueryClient();
+  const { success, error } = useToast();
+
+  return useMutation({
+    mutationFn: ({ templateId, data }: { templateId: string; data: ConsentTemplateUpdate }) =>
+      apiClient
+        .put<ConsentTemplateResponse>(`/consent-templates/${templateId}`, data)
+        .then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CONSENT_TEMPLATES_QUERY_KEY });
+      success("Plantilla actualizada", "La plantilla fue actualizada exitosamente.");
+    },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof Error ? err.message : "No se pudo actualizar la plantilla.";
+      error("Error al actualizar", message);
+    },
+  });
+}
+
+// ─── useDeleteConsentTemplate ────────────────────────────────────────────────
+
+/**
+ * DELETE /consent-templates/{id} — soft-deletes a consent template.
+ * Requires clinic_owner role. On success: invalidates templates list.
+ */
+export function useDeleteConsentTemplate() {
+  const queryClient = useQueryClient();
+  const { success, error } = useToast();
+
+  return useMutation({
+    mutationFn: (templateId: string) =>
+      apiClient
+        .delete<ConsentTemplateResponse>(`/consent-templates/${templateId}`)
+        .then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CONSENT_TEMPLATES_QUERY_KEY });
+      success("Plantilla eliminada", "La plantilla fue desactivada exitosamente.");
+    },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof Error ? err.message : "No se pudo eliminar la plantilla.";
+      error("Error al eliminar", message);
     },
   });
 }

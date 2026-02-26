@@ -67,9 +67,9 @@ export function NotificationDrawer({ open, onOpenChange }: NotificationDrawerPro
     }
 
     // Navigate if action_url exists
-    if (notification.metadata?.action_url) {
+    if (notification.meta_data?.action_url) {
       onOpenChange(false);
-      router.push(notification.metadata.action_url);
+      router.push(notification.meta_data.action_url);
     }
   }
 

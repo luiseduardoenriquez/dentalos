@@ -188,6 +188,7 @@ class PortalActionService:
         self,
         *,
         db: AsyncSession,
+        tenant_id: str,
         patient_id: str,
         thread_id: str | None = None,
         body: str,
@@ -195,19 +196,39 @@ class PortalActionService:
     ) -> dict[str, Any]:
         """Send a message from the portal (PP-11).
 
-        Note: Messaging tables don't exist yet. Returns placeholder.
+        If thread_id is provided, replies to existing thread.
+        If thread_id is None, creates a new thread.
         """
-        # TODO: Implement when messaging tables are created
-        logger.info("Portal message sent (placeholder)")
+        from app.services.messaging_service import messaging_service
 
-        return {
-            "id": str(uuid.uuid4()),
-            "thread_id": thread_id or str(uuid.uuid4()),
-            "body": body,
-            "sender_type": "patient",
-            "created_at": datetime.now(UTC),
-            "message": "Mensaje enviado.",
-        }
+        if thread_id:
+            # Reply to existing thread
+            result = await messaging_service.send_message(
+                db=db,
+                tenant_id=tenant_id,
+                thread_id=thread_id,
+                sender_type="patient",
+                sender_id=patient_id,
+                body=body,
+            )
+            return {**result, "message": "Mensaje enviado."}
+        else:
+            # Create new thread from patient
+            result = await messaging_service.create_thread(
+                db=db,
+                tenant_id=tenant_id,
+                created_by_id=patient_id,
+                patient_id=patient_id,
+                initial_message=body,
+            )
+            return {
+                "id": result["id"],
+                "thread_id": result["id"],
+                "body": body,
+                "sender_type": "patient",
+                "created_at": result["created_at"],
+                "message": "Mensaje enviado.",
+            }
 
     async def sign_consent(
         self,

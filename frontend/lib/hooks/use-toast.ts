@@ -38,9 +38,9 @@ export const useToastStore = create<ToastStore>((set) => ({
   toast: (input: ToastInput) => {
     const id = generateId();
     const toast: Toast = {
-      id,
-      duration: 5000, // 5 second default
       ...input,
+      id,
+      duration: input.duration ?? 5000,
     };
 
     set((state) => ({

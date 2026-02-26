@@ -562,10 +562,10 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 
 ### Backend: Patient Referral (P-15)
 
-- [ ] **P-15** `POST /api/v1/patients/{patient_id}/referrals` -- Create inter-specialist referral within clinic (referring doctor, receiving specialist, reason, urgency, linked odontogram state)
-  - [ ] `GET /api/v1/patients/{patient_id}/referrals` -- List referrals for patient
-  - [ ] `PUT .../referrals/{referral_id}` -- Update referral status (pending/accepted/completed)
-  - [ ] Notification to receiving specialist on referral creation
+- [x] **P-15** `POST /api/v1/patients/{patient_id}/referrals` -- Create inter-specialist referral within clinic (referring doctor, receiving specialist, reason, urgency, linked odontogram state)
+  - [x] `GET /api/v1/patients/{patient_id}/referrals` -- List referrals for patient
+  - [x] `PUT .../referrals/{referral_id}` -- Update referral status (pending/accepted/completed)
+  - [x] Notification to receiving specialist on referral creation
   - [ ] Referral summary appears in receiving doctor's dashboard
 
 ### Backend: Notifications (N-01 through N-05)
@@ -596,11 +596,11 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 
 ### Backend: Messaging (MS-01 through MS-05)
 
-- [ ] **MS-01** `POST /api/v1/messages/threads` -- Create message thread
-- [ ] **MS-02** `GET /api/v1/messages/threads` -- List threads (filter by patient, unread)
-- [ ] **MS-03** `POST .../threads/{thread_id}/messages` -- Send message
-- [ ] **MS-04** `GET .../threads/{thread_id}/messages` -- List messages in thread
-- [ ] **MS-05** `POST .../threads/{thread_id}/read` -- Mark thread as read
+- [x] **MS-01** `POST /api/v1/messages/threads` -- Create message thread
+- [x] **MS-02** `GET /api/v1/messages/threads` -- List threads (filter by patient, unread)
+- [x] **MS-03** `POST .../threads/{thread_id}/messages` -- Send message
+- [x] **MS-04** `GET .../threads/{thread_id}/messages` -- List messages in thread
+- [x] **MS-05** `POST .../threads/{thread_id}/read` -- Mark thread as read
 
 ### Integration: WhatsApp
 
@@ -632,16 +632,16 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 
 ### Frontend: Settings
 
-- [ ] **FE-S-06** Consent template management (list, create, edit, preview)
+- [x] **FE-S-06** Consent template management (list, create, edit, preview)
 - [ ] **FE-S-08** Integrations page (WhatsApp, Google Calendar, payment gateway)
 
 ### Email Templates
 
-- [ ] **E-11** Invoice sent to patient
-- [ ] **E-12** Payment received confirmation
-- [ ] **E-13** Overdue payment reminder
+- [x] **E-11** Invoice sent to patient
+- [x] **E-12** Payment received confirmation
+- [x] **E-13** Overdue payment reminder
 - [x] **E-14** Patient portal access invitation
-- [ ] **E-15** New message notification
+- [x] **E-15** New message notification
 
 ---
 
@@ -653,38 +653,38 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 
 ### Backend: Compliance (CO-01 through CO-08)
 
-- [ ] **I-13** Regulatory compliance engine: country adapter pattern (CO, MX, CL, AR, PE)
-- [ ] **I-26** ADR-007: Country compliance adapter architecture
-- [ ] **CO-01** `POST /api/v1/compliance/rips/generate` -- Generate RIPS files (AF, AC, AP, AT, AM, AN, AU)
-- [ ] **CO-02** `GET /api/v1/compliance/rips/{batch_id}` -- Download RIPS batch
-- [ ] **CO-03** `GET /api/v1/compliance/rips` -- RIPS generation history
-- [ ] **CO-04** `POST .../rips/{batch_id}/validate` -- Validate RIPS before submission
-- [ ] **CO-05** `GET /api/v1/compliance/rda/status` -- RDA compliance status check
-- [ ] **CO-06** `POST /api/v1/compliance/e-invoice` -- Electronic invoice via MATIAS API (Colombia DIAN); DentalOS operates as "Casa de Software"; any authorized role (clinic_owner, doctor, assistant) can generate invoices -- not restricted to 1 user like Dentalink
-- [ ] **CO-07** `GET .../e-invoice/{invoice_id}/status` -- E-invoice status with DIAN via MATIAS API
-- [ ] **CO-08** `GET /api/v1/compliance/config` -- Country compliance configuration
+- [x] **I-13** Regulatory compliance engine: country adapter pattern (CO, MX, CL, AR, PE)
+- [x] **I-26** ADR-007: Country compliance adapter architecture
+- [x] **CO-01** `POST /api/v1/compliance/rips/generate` -- Generate RIPS files (AF, AC, AP, AT, AM, AN, AU)
+- [x] **CO-02** `GET /api/v1/compliance/rips/{batch_id}` -- Download RIPS batch
+- [x] **CO-03** `GET /api/v1/compliance/rips` -- RIPS generation history
+- [x] **CO-04** `POST .../rips/{batch_id}/validate` -- Validate RIPS before submission
+- [x] **CO-05** `GET /api/v1/compliance/rda/status` -- RDA compliance status check
+- [x] **CO-06** `POST /api/v1/compliance/e-invoice` -- Electronic invoice via MATIAS API (Colombia DIAN); DentalOS operates as "Casa de Software"; any authorized role (clinic_owner, doctor, assistant) can generate invoices -- not restricted to 1 user like Dentalink
+- [x] **CO-07** `GET .../e-invoice/{invoice_id}/status` -- E-invoice status with DIAN via MATIAS API
+- [x] **CO-08** `GET /api/v1/compliance/config` -- Country compliance configuration
 
 ### Integration: Electronic Invoicing
 
-- [ ] **INT-10** MATIAS API integration for DIAN electronic invoicing (UBL 2.1, digital signature, CUFE, submission); replaces generic INT-04
-  - [ ] DentalOS registered as "Casa de Software" in MATIAS
-  - [ ] Multi-user invoice generation: RBAC allows clinic_owner, doctor, assistant with `billing:invoice:create` permission
-  - [ ] CUFE generation and storage per invoice
-  - [ ] XML and PDF retrieval from MATIAS after DIAN acceptance
+- [x] **INT-10** MATIAS API integration for DIAN electronic invoicing (UBL 2.1, digital signature, CUFE, submission); replaces generic INT-04
+  - [x] DentalOS registered as "Casa de Software" in MATIAS
+  - [x] Multi-user invoice generation: RBAC allows clinic_owner, doctor, assistant with `billing:invoice:create` permission
+  - [x] CUFE generation and storage per invoice
+  - [x] XML and PDF retrieval from MATIAS after DIAN acceptance
 
 ### Audit and Data Retention
 
-- [ ] **I-11** Audit logging verification: validate all clinical data access is logged
-- [ ] **I-12** Data retention policies: 15-year clinical record retention (Colombia)
-- [ ] Audit trail immutability verification
-- [ ] Right-to-be-forgotten vs clinical retention mandate rules
+- [x] **I-11** Audit logging verification: validate all clinical data access is logged
+- [x] **I-12** Data retention policies: 15-year clinical record retention (Colombia)
+- [x] Audit trail immutability verification
+- [x] Right-to-be-forgotten vs clinical retention mandate rules
 
 ### Frontend: Compliance Screens (FE-CO-01 through FE-CO-03)
 
-- [ ] **FE-CO-01** RIPS generation page (period selection, generate, validate, download)
-- [ ] **FE-CO-02** RDA compliance dashboard (compliance score, gaps, action items)
-- [ ] **FE-CO-03** Electronic invoice list (status tracking, resend, download XML/PDF; **accessible to any authorized role, not just clinic_owner**)
-- [ ] **FE-S-07** Compliance settings per country (RDA configuration, required fields)
+- [x] **FE-CO-01** RIPS generation page (period selection, generate, validate, download)
+- [x] **FE-CO-02** RDA compliance dashboard (compliance score, gaps, action items)
+- [x] **FE-CO-03** Electronic invoice list (status tracking, resend, download XML/PDF; **accessible to any authorized role, not just clinic_owner**)
+- [x] **FE-S-07** Compliance settings per country (RDA configuration, required fields)
 
 ---
 
@@ -1010,7 +1010,7 @@ Each sprint must meet these criteria before sign-off:
 | 7-8 | 4 | ~57 | Diagnoses + Procedures + Treatment + Consents + Rx + Quotation + Digital Sig + Tooth Photos | Clinical + Treatment + Consent + Rx screens | Clinical workflow tests | Complete |
 | 9-10 | 5 | ~50 | Appointments + Scheduling + Waitlist + Public booking + Voice Pipeline | Calendar + Agenda screens + Voice UI | Scheduling + Voice tests | Complete |
 | 11-12 | 6 | ~67 | Billing + Notifications + Portal + Messaging + WhatsApp + Referral | Billing + Portal screens | Integration tests | Not Started |
-| 13-14 | 7 | ~20 | Colombia compliance (RIPS, RDA, MATIAS/DIAN) | Compliance screens | Compliance validation tests | Not Started |
+| 13-14 | 7 | ~20 | Colombia compliance (RIPS, RDA, MATIAS/DIAN) | Compliance screens | Compliance validation tests | Complete |
 | 15-16 | 8 | ~37 | Analytics + Import/Export + Merge + Inventory + Mexico + Admin | Analytics + Import + Inventory screens | Analytics + Load tests | Not Started |
 | 17-18 | 9 | -- | Bug fixes + Optimizations | Bug fixes + UX polish | Security audit + Load tests | Not Started |
 | 19-20 | 10 | -- | Production deploy + Monitoring | Marketing site | Final validation | Not Started |

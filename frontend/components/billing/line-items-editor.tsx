@@ -110,7 +110,7 @@ export function LineItemsEditor({ disabled = false }: LineItemsEditorProps) {
                         {...register(`items.${index}.description`)}
                         disabled={disabled}
                       />
-                      {errors.items?.[index]?.description && (
+                      {(errors.items as any)?.[index]?.description && (
                         <p className="text-[10px] text-destructive mt-0.5">
                           {(errors.items as Record<string, any>)?.[index]?.description?.message}
                         </p>
@@ -134,7 +134,7 @@ export function LineItemsEditor({ disabled = false }: LineItemsEditorProps) {
                         {...register(`items.${index}.unit_price_display`)}
                         disabled={disabled}
                       />
-                      {errors.items?.[index]?.unit_price_display && (
+                      {(errors.items as any)?.[index]?.unit_price_display && (
                         <p className="text-[10px] text-destructive mt-0.5">
                           {(errors.items as Record<string, any>)?.[index]?.unit_price_display?.message}
                         </p>
