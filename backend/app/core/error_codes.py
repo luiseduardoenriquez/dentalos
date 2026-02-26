@@ -161,6 +161,10 @@ class BillingErrors:
     INVALID_AMOUNT = "BILLING_invalid_amount"
     DIAN_SUBMISSION_FAILED = "BILLING_dian_submission_failed"
     PAYMENT_METHOD_NOT_SUPPORTED = "BILLING_payment_method_not_supported"
+    PAYMENT_EXCEEDS_BALANCE = "BILLING_payment_exceeds_balance"
+    INVOICE_NOT_PAYABLE = "BILLING_invoice_not_payable"
+    PLAN_ALREADY_EXISTS = "BILLING_plan_already_exists"
+    INSTALLMENT_NOT_FOUND = "BILLING_installment_not_found"
 
 
 class ConsentErrors:

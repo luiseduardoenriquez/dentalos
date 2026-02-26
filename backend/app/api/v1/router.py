@@ -60,3 +60,12 @@ api_v1_router.include_router(appointments_router)
 api_v1_router.include_router(waitlist_router)
 api_v1_router.include_router(public_booking_router)
 api_v1_router.include_router(voice_router)
+
+# Sprint 11-12: Billing
+from app.api.v1.billing.summary_router import router as billing_summary_router
+from app.api.v1.invoices.router import router as invoices_router
+from app.api.v1.payments.router import router as payments_router
+
+api_v1_router.include_router(invoices_router)
+api_v1_router.include_router(payments_router)
+api_v1_router.include_router(billing_summary_router)

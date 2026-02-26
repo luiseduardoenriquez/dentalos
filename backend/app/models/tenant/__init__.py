@@ -12,6 +12,7 @@ from app.models.tenant.evolution_template import (
     EvolutionTemplateStep,
     EvolutionTemplateVariable,
 )
+from app.models.tenant.invoice import Invoice, InvoiceItem
 from app.models.tenant.odontogram import (
     OdontogramCondition,
     OdontogramHistory,
@@ -20,6 +21,8 @@ from app.models.tenant.odontogram import (
 )
 from app.models.tenant.patient import Patient
 from app.models.tenant.patient_document import PatientDocument
+from app.models.tenant.payment import Payment
+from app.models.tenant.payment_plan import PaymentPlan, PaymentPlanInstallment
 from app.models.tenant.prescription import Prescription
 from app.models.tenant.procedure import Procedure
 from app.models.tenant.quotation import Quotation, QuotationItem
@@ -47,12 +50,17 @@ __all__ = [
     "EvolutionTemplate",
     "EvolutionTemplateStep",
     "EvolutionTemplateVariable",
+    "Invoice",
+    "InvoiceItem",
     "OdontogramCondition",
     "OdontogramHistory",
     "OdontogramSnapshot",
     "OdontogramState",
     "Patient",
     "PatientDocument",
+    "Payment",
+    "PaymentPlan",
+    "PaymentPlanInstallment",
     "Prescription",
     "Procedure",
     "Quotation",

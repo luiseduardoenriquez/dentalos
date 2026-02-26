@@ -79,7 +79,6 @@ const NAV_ITEMS: NavItem[] = [
     label: "Facturación",
     icon: Receipt,
     roles: ["clinic_owner", "receptionist"],
-    disabled: true,
   },
   {
     href: "/reports",

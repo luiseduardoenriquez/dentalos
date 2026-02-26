@@ -1,0 +1,180 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import {
+  Receipt,
+  AlertTriangle,
+  TrendingUp,
+  CreditCard,
+  Clock,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { apiGet } from "@/lib/api-client";
+import { formatCurrency, cn } from "@/lib/utils";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface BillingSummary {
+  total_pending: number;
+  total_overdue: number;
+  collected_month: number;
+  collected_year: number;
+  invoice_count: number;
+  overdue_count: number;
+}
+
+// ─── Summary Card ─────────────────────────────────────────────────────────────
+
+function SummaryCard({
+  title,
+  value,
+  icon: Icon,
+  variant = "default",
+}: {
+  title: string;
+  value: string;
+  icon: React.ComponentType<{ className?: string }>;
+  variant?: "default" | "warning" | "success";
+}) {
+  const variantStyles = {
+    default:
+      "bg-[hsl(var(--card))] border-[hsl(var(--border))]",
+    warning:
+      "bg-orange-50 border-orange-200 dark:bg-orange-900/10 dark:border-orange-800",
+    success:
+      "bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-800",
+  };
+
+  const iconStyles = {
+    default: "text-primary-600",
+    warning: "text-orange-600",
+    success: "text-green-600",
+  };
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border p-5 transition-shadow hover:shadow-sm",
+        variantStyles[variant],
+      )}
+    >
+      <div className="flex items-center gap-3 mb-3">
+        <div
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-lg",
+            variant === "default" && "bg-primary-100 dark:bg-primary-900/30",
+            variant === "warning" && "bg-orange-100 dark:bg-orange-900/30",
+            variant === "success" && "bg-green-100 dark:bg-green-900/30",
+          )}
+        >
+          <Icon className={cn("h-4.5 w-4.5", iconStyles[variant])} />
+        </div>
+        <span className="text-sm text-[hsl(var(--muted-foreground))]">
+          {title}
+        </span>
+      </div>
+      <p className="text-2xl font-bold tabular-nums text-foreground">{value}</p>
+    </div>
+  );
+}
+
+// ─── Loading Skeleton ─────────────────────────────────────────────────────────
+
+function BillingSkeleton() {
+  return (
+    <div className="space-y-6">
+      <Skeleton className="h-7 w-40" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-28 rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-64 rounded-xl" />
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function BillingPage() {
+  const { data: summary, isLoading } = useQuery({
+    queryKey: ["billing", "summary"],
+    queryFn: () => apiGet<BillingSummary>("/billing/summary"),
+    staleTime: 60_000,
+  });
+
+  if (isLoading || !summary) {
+    return <BillingSkeleton />;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Receipt className="h-5 w-5 text-primary-600" />
+          <h1 className="text-lg font-semibold text-foreground">
+            Facturación
+          </h1>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <SummaryCard
+          title="Pendiente"
+          value={formatCurrency(summary.total_pending)}
+          icon={Clock}
+        />
+        <SummaryCard
+          title="Vencido"
+          value={formatCurrency(summary.total_overdue)}
+          icon={AlertTriangle}
+          variant={summary.total_overdue > 0 ? "warning" : "default"}
+        />
+        <SummaryCard
+          title="Recaudado (mes)"
+          value={formatCurrency(summary.collected_month)}
+          icon={CreditCard}
+          variant="success"
+        />
+        <SummaryCard
+          title="Recaudado (año)"
+          value={formatCurrency(summary.collected_year)}
+          icon={TrendingUp}
+          variant="success"
+        />
+      </div>
+
+      {/* Quick Stats */}
+      <div className="flex gap-4 text-sm text-[hsl(var(--muted-foreground))]">
+        <span>
+          <strong className="text-foreground">{summary.invoice_count}</strong>{" "}
+          facturas pendientes
+        </span>
+        {summary.overdue_count > 0 && (
+          <span className="text-orange-600">
+            <strong>{summary.overdue_count}</strong> vencidas
+          </span>
+        )}
+      </div>
+
+      {/* Placeholder for future invoice table */}
+      <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-8 text-center">
+        <Receipt className="h-10 w-10 mx-auto text-[hsl(var(--muted-foreground))] opacity-50 mb-3" />
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+          Busca un paciente para ver y crear facturas.
+        </p>
+        <Link
+          href="/patients"
+          className="inline-block mt-3 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+        >
+          Ir a pacientes
+        </Link>
+      </div>
+    </div>
+  );
+}
