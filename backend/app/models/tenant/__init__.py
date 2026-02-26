@@ -19,6 +19,7 @@ from app.models.tenant.odontogram import (
     OdontogramState,
 )
 from app.models.tenant.patient import Patient
+from app.models.tenant.patient_document import PatientDocument
 from app.models.tenant.prescription import Prescription
 from app.models.tenant.procedure import Procedure
 from app.models.tenant.quotation import Quotation, QuotationItem
@@ -51,6 +52,7 @@ __all__ = [
     "OdontogramSnapshot",
     "OdontogramState",
     "Patient",
+    "PatientDocument",
     "Prescription",
     "Procedure",
     "Quotation",
