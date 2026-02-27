@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     database_sync_url: str = (
         "postgresql+psycopg://dentalos:dentalos_dev_password@localhost:5432/dentalos_dev"
     )
-    database_pool_size: int = 10
-    database_max_overflow: int = 20
+    database_pool_size: int = 25
+    database_max_overflow: int = 50
     database_echo: bool = False
 
     # ─── Redis ────────────────────────────────────────

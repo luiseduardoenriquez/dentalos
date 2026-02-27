@@ -136,7 +136,7 @@ load-test-conflict: ## Run 100-concurrent appointment booking test
 		--html load_tests/reports/conflict_$$(date +%Y%m%d_%H%M%S).html
 
 load-test-pool: ## Run DB connection pool stress test
-	cd backend && uv run locust -f load_tests/locustfile.py PoolStressUser \
+	cd backend && LOCUST_SHAPE=pool_stress uv run locust -f load_tests/locustfile.py PoolStressUser \
 		--headless -t 5m \
 		--html load_tests/reports/pool_stress_$$(date +%Y%m%d_%H%M%S).html
 

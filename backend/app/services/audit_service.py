@@ -47,8 +47,3 @@ async def write_audit_log(
             action,
             resource_type,
         )
-    finally:
-        try:
-            await db.execute(text("SET search_path TO public"))
-        except Exception:
-            pass

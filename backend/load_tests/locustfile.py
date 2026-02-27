@@ -11,18 +11,20 @@ Usage:
     locust -f load_tests/locustfile.py
 
     # Connection pool stress test
-    locust -f load_tests/locustfile.py --tags pool_stress --headless
+    locust -f load_tests/locustfile.py PoolStressUser --headless
 
     # Conflict booking test
-    locust -f load_tests/locustfile.py ConflictBookingUser --headless -u 100 -r 100
+    locust -f load_tests/locustfile.py ConflictBookingUser --headless -u 100 -r 100 -t 30s
 """
 
 import logging
+import os
 import time
 
 from locust import LoadTestShape, events, tag, task, constant
 
 from load_tests.config import (
+    CONFLICT_VUS,
     DEFAULT_RUN_TIME,
     DEFAULT_SPAWN_RATE,
     DEFAULT_USERS,
@@ -38,6 +40,7 @@ from load_tests.scenarios.odontogram_scenario import DoctorUser  # noqa: F401
 from load_tests.scenarios.appointment_scenario import (  # noqa: F401
     ConflictBookingUser,
     NormalAppointmentUser,
+    setup_conflict_test,
 )
 from load_tests.scenarios.billing_scenario import OwnerUser  # noqa: F401
 from load_tests.scenarios.health_scenario import MonitorUser  # noqa: F401
@@ -63,6 +66,19 @@ def on_test_start(environment, **kwargs):
             )
             environment.runner.quit()
             return
+
+    # Initialize conflict test shared state if ConflictBookingUser is active
+    user_classes = {cls.__name__ for cls in environment.user_classes}
+    if "ConflictBookingUser" in user_classes:
+        first_tenant = token_pool.tenants[0]
+        doctor_id = first_tenant.doctor_ids[0]
+        patient_ids = first_tenant.patient_ids
+        num_vus = environment.parsed_options.num_users or CONFLICT_VUS
+        logger.info(
+            "Setting up conflict test: %d VUs targeting doctor %s",
+            num_vus, doctor_id[:8],
+        )
+        setup_conflict_test(num_vus, doctor_id, patient_ids)
 
 
 # ─── Threshold Validation on Test Stop ──────────────────
@@ -106,35 +122,10 @@ def on_test_stop(environment, **kwargs):
 
 
 # ─── Connection Pool Stress Test Shape ──────────────────
-
-
-class PoolStressShape(LoadTestShape):
-    """Custom load shape for DB connection pool stress testing.
-
-    Ramp stages: 10 → 25 → 35 → 50 → 10 users (60s each).
-    At 50 VUs with wait_time=0, pool_timeout (30s) should trigger 503s.
-    Tests that the app returns 503 (pool timeout), NOT 500 (unhandled).
-
-    Usage:
-        locust -f load_tests/locustfile.py PoolStressUser --tags pool_stress
-    """
-
-    use_common_options = False
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.stages = POOL_STRESS_STAGES
-
-    def tick(self) -> tuple[int, float] | None:
-        elapsed = self.get_run_time()
-        cumulative = 0
-
-        for duration, users, spawn_rate in self.stages:
-            cumulative += duration
-            if elapsed < cumulative:
-                return (users, spawn_rate)
-
-        return None  # Test complete
+# Only define PoolStressShape when explicitly requested via env var.
+# Locust auto-discovers any LoadTestShape subclass and uses it, which
+# overrides --users/--spawn-rate/--run-time for ALL tests. By gating
+# the class definition, other tests (conflict, normal) use CLI args.
 
 
 class PoolStressUser(DentalOSUser):
@@ -151,8 +142,6 @@ class PoolStressUser(DentalOSUser):
     @task
     def hammer_patients(self) -> None:
         """GET /patients/ with no delay — max DB connection pressure."""
-        import random
-
         from load_tests.utils.data_pool import random_patient_id
 
         if not self.creds.patient_ids:
@@ -174,3 +163,32 @@ class PoolStressUser(DentalOSUser):
                 response.success()
             else:
                 response.failure(f"Unexpected: {response.status_code}")
+
+
+if os.getenv("LOCUST_SHAPE") == "pool_stress":
+
+    class PoolStressShape(LoadTestShape):
+        """Custom load shape for DB connection pool stress testing.
+
+        Ramp stages: 10 → 25 → 35 → 50 → 10 users (60s each).
+
+        Usage:
+            LOCUST_SHAPE=pool_stress locust -f load_tests/locustfile.py PoolStressUser --headless
+        """
+
+        use_common_options = False
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.stages = POOL_STRESS_STAGES
+
+        def tick(self) -> tuple[int, float] | None:
+            elapsed = self.get_run_time()
+            cumulative = 0
+
+            for duration, users, spawn_rate in self.stages:
+                cumulative += duration
+                if elapsed < cumulative:
+                    return (users, spawn_rate)
+
+            return None

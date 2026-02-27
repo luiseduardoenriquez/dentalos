@@ -45,6 +45,16 @@ fake = Faker("es_CO")
 # ─── Helpers ────────────────────────────────────────────
 
 
+async def _set_search_path(db: AsyncSession, schema: str) -> None:
+    """Set search_path via driver-level connection (survives commit).
+
+    Uses exec_driver_sql which bypasses SQLAlchemy's transaction management,
+    matching the production pattern in app.core.database._set_search_path.
+    """
+    conn = await db.connection()
+    await conn.exec_driver_sql(f"SET search_path TO {schema}, public")
+
+
 def _print_section(title: str) -> None:
     print(f"\n{'=' * 60}")
     print(f"  {title}")
@@ -240,7 +250,7 @@ async def seed_users(
     """Create users in the tenant schema. Returns list of user info dicts."""
     from app.models.tenant.user import User
 
-    await db.execute(text(f"SET search_path TO {schema_name}, public"))
+    await _set_search_path(db, schema_name)
 
     users = []
     for role_def in ROLES:
@@ -291,7 +301,7 @@ async def seed_users(
     await db.commit()
 
     # Create memberships in public schema
-    await db.execute(text("SET search_path TO public"))
+    await _set_search_path(db, "public")
     from app.models.public.user_tenant_membership import UserTenantMembership
 
     for user_info in users:
@@ -318,7 +328,7 @@ async def seed_patients(
     schema_name: str, db: AsyncSession
 ) -> list[str]:
     """Insert patients into tenant schema using raw SQL. Returns patient IDs."""
-    await db.execute(text(f"SET search_path TO {schema_name}, public"))
+    await _set_search_path(db, schema_name)
 
     # Check if patients table exists
     table_check = await db.execute(
@@ -327,25 +337,29 @@ async def seed_patients(
     )
     if table_check.scalar_one_or_none() is None:
         print(f"  [SKIP] 'patients' table not found in {schema_name}")
-        await db.execute(text("SET search_path TO public"))
         await db.commit()
+        await _set_search_path(db, "public")
         return []
 
-    patient_ids = []
+    patient_ids: list[str] = []
 
-    # Check existing count
+    # Load any pre-existing patient IDs
     count_result = await db.execute(text("SELECT COUNT(*) FROM patients"))
-    existing_count = count_result.scalar()
+    existing_count = count_result.scalar() or 0
     if existing_count >= PATIENTS_PER_TENANT:
-        # Load existing IDs
         ids_result = await db.execute(
             text(f"SELECT id::text FROM patients LIMIT {PATIENTS_PER_TENANT}")
         )
         patient_ids = [row[0] for row in ids_result.fetchall()]
         _print_skip(f"{existing_count} patients in {schema_name}")
-        await db.execute(text("SET search_path TO public"))
         await db.commit()
+        await _set_search_path(db, "public")
         return patient_ids
+
+    # Load existing IDs before inserting new ones
+    if existing_count > 0:
+        ids_result = await db.execute(text("SELECT id::text FROM patients"))
+        patient_ids = [row[0] for row in ids_result.fetchall()]
 
     to_create = PATIENTS_PER_TENANT - existing_count
     for i in range(to_create):
@@ -393,16 +407,9 @@ async def seed_patients(
 
     await db.commit()
 
-    # Load all patient IDs (including pre-existing)
-    ids_result = await db.execute(
-        text(f"SELECT id::text FROM patients LIMIT {PATIENTS_PER_TENANT}")
-    )
-    patient_ids = [row[0] for row in ids_result.fetchall()]
-
     _print_ok(f"Seeded {to_create} new patients in {schema_name} ({len(patient_ids)} total)")
 
-    await db.execute(text("SET search_path TO public"))
-    await db.commit()
+    await _set_search_path(db, "public")
     return patient_ids
 
 

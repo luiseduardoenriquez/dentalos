@@ -570,6 +570,7 @@ class PatientService:
             patient.notes = notes
 
         await db.flush()
+        await db.refresh(patient, attribute_names=["updated_at"])
 
         logger.info(
             "Patient updated in tenant=%s (id=%s)",
