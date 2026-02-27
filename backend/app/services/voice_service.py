@@ -36,7 +36,13 @@ from app.core.exceptions import (
     ResourceNotFoundError,
     VoiceError,
 )
-from app.core.odontogram_constants import ALL_ZONES, VALID_CONDITION_CODES, VALID_FDI_ALL
+from app.core.odontogram_constants import (
+    ALL_ZONES,
+    ANTERIOR_TEETH,
+    VALID_CONDITION_CODES,
+    VALID_FDI_ALL,
+    is_zone_valid_for_condition,
+)
 from app.core.queue import publish_message
 from app.models.tenant.patient import Patient
 from app.models.tenant.voice_session import VoiceParse, VoiceSession, VoiceTranscription
@@ -210,6 +216,20 @@ def _validate_findings(
         if not isinstance(code, str) or code not in VALID_CONDITION_CODES:
             warnings.append(f"Finding #{i}: invalid condition_code '{code}', skipped")
             continue
+
+        # Normalize zone for tooth morphology:
+        # Anterior teeth (incisors/canines) use "incisal" not "oclusal"
+        if zone == "oclusal" and tooth in ANTERIOR_TEETH:
+            zone = "incisal"
+            warnings.append(f"Finding #{i}: remapped 'oclusal' to 'incisal' for anterior tooth {tooth}")
+
+        # Normalize "full" for conditions that don't support it
+        if zone == "full" and not is_zone_valid_for_condition("full", code):
+            zone = "incisal" if tooth in ANTERIOR_TEETH else "oclusal"
+            warnings.append(
+                f"Finding #{i}: '{code}' does not support zone 'full', "
+                f"defaulted to '{zone}' for tooth {tooth}"
+            )
 
         # Clamp confidence to 0.0-1.0
         confidence = f.get("confidence", 0.5)
