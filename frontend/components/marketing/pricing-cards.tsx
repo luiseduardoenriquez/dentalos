@@ -158,7 +158,7 @@ function PriceDisplay({
   if (plan.monthlyPrice === null) {
     return (
       <div className="mt-4 mb-1">
-        <span className="text-3xl font-bold text-slate-900 dark:text-zinc-100">
+        <span className="text-2xl font-bold text-slate-900 dark:text-zinc-100">
           Personalizado
         </span>
       </div>
