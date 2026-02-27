@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,8 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RichTextEditor } from "@/components/rich-text-editor";
 import { ProcedureForm } from "@/components/procedure-form";
+
+const RichTextEditor = dynamic(
+  () => import("@/components/rich-text-editor").then(m => ({ default: m.RichTextEditor })),
+  { ssr: false, loading: () => <div className="h-[200px] rounded-md border animate-pulse" /> }
+);
 import {
   useCreateClinicalRecord,
   useEvolutionTemplates,

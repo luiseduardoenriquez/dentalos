@@ -120,11 +120,19 @@ class TreatmentPlanService:
         # Add items if provided
         total_estimated = 0
         if items:
+            # Batch-lookup prices for all items that need catalog resolution
+            cups_codes_needing_price = {
+                item_data["cups_code"]
+                for item_data in items
+                if item_data.get("estimated_cost") is None
+            }
+            catalog_prices = await self._batch_lookup_prices(db, cups_codes_needing_price)
+
             for idx, item_data in enumerate(items):
-                # Auto-lookup price from service catalog if not provided
+                # Use caller-supplied price, fall back to catalog batch result, then 0
                 estimated_cost = item_data.get("estimated_cost")
                 if estimated_cost is None:
-                    estimated_cost = await self._lookup_price(db=db, cups_code=item_data["cups_code"])
+                    estimated_cost = catalog_prices.get(item_data["cups_code"], 0)
 
                 plan_item = TreatmentPlanItem(
                     treatment_plan_id=plan.id,
@@ -517,6 +525,28 @@ class TreatmentPlanService:
         )
         price = result.scalar_one_or_none()
         return price if price is not None else 0
+
+    async def _batch_lookup_prices(
+        self,
+        db: AsyncSession,
+        cups_codes: set[str],
+    ) -> dict[str, int]:
+        """Look up default prices for multiple CUPS codes in a single query.
+
+        Returns a mapping of cups_code -> default_price in cents (COP).
+        Codes not found in the catalog are absent from the returned dict
+        (callers should default to 0).
+        Returns an empty dict immediately when the input set is empty.
+        """
+        if not cups_codes:
+            return {}
+        result = await db.execute(
+            select(ServiceCatalog.cups_code, ServiceCatalog.default_price).where(
+                ServiceCatalog.cups_code.in_(cups_codes),
+                ServiceCatalog.is_active.is_(True),
+            )
+        )
+        return {row.cups_code: row.default_price for row in result.all()}
 
 
 # Module-level singleton

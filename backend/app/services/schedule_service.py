@@ -17,6 +17,7 @@ from typing import Any
 from sqlalchemy import and_, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import get_cached, set_cached
 from app.core.error_codes import ScheduleErrors
 from app.core.exceptions import ResourceNotFoundError, ScheduleError
 from app.models.tenant.appointment import Appointment
@@ -388,6 +389,17 @@ class ScheduleService:
         """
         did = uuid.UUID(doctor_id)
 
+        # Cache check — TTL 60s per CLAUDE.md spec (appointment:slots key).
+        # appointment_type is included because it can resolve a different effective
+        # duration from the doctor's schedule defaults.
+        _cache_key = (
+            f"dentalos:shared:appointment:slots:{str(doctor_id)[:8]}:"
+            f"{date_from}:{date_to}:{slot_duration_minutes}:{appointment_type or 'none'}"
+        )
+        _cached = await get_cached(_cache_key)
+        if _cached is not None:
+            return _cached
+
         # 1. Load weekly schedule
         sched_result = await db.execute(
             select(DoctorSchedule)
@@ -503,13 +515,15 @@ class ScheduleService:
             doctor_id[:8], date_from.isoformat(), date_to.isoformat(), effective_duration,
         )
 
-        return {
+        result = {
             "doctor_id": doctor_id,
             "date_from": date_from.isoformat(),
             "date_to": date_to.isoformat(),
             "slot_duration_minutes": effective_duration,
             "slots": slots_by_date,
         }
+        await set_cached(_cache_key, result, ttl_seconds=60)
+        return result
 
     # ─── Private helpers ─────────────────────────────────────────────────
 

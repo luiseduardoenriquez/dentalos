@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
+    "analyze": "ANALYZE=true next build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
@@ -45,6 +46,7 @@
     "@sentry/nextjs": "^10.0.0"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.0.0",
     "@tailwindcss/postcss": "^4.0.0",
     "@testing-library/react": "^16.0.0",
     "@types/node": "^22.0.0",

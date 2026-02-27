@@ -37,6 +37,7 @@ class PaymentPlan(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
             name="chk_payment_plans_status",
         ),
         Index("idx_payment_plans_invoice", "invoice_id"),
+        Index("idx_payment_plans_patient", "patient_id"),
     )
 
     # Invoice link

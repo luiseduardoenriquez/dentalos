@@ -85,18 +85,24 @@ class AdminService:
         result = await db.execute(stmt)
         tenants = result.scalars().all()
 
+        # Batch user counts — single GROUP BY instead of one COUNT per tenant
+        tenant_ids = [t.id for t in tenants]
+        user_counts: dict = {}
+        if tenant_ids:
+            count_stmt = (
+                select(UserTenantMembership.tenant_id, func.count(UserTenantMembership.id))
+                .where(
+                    UserTenantMembership.tenant_id.in_(tenant_ids),
+                    UserTenantMembership.status == "active",
+                )
+                .group_by(UserTenantMembership.tenant_id)
+            )
+            count_result = await db.execute(count_stmt)
+            user_counts = dict(count_result.all())
+
         # Build summaries with user counts
         items: list[TenantSummary] = []
         for tenant in tenants:
-            # User count from memberships
-            user_count_result = await db.execute(
-                select(func.count(UserTenantMembership.id)).where(
-                    UserTenantMembership.tenant_id == tenant.id,
-                    UserTenantMembership.status == "active",
-                )
-            )
-            user_count = user_count_result.scalar() or 0
-
             plan = tenant.plan  # Eagerly loaded via relationship
 
             items.append(
@@ -106,7 +112,7 @@ class AdminService:
                     slug=tenant.slug,
                     plan_name=plan.name if plan else "unknown",
                     status=tenant.status,
-                    user_count=user_count,
+                    user_count=user_counts.get(tenant.id, 0),
                     patient_count=0,  # Cross-schema query; 0 for MVP
                     created_at=tenant.created_at.isoformat(),
                 )

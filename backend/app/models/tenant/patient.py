@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -44,6 +45,16 @@ class Patient(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
         Index("idx_patients_email", "email"),
         Index("idx_patients_is_active", "is_active"),
         Index("idx_patients_created_at", "created_at"),
+        Index(
+            "idx_patients_fts",
+            text(
+                "to_tsvector('spanish',"
+                " coalesce(first_name,'') || ' ' ||"
+                " coalesce(last_name,'') || ' ' ||"
+                " coalesce(document_number,''))"
+            ),
+            postgresql_using="gin",
+        ),
     )
 
     # Identity

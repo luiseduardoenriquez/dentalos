@@ -17,6 +17,7 @@ from typing import Any
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import cache_delete_pattern
 from app.core.config import settings
 from app.core.error_codes import AppointmentErrors
 from app.core.exceptions import AppointmentError, DentalOSError, ResourceNotFoundError
@@ -126,6 +127,11 @@ class AppointmentService:
         db.add(appointment)
         await db.flush()
         await db.refresh(appointment)
+
+        # Invalidate slot cache for this doctor — a new appointment occupies slots
+        await cache_delete_pattern(
+            f"dentalos:shared:appointment:slots:{doctor_id[:8]}:*"
+        )
 
         logger.info(
             "Appointment created: patient=%s doctor=%s type=%s",
@@ -359,6 +365,11 @@ class AppointmentService:
         await db.flush()
         await db.refresh(appointment)
 
+        # Invalidate slot cache — cancellation frees up a slot
+        await cache_delete_pattern(
+            f"dentalos:shared:appointment:slots:{str(appointment.doctor_id)[:8]}:*"
+        )
+
         patient_name = await self._resolve_patient_name(db, appointment.patient_id)
         doctor_name = await self._resolve_doctor_name(db, appointment.doctor_id)
 
@@ -423,6 +434,11 @@ class AppointmentService:
         await db.flush()
         await db.refresh(appointment)
 
+        # Invalidate slot cache — confirmation finalises the slot
+        await cache_delete_pattern(
+            f"dentalos:shared:appointment:slots:{str(appointment.doctor_id)[:8]}:*"
+        )
+
         patient_name = await self._resolve_patient_name(db, appointment.patient_id)
         doctor_name = await self._resolve_doctor_name(db, appointment.doctor_id)
 
@@ -459,6 +475,11 @@ class AppointmentService:
 
         await db.flush()
         await db.refresh(appointment)
+
+        # Invalidate slot cache — status change may affect displayed availability
+        await cache_delete_pattern(
+            f"dentalos:shared:appointment:slots:{str(appointment.doctor_id)[:8]}:*"
+        )
 
         patient_name = await self._resolve_patient_name(db, appointment.patient_id)
         doctor_name = await self._resolve_doctor_name(db, appointment.doctor_id)
@@ -501,6 +522,11 @@ class AppointmentService:
         await db.flush()
         await db.refresh(appointment)
 
+        # Invalidate slot cache — completed appointment frees the slot
+        await cache_delete_pattern(
+            f"dentalos:shared:appointment:slots:{str(appointment.doctor_id)[:8]}:*"
+        )
+
         patient_name = await self._resolve_patient_name(db, appointment.patient_id)
         doctor_name = await self._resolve_doctor_name(db, appointment.doctor_id)
 
@@ -539,6 +565,11 @@ class AppointmentService:
         appointment.no_show_at = datetime.now(UTC)
 
         await db.flush()
+
+        # Invalidate slot cache — no-show frees the slot for new bookings
+        await cache_delete_pattern(
+            f"dentalos:shared:appointment:slots:{str(appointment.doctor_id)[:8]}:*"
+        )
 
         # Increment patient no_show_count (defensive: column may not exist in older schemas)
         try:
@@ -623,6 +654,11 @@ class AppointmentService:
 
         await db.flush()
         await db.refresh(appointment)
+
+        # Invalidate slot cache — reschedule affects both old and new time slots
+        await cache_delete_pattern(
+            f"dentalos:shared:appointment:slots:{str(appointment.doctor_id)[:8]}:*"
+        )
 
         patient_name = await self._resolve_patient_name(db, appointment.patient_id)
         doctor_name = await self._resolve_doctor_name(db, appointment.doctor_id)
@@ -840,6 +876,42 @@ class AppointmentService:
         name = result.scalar_one_or_none()
         return name
 
+    async def _batch_resolve_patient_names(
+        self,
+        db: AsyncSession,
+        patient_ids: set[uuid.UUID],
+    ) -> dict[uuid.UUID, str]:
+        """Resolve patient display names in a single query.
+
+        Returns a mapping of patient_id -> "First Last".
+        Returns an empty dict immediately when the input set is empty.
+        """
+        if not patient_ids:
+            return {}
+        result = await db.execute(
+            select(Patient.id, Patient.first_name, Patient.last_name).where(
+                Patient.id.in_(patient_ids)
+            )
+        )
+        return {row.id: f"{row.first_name} {row.last_name}" for row in result.all()}
+
+    async def _batch_resolve_doctor_names(
+        self,
+        db: AsyncSession,
+        doctor_ids: set[uuid.UUID],
+    ) -> dict[uuid.UUID, str]:
+        """Resolve doctor display names in a single query.
+
+        Returns a mapping of doctor_id -> name.
+        Returns an empty dict immediately when the input set is empty.
+        """
+        if not doctor_ids:
+            return {}
+        result = await db.execute(
+            select(User.id, User.name).where(User.id.in_(doctor_ids))
+        )
+        return {row.id: row.name for row in result.all()}
+
     async def _list_cursor(
         self,
         *,
@@ -896,12 +968,20 @@ class AppointmentService:
             last = appointments[-1]
             next_cursor = f"{last.start_time.isoformat()}|{last.id}"
 
-        # Batch-resolve names
-        items = []
-        for appt in appointments:
-            patient_name = await self._resolve_patient_name(db, appt.patient_id)
-            doctor_name = await self._resolve_doctor_name(db, appt.doctor_id)
-            items.append(self._to_dict(appt, patient_name=patient_name, doctor_name=doctor_name))
+        # Batch-resolve names — single query per entity type instead of N+1
+        patient_ids = {appt.patient_id for appt in appointments}
+        doctor_ids = {appt.doctor_id for appt in appointments}
+        patient_names = await self._batch_resolve_patient_names(db, patient_ids)
+        doctor_names = await self._batch_resolve_doctor_names(db, doctor_ids)
+
+        items = [
+            self._to_dict(
+                appt,
+                patient_name=patient_names.get(appt.patient_id),
+                doctor_name=doctor_names.get(appt.doctor_id),
+            )
+            for appt in appointments
+        ]
 
         return {
             "items": items,
@@ -971,14 +1051,22 @@ class AppointmentService:
             dates[current_date.isoformat()] = []
             current_date += timedelta(days=1)
 
+        # Batch-resolve names — single query per entity type instead of N+1
+        patient_ids = {appt.patient_id for appt in appointments}
+        doctor_ids = {appt.doctor_id for appt in appointments}
+        patient_names = await self._batch_resolve_patient_names(db, patient_ids)
+        doctor_names = await self._batch_resolve_doctor_names(db, doctor_ids)
+
         # Populate with appointments
         for appt in appointments:
             appt_date = appt.start_time.date().isoformat()
             if appt_date in dates:
-                patient_name = await self._resolve_patient_name(db, appt.patient_id)
-                doctor_name = await self._resolve_doctor_name(db, appt.doctor_id)
                 dates[appt_date].append(
-                    self._to_dict(appt, patient_name=patient_name, doctor_name=doctor_name)
+                    self._to_dict(
+                        appt,
+                        patient_name=patient_names.get(appt.patient_id),
+                        doctor_name=doctor_names.get(appt.doctor_id),
+                    )
                 )
 
         return {

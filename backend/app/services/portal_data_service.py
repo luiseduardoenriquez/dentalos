@@ -18,12 +18,12 @@ from app.core.cache import get_cached, set_cached
 from app.core.exceptions import DentalOSError
 from app.models.tenant.appointment import Appointment
 from app.models.tenant.consent import Consent
-from app.models.tenant.invoice import Invoice, InvoiceItem
+from app.models.tenant.invoice import Invoice
 from app.models.tenant.odontogram import OdontogramCondition, OdontogramState
 from app.models.tenant.patient import Patient
 from app.models.tenant.patient_document import PatientDocument
 from app.models.tenant.prescription import Prescription
-from app.models.tenant.treatment_plan import TreatmentPlan, TreatmentPlanItem
+from app.models.tenant.treatment_plan import TreatmentPlan
 from app.models.tenant.user import User
 
 logger = logging.getLogger("dentalos.portal_data")
@@ -258,24 +258,19 @@ class PortalDataService:
 
         data = []
         for plan in items:
-            # Get items for this plan
-            plan_items_result = await db.execute(
-                select(TreatmentPlanItem).where(
-                    TreatmentPlanItem.treatment_plan_id == plan.id,
-                )
-            )
-            plan_items = plan_items_result.scalars().all()
+            # Use the selectin-loaded relationship — no extra query per plan
+            plan_items = plan.items
 
-            total = sum(item.cost for item in plan_items)
+            total = sum(item.estimated_cost for item in plan_items)
             completed = sum(1 for item in plan_items if item.status == "completed")
             progress = int((completed / len(plan_items) * 100)) if plan_items else 0
 
             procedures = [
                 {
                     "id": str(item.id),
-                    "name": item.procedure_name,
+                    "name": item.cups_description,
                     "status": item.status,
-                    "cost": item.cost,
+                    "cost": item.estimated_cost,
                     "tooth_number": item.tooth_number if hasattr(item, "tooth_number") else None,
                 }
                 for item in plan_items
@@ -344,26 +339,23 @@ class PortalDataService:
 
         data = []
         for inv in items:
-            # Get line items
-            line_items_result = await db.execute(
-                select(InvoiceItem).where(InvoiceItem.invoice_id == inv.id)
-            )
-            line_items = line_items_result.scalars().all()
+            # Use the selectin-loaded relationship — no extra query per invoice
+            line_items = inv.items
 
             data.append({
                 "id": str(inv.id),
                 "invoice_number": inv.invoice_number if hasattr(inv, "invoice_number") else None,
                 "date": inv.created_at,
-                "total": inv.total_amount,
-                "paid": inv.paid_amount,
-                "balance": inv.total_amount - inv.paid_amount,
+                "total": inv.total,
+                "paid": inv.amount_paid,
+                "balance": inv.total - inv.amount_paid,
                 "status": inv.status,
                 "line_items": [
                     {
                         "description": li.description,
                         "quantity": li.quantity,
                         "unit_price": li.unit_price,
-                        "total": li.total_amount,
+                        "total": li.line_total,
                     }
                     for li in line_items
                 ],

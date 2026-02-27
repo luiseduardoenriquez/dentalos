@@ -795,12 +795,12 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 
 ### Performance Optimization
 
-- [ ] Database query optimization (EXPLAIN ANALYZE on slow queries)
-- [ ] N+1 query detection and resolution
-- [ ] Redis cache hit rate optimization (target: >90%)
-- [ ] Frontend bundle size audit (target: <200KB initial JS)
-- [ ] Image optimization (X-rays: lazy loading, progressive JPEG)
-- [ ] API response time audit (target: p95 < 200ms for CRUD, < 500ms for reports)
+- [x] Database query optimization (EXPLAIN ANALYZE on slow queries)
+- [x] N+1 query detection and resolution
+- [x] Redis cache hit rate optimization (target: >90%)
+- [x] Frontend bundle size audit (target: <200KB initial JS)
+- [x] Image optimization (X-rays: lazy loading, progressive JPEG)
+- [x] API response time audit (target: p95 < 200ms for CRUD, < 500ms for reports)
 
 ### Security Audit
 

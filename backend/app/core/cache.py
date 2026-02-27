@@ -7,11 +7,45 @@ from app.core.redis import redis_client
 logger = logging.getLogger("dentalos.cache")
 
 
+def _extract_domain(key: str) -> str:
+    """Extract the domain portion from a cache key.
+
+    Key pattern: ``dentalos:{tid}:{domain}:{resource}:{id}``
+    Returns the domain segment (e.g. "appointment", "clinical", "auth").
+    Falls back to "unknown" for keys that do not match the expected structure.
+    """
+    parts = key.split(":")
+    # parts[0] = "dentalos", parts[1] = tid/shared, parts[2] = domain
+    if len(parts) >= 3:
+        return parts[2]
+    return "unknown"
+
+
 async def get_cached(key: str) -> Any | None:
-    """Get a value from cache. Returns None on miss or error."""
+    """Get a value from cache. Returns None on miss or error.
+
+    Fires fire-and-forget INCR counters for hit/miss metrics so the cache
+    hit rate target (>90%) can be measured per domain. Counter failures
+    never surface to callers.
+    """
     try:
         raw = await redis_client.get(key)
-        return json.loads(raw) if raw else None
+        if raw:
+            domain = _extract_domain(key)
+            logger.debug("cache_hit", extra={"key_prefix": domain})
+            try:
+                await redis_client.incr(f"dentalos:metrics:cache:hits:{domain}")
+            except Exception:
+                pass
+            return json.loads(raw)
+        else:
+            domain = _extract_domain(key)
+            logger.debug("cache_miss", extra={"key_prefix": domain})
+            try:
+                await redis_client.incr(f"dentalos:metrics:cache:misses:{domain}")
+            except Exception:
+                pass
+            return None
     except Exception:
         logger.warning("cache_get_failed", extra={"key_prefix": _safe_key_prefix(key)})
         return None

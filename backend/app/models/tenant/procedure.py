@@ -39,6 +39,7 @@ class Procedure(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
         Index("idx_procedures_doctor", "doctor_id"),
         Index("idx_procedures_cups", "cups_code"),
         Index("idx_procedures_created_at", "created_at"),
+        Index("idx_procedures_clinical_record", "clinical_record_id"),
     )
 
     # Ownership

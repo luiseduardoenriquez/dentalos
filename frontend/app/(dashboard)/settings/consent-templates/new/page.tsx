@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Eye, EyeOff } from "lucide-react";
 import { type Editor } from "@tiptap/react";
@@ -22,8 +23,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RichTextEditor, insertTextAtCursor } from "@/components/rich-text-editor";
 import { ConsentPreview } from "@/components/consent-preview";
+
+const RichTextEditor = dynamic(
+  () => import("@/components/rich-text-editor").then(m => ({ default: m.RichTextEditor })),
+  { ssr: false, loading: () => <div className="h-[400px] rounded-md border animate-pulse" /> }
+);
 import { useCreateConsentTemplate } from "@/lib/hooks/use-consent-templates";
 import { cn } from "@/lib/utils";
 
@@ -63,7 +68,8 @@ export default function NewConsentTemplatePage() {
 
   const { mutate: createTemplate, isPending } = useCreateConsentTemplate();
 
-  function handleVariableInsert(variable: string) {
+  async function handleVariableInsert(variable: string) {
+    const { insertTextAtCursor } = await import("@/components/rich-text-editor");
     insertTextAtCursor(editorRef.current, variable);
   }
 

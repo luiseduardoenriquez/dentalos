@@ -88,6 +88,7 @@ class Consent(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
         Index("idx_consents_patient", "patient_id"),
         Index("idx_consents_status", "status"),
         Index("idx_consents_template", "template_id"),
+        Index("idx_consents_doctor", "doctor_id"),
     )
 
     # Ownership

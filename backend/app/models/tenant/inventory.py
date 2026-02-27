@@ -103,15 +103,15 @@ class InventoryItem(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
         DateTime(timezone=True), nullable=True
     )
 
-    # Relationships
+    # Relationships — noload: history is unbounded; callers must opt-in via selectinload()
     quantity_history: Mapped[list["InventoryQuantityHistory"]] = relationship(
         back_populates="item",
-        lazy="selectin",
+        lazy="noload",
         order_by="InventoryQuantityHistory.created_at.desc()",
     )
     implant_placements: Mapped[list["ImplantPlacement"]] = relationship(
         back_populates="item",
-        lazy="selectin",
+        lazy="noload",
     )
 
     def __repr__(self) -> str:
