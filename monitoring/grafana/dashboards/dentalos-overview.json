@@ -236,7 +236,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, rate(dentalos_http_request_duration_seconds_bucket[5m])) by (endpoint)",
+          "expr": "histogram_quantile(0.95, sum by (le, endpoint) (rate(dentalos_http_request_duration_seconds_bucket[5m])))",
           "instant": false,
           "legendFormat": "{{endpoint}}",
           "range": true,

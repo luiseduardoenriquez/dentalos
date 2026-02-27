@@ -43,6 +43,9 @@ class PortalCredentials(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
         DateTime(timezone=True), nullable=True
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
 
     def __repr__(self) -> str:
         return f"<PortalCredentials patient_id={self.patient_id}>"

@@ -17,6 +17,7 @@ import {
   Droplets,
   ClipboardList,
   FilePlus,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +36,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/empty-state";
 import { MedicalHistoryTimeline } from "@/components/medical-history-timeline";
-import { usePatient, useDeactivatePatient } from "@/lib/hooks/use-patients";
+import { usePatient, useDeactivatePatient, useManagePortalAccess } from "@/lib/hooks/use-patients";
 import { formatDate, formatDateTime, getInitials } from "@/lib/utils";
 import {
   DOCUMENT_TYPE_LABELS,
@@ -130,6 +131,7 @@ export default function PatientDetailPage() {
 
   const { data: patient, isLoading, isError } = usePatient(params.id);
   const { mutate: deactivate, isPending: isDeactivating } = useDeactivatePatient();
+  const { mutate: managePortal, isPending: isManagingPortal } = useManagePortalAccess();
 
   function handleDeactivate() {
     deactivate(params.id, {
@@ -196,13 +198,49 @@ export default function PatientDetailPage() {
             </div>
           </div>
 
-          <div className="flex flex-row gap-2 sm:flex-col sm:items-end md:flex-row">
+          <div className="flex flex-row gap-2 sm:flex-col sm:items-end md:flex-row flex-wrap">
             <Button variant="outline" size="sm" asChild>
               <Link href={`/patients/${patient.id}/edit`}>
                 <Edit className="mr-1.5 h-3.5 w-3.5" />
                 Editar
               </Link>
             </Button>
+            {patient.is_active && patient.portal_access && (
+              <Badge variant="success" className="h-8 px-3 gap-1.5 text-xs">
+                <Globe className="h-3 w-3" />
+                Portal activo
+              </Badge>
+            )}
+            {patient.is_active && !patient.portal_access && patient.email && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isManagingPortal}
+                onClick={() =>
+                  managePortal({
+                    id: patient.id,
+                    action: "grant",
+                    invitation_channel: "email",
+                  })
+                }
+              >
+                <Globe className="mr-1.5 h-3.5 w-3.5" />
+                {isManagingPortal ? "Enviando..." : "Dar acceso al portal"}
+              </Button>
+            )}
+            {patient.is_active && patient.portal_access && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-[hsl(var(--muted-foreground))]"
+                disabled={isManagingPortal}
+                onClick={() =>
+                  managePortal({ id: patient.id, action: "revoke" })
+                }
+              >
+                {isManagingPortal ? "Revocando..." : "Revocar portal"}
+              </Button>
+            )}
             {patient.is_active && (
               <Button
                 variant="destructive"

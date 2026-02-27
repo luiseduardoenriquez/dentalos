@@ -12,6 +12,7 @@ interface LoginResponse {
   refresh_token: string;
   token_type: string;
   expires_in: number;
+  must_change_password?: boolean;
   patient: {
     id: string;
     first_name: string;
@@ -53,6 +54,24 @@ function PortalLoginContent() {
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [magicLinkChannel, setMagicLinkChannel] = useState<"email" | "whatsapp">("email");
 
+  // Password change state (shown after login when must_change_password is true)
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pendingLoginData, setPendingLoginData] = useState<LoginResponse | null>(null);
+
+  function completeLogin(data: LoginResponse) {
+    setPortalAccessToken(data.access_token);
+    set_portal_auth({
+      id: data.patient.id,
+      first_name: data.patient.first_name,
+      last_name: data.patient.last_name,
+      email: data.patient.email,
+      phone: data.patient.phone,
+    });
+    router.replace(redirect);
+  }
+
   async function handlePasswordLogin(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -66,15 +85,14 @@ function PortalLoginContent() {
         tenant_id: tenantId,
       });
 
-      setPortalAccessToken(data.access_token);
-      set_portal_auth({
-        id: data.patient.id,
-        first_name: data.patient.first_name,
-        last_name: data.patient.last_name,
-        email: data.patient.email,
-        phone: data.patient.phone,
-      });
-      router.replace(redirect);
+      if (data.must_change_password) {
+        // Store token so we can call change-password, but show the change form
+        setPortalAccessToken(data.access_token);
+        setPendingLoginData(data);
+        setShowPasswordChange(true);
+      } else {
+        completeLogin(data);
+      }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string }; status?: number } };
       if (axiosErr.response?.status === 429) {
@@ -82,6 +100,52 @@ function PortalLoginContent() {
       } else {
         setError(axiosErr.response?.data?.message || "Credenciales inválidas.");
       }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (newPassword !== confirmPassword) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await portalApiPost("/portal/auth/change-password", {
+        new_password: newPassword,
+      });
+      if (pendingLoginData) {
+        completeLogin(pendingLoginData);
+      }
+    } catch {
+      setError("Error al cambiar la contraseña. Inténtalo de nuevo.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleKeepCurrentPassword() {
+    setError(null);
+    setLoading(true);
+    try {
+      // "Keep current" sends the password they just typed to clear the flag
+      await portalApiPost("/portal/auth/change-password", {
+        new_password: password,
+      });
+      if (pendingLoginData) {
+        completeLogin(pendingLoginData);
+      }
+    } catch {
+      setError("Error al confirmar la contraseña. Inténtalo de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -130,7 +194,61 @@ function PortalLoginContent() {
             </div>
           )}
 
-          {magicLinkSent ? (
+          {showPasswordChange ? (
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div className="text-center space-y-1 pb-2">
+                <h2 className="text-lg font-semibold text-[hsl(var(--foreground))]">Cambiar contraseña</h2>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                  Tu contraseña es temporal. Por favor elige una nueva contraseña o confirma la actual.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1.5">
+                  Nueva contraseña
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Mínimo 8 caracteres"
+                  required
+                  minLength={8}
+                  className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1.5">
+                  Confirmar contraseña
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repite la contraseña"
+                  required
+                  minLength={8}
+                  className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? "Guardando..." : "Cambiar contraseña"}
+              </button>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={handleKeepCurrentPassword}
+                  disabled={loading}
+                  className="text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                >
+                  Continuar con la contraseña actual
+                </button>
+              </div>
+            </form>
+          ) : magicLinkSent ? (
             <div className="text-center space-y-3 py-4">
               <div className="mx-auto w-16 h-16 rounded-full bg-green-100 dark:bg-green-950/30 flex items-center justify-center">
                 <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

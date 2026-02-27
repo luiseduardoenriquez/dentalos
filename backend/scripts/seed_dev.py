@@ -717,6 +717,91 @@ async def seed_inventory(schema_name: str, db: AsyncSession) -> None:
     await db.commit()
 
 
+async def seed_portal_access(schema_name: str, db: AsyncSession) -> None:
+    """Enable portal access for all demo patients with a default password.
+
+    Creates portal_credentials rows so demo patients can log in to the portal
+    using their email + DemoPass1.
+    """
+    _print_section("Portal Access")
+
+    await db.execute(text(f"SET search_path TO {schema_name}, public"))
+
+    # Check if portal_credentials table exists
+    table_check = await db.execute(
+        text("SELECT to_regclass(:qualified_name)"),
+        {"qualified_name": f"{schema_name}.portal_credentials"},
+    )
+    if table_check.scalar_one_or_none() is None:
+        print(
+            "  [SKIP] 'portal_credentials' table not found in tenant schema — "
+            "will be available after portal migrations."
+        )
+        await db.execute(text("SET search_path TO public"))
+        await db.commit()
+        return
+
+    password_hash = hash_password(DEMO_PASSWORD)
+
+    for patient in SAMPLE_PATIENTS:
+        # Find the patient by document_number
+        patient_row = await db.execute(
+            text("SELECT id, portal_access FROM patients WHERE document_number = :doc"),
+            {"doc": patient["document_number"]},
+        )
+        row = patient_row.mappings().first()
+        if not row:
+            _print_skip(
+                f"Patient {patient['first_name']} {patient['last_name']} (not found)"
+            )
+            continue
+
+        patient_id = row["id"]
+
+        # Enable portal_access on the patient
+        if not row["portal_access"]:
+            await db.execute(
+                text("UPDATE patients SET portal_access = true WHERE id = :pid"),
+                {"pid": patient_id},
+            )
+
+        # Check if credentials already exist
+        creds_check = await db.execute(
+            text("SELECT id FROM portal_credentials WHERE patient_id = :pid"),
+            {"pid": patient_id},
+        )
+        if creds_check.scalar_one_or_none():
+            _print_skip(
+                f"Portal creds for {patient['first_name']} {patient['last_name']}"
+            )
+            continue
+
+        await db.execute(
+            text(
+                """
+                INSERT INTO portal_credentials (
+                    id, patient_id, password_hash,
+                    failed_attempts, is_active, must_change_password,
+                    created_at, updated_at
+                ) VALUES (
+                    gen_random_uuid(), :patient_id, :password_hash,
+                    0, true, false,
+                    now(), now()
+                )
+                """
+            ),
+            {"patient_id": patient_id, "password_hash": password_hash},
+        )
+        _print_ok(
+            f"Portal access for {patient['first_name']} {patient['last_name']} "
+            f"(email={patient['email']})"
+        )
+
+    await db.commit()
+    await db.execute(text("SET search_path TO public"))
+    await db.commit()
+
+
 async def seed_superadmin(db: AsyncSession) -> None:
     """Create a superadmin account in the public schema for dev/testing.
 
@@ -757,6 +842,7 @@ def print_summary(tenant: Tenant, user_ids: dict[str, uuid.UUID]) -> None:
     print(f"  Tenant ID: {tenant.id}")
     print()
     print(f"  Password for all users: {DEMO_PASSWORD}")
+    print(f"  Portal patients login: email + {DEMO_PASSWORD} (tenant={DEMO_TENANT_SLUG})")
     print()
     print(f"  {'Email':<40} {'Role':<20} {'User ID'}")
     print(f"  {'-' * 40} {'-' * 20} {'-' * 36}")
@@ -805,7 +891,10 @@ async def main() -> None:
         # 8. Inventory items (graceful skip if table doesn't exist yet)
         await seed_inventory(DEMO_SCHEMA_NAME, db)
 
-        # 9. Superadmin
+        # 9. Portal access for demo patients
+        await seed_portal_access(DEMO_SCHEMA_NAME, db)
+
+        # 10. Superadmin
         await seed_superadmin(db)
 
     print_summary(tenant, user_ids)

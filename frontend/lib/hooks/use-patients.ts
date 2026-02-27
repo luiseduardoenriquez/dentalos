@@ -33,6 +33,7 @@ export interface Patient {
   referral_source: string | null;
   notes: string | null;
   is_active: boolean;
+  portal_access: boolean;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -209,6 +210,51 @@ export function useDeactivatePatient() {
       const message =
         err instanceof Error ? err.message : "No se pudo desactivar el paciente. Inténtalo de nuevo.";
       error("Error al desactivar paciente", message);
+    },
+  });
+}
+
+// ─── useManagePortalAccess ────────────────────────────────────────────────────
+
+/**
+ * POST /patients/{id}/portal-access — grant or revoke portal access.
+ * On success: invalidates patient queries and shows a toast.
+ *
+ * @example
+ * const { mutate: managePortal } = useManagePortalAccess();
+ * managePortal({ id: patientId, action: "grant", invitation_channel: "email" });
+ */
+export function useManagePortalAccess() {
+  const queryClient = useQueryClient();
+  const { success, error } = useToast();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      action,
+      invitation_channel,
+    }: {
+      id: string;
+      action: "grant" | "revoke";
+      invitation_channel?: "email" | "whatsapp";
+    }) =>
+      apiPost<{ message: string }>(`/patients/${id}/portal-access`, {
+        action,
+        invitation_channel,
+      }),
+    onSuccess: (_data, { id, action }) => {
+      queryClient.invalidateQueries({ queryKey: patientQueryKey(id) });
+      queryClient.invalidateQueries({ queryKey: PATIENTS_QUERY_KEY });
+      if (action === "grant") {
+        success("Portal habilitado", "Se envió la invitación al paciente.");
+      } else {
+        success("Portal deshabilitado", "El acceso al portal fue revocado.");
+      }
+    },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof Error ? err.message : "No se pudo gestionar el acceso al portal.";
+      error("Error", message);
     },
   });
 }

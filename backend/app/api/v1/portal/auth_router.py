@@ -16,6 +16,7 @@ from app.core.database import get_tenant_db
 from app.schemas.portal import (
     MagicLinkResponse,
     MagicLinkVerifyRequest,
+    PortalChangePasswordRequest,
     PortalLoginRequest,
     PortalLoginResponse,
     PortalTokenResponse,
@@ -96,6 +97,21 @@ async def refresh_portal_token(
         raw_refresh_token=refresh_token,
     )
     return PortalTokenResponse(**result)
+
+
+@router.post("/change-password")
+async def change_portal_password(
+    body: PortalChangePasswordRequest,
+    portal_user: PortalUser = Depends(get_current_portal_user),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> dict:
+    """Change portal password (used on first login with temp password)."""
+    result = await portal_auth_service.change_password(
+        db=db,
+        patient_id=portal_user.patient_id,
+        new_password=body.new_password,
+    )
+    return result
 
 
 @router.post("/logout")

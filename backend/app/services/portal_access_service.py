@@ -6,6 +6,7 @@ can log in to the patient portal.
 
 import hashlib
 import logging
+import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -15,12 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import cache_delete_pattern, get_cached, set_cached
 from app.core.config import settings
+from app.core.email import email_service
 from app.core.exceptions import (
     DentalOSError,
     ResourceConflictError,
     ResourceNotFoundError,
 )
 from app.core.security import hash_password
+from app.models.public.tenant import Tenant
 from app.models.tenant.patient import Patient
 from app.models.tenant.portal import PortalCredentials, PortalInvitation
 
@@ -75,18 +78,22 @@ class PortalAccessService:
                 status_code=422,
             )
 
-        # Create credentials row (password_hash=null, set during registration)
+        # Generate a temporary password for the patient
+        temp_password = secrets.token_urlsafe(8)[:10]
+
+        # Create credentials row with hashed temp password
         creds = PortalCredentials(
             patient_id=pid,
-            password_hash=None,
+            password_hash=hash_password(temp_password),
             is_active=True,
+            must_change_password=True,
         )
         db.add(creds)
 
         # Update patient
         patient.portal_access = True
 
-        # Generate invitation token
+        # Generate invitation token (kept for audit trail)
         raw_token = str(uuid.uuid4())
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         expires_at = datetime.now(UTC) + timedelta(days=7)
@@ -102,7 +109,7 @@ class PortalAccessService:
         db.add(invitation)
         await db.flush()
 
-        # Store invitation token in Redis for quick lookup during registration
+        # Store invitation token in Redis for quick lookup
         invite_key = f"dentalos:portal:invite:{token_hash}"
         await set_cached(
             invite_key,
@@ -110,7 +117,15 @@ class PortalAccessService:
             ttl_seconds=7 * 86400,  # 7 days
         )
 
-        # TODO: Dispatch invitation via RabbitMQ (E-14)
+        # Send welcome email with temp credentials
+        if channel == "email" and patient.email:
+            await self._send_portal_welcome_email(
+                db=db,
+                patient=patient,
+                tenant_id=tenant_id,
+                temp_password=temp_password,
+            )
+
         logger.info(
             "Portal access granted: tenant=%s channel=%s",
             tenant_id[:8],
@@ -124,6 +139,48 @@ class PortalAccessService:
             "invitation_sent_via": channel,
             "invitation_expires_at": expires_at,
         }
+
+    async def _send_portal_welcome_email(
+        self,
+        *,
+        db: AsyncSession,
+        patient: Patient,
+        tenant_id: str,
+        temp_password: str,
+    ) -> None:
+        """Send portal welcome email with temporary credentials."""
+        # Resolve clinic name and slug from public.tenants
+        tenant_result = await db.execute(
+            select(Tenant).where(Tenant.id == uuid.UUID(tenant_id))
+        )
+        tenant = tenant_result.scalar_one_or_none()
+        clinic_name = tenant.name if tenant else "Tu clínica"
+        clinic_slug = tenant.slug if tenant else tenant_id
+
+        portal_url = settings.frontend_url
+
+        try:
+            await email_service.send_email(
+                to_email=patient.email,
+                to_name=f"{patient.first_name} {patient.last_name}",
+                subject=f"Bienvenido al Portal del Paciente — {clinic_name}",
+                template_name="portal_welcome_es.html",
+                context={
+                    "patient_name": patient.first_name,
+                    "clinic_name": clinic_name,
+                    "email": patient.email,
+                    "temp_password": temp_password,
+                    "portal_url": portal_url,
+                    "clinic_slug": clinic_slug,
+                    "current_year": "2026",
+                },
+            )
+        except Exception:
+            logger.warning(
+                "Failed to send portal welcome email: tenant=%s",
+                tenant_id[:8],
+                exc_info=True,
+            )
 
     async def revoke_access(
         self,

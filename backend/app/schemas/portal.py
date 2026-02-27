@@ -41,6 +41,7 @@ class PortalLoginResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int
+    must_change_password: bool = False
     patient: PortalPatientSummary
 
 
@@ -74,6 +75,12 @@ class PortalRegisterRequest(BaseModel):
     token: str = Field(..., min_length=10)
     tenant_id: str
     password: str = Field(..., min_length=8, max_length=128)
+
+
+class PortalChangePasswordRequest(BaseModel):
+    """Change portal password (used after first login with temp password)."""
+
+    new_password: str = Field(..., min_length=8, max_length=128)
 
 
 # ─── Portal Access Schemas (P-11) ────────────────────────────────────────────

@@ -13,7 +13,7 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.core.database import engine
-from app.core.metrics import REGISTRY, update_db_pool_stats
+from app.core.metrics import REGISTRY, active_tenants, appointments_today, update_db_pool_stats
 from app.core.redis import redis_client
 
 logger = logging.getLogger("dentalos.health")
@@ -129,7 +129,51 @@ async def prometheus_metrics(
     pool_overflow = engine.pool.overflow()
     update_db_pool_stats(pool_checked_in, pool_checked_out, pool_overflow)
 
+    # Update business metrics from database
+    await _update_business_metrics()
+
     return PlainTextResponse(
         content=generate_latest(REGISTRY),
         media_type="text/plain; version=0.0.4; charset=utf-8",
     )
+
+
+async def _update_business_metrics() -> None:
+    """Query the database for business metrics and update Prometheus gauges.
+
+    Runs on every /metrics scrape (~15s). Queries are lightweight COUNT(*)
+    on indexed columns. Fails silently to avoid breaking metrics scraping.
+    """
+    _active_tenants_sql = text(
+        "SELECT COUNT(*) FROM public.tenants WHERE status = 'active' AND deleted_at IS NULL"
+    )
+    _tenant_schemas_sql = text(
+        "SELECT schema_name FROM public.tenants WHERE status = 'active' AND deleted_at IS NULL"
+    )
+    _appointments_today_sql = text(
+        "SELECT COUNT(*) FROM appointments"
+        " WHERE start_time::date = CURRENT_DATE"
+        " AND is_active = true"
+    )
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(_active_tenants_sql)
+            active_tenants.set(result.scalar() or 0)
+
+            schemas_result = await conn.execute(_tenant_schemas_sql)
+            schemas = [row[0] for row in schemas_result]
+
+            total_appointments = 0
+            for schema in schemas:
+                try:
+                    await conn.execute(text(f"SET search_path TO {schema}, public"))
+                    result = await conn.execute(_appointments_today_sql)
+                    total_appointments += result.scalar() or 0
+                except Exception:
+                    logger.debug("Skipping schema %s for metrics", schema)
+                finally:
+                    await conn.execute(text("SET search_path TO public"))
+
+            appointments_today.set(total_appointments)
+    except Exception:
+        logger.debug("Failed to update business metrics", exc_info=True)

@@ -163,6 +163,7 @@ class PortalAuthService:
             "refresh_token": raw_refresh,
             "token_type": "bearer",
             "expires_in": 1800,  # 30 minutes
+            "must_change_password": creds.must_change_password,
             "patient": {
                 "id": patient_id_str,
                 "first_name": patient.first_name,
@@ -391,6 +392,39 @@ class PortalAuthService:
         logger.info("Portal logout: jti=%s", token_jti[:8])
 
         return {"message": "Sesión cerrada exitosamente."}
+
+    async def change_password(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+        new_password: str,
+    ) -> dict[str, Any]:
+        """Change portal password and clear must_change_password flag."""
+        pid = uuid.UUID(patient_id)
+
+        result = await db.execute(
+            select(PortalCredentials).where(
+                PortalCredentials.patient_id == pid,
+                PortalCredentials.is_active.is_(True),
+            )
+        )
+        creds = result.scalar_one_or_none()
+
+        if creds is None:
+            raise AuthError(
+                error="AUTH_credentials_not_found",
+                message="No se encontraron credenciales de portal.",
+                status_code=400,
+            )
+
+        creds.password_hash = hash_password(new_password)
+        creds.must_change_password = False
+        await db.flush()
+
+        logger.info("Portal password changed: patient=%s", patient_id[:8])
+
+        return {"message": "Contraseña actualizada exitosamente."}
 
     # ── Private helpers ──
 

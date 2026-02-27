@@ -185,6 +185,7 @@ class PatientService:
         chronic_conditions: list[str] | None = None,
         referral_source: str | None = None,
         notes: str | None = None,
+        grant_portal_access: bool = True,
     ) -> dict[str, Any]:
         """Register a new patient in the current tenant schema.
 
@@ -232,7 +233,10 @@ class PatientService:
                 ),
             )
 
-        # 4. Persist
+        # 4. Determine portal access
+        should_grant_portal = grant_portal_access and email is not None
+
+        # 5. Persist (portal_access starts False — grant_access() sets it to True)
         patient = Patient(
             document_type=document_type,
             document_number=document_number,
@@ -262,6 +266,26 @@ class PatientService:
         )
         db.add(patient)
         await db.flush()  # Assign patient.id without committing
+
+        # 6. Auto-grant portal access (generates temp password + sends email)
+        if should_grant_portal:
+            try:
+                from app.services.portal_access_service import portal_access_service
+
+                await portal_access_service.grant_access(
+                    db=db,
+                    patient_id=str(patient.id),
+                    invitation_channel="email",
+                    created_by=created_by_id,
+                    tenant_id=tenant_id,
+                )
+            except Exception:
+                # Don't fail patient creation if portal access fails
+                logger.warning(
+                    "Auto-grant portal access failed for patient=%s",
+                    str(patient.id)[:8],
+                    exc_info=True,
+                )
 
         # TODO: Auto-create odontogram_states for this patient — deferred to Sprint 5-6.
 
