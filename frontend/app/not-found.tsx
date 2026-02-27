@@ -29,16 +29,16 @@ export default function NotFound() {
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
-            href="/dashboard"
+            href="/login"
             className="inline-flex items-center justify-center rounded-md bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 transition-colors"
           >
-            Ir al inicio
+            Iniciar sesión
           </Link>
           <Link
-            href="/login"
+            href="/"
             className="inline-flex items-center justify-center rounded-md border border-border bg-background px-6 py-2.5 text-sm font-semibold text-foreground shadow-sm hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring transition-colors"
           >
-            Iniciar sesión
+            Ir al inicio
           </Link>
         </div>
       </div>

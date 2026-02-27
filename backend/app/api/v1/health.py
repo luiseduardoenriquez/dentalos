@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import platform
 import time
@@ -5,7 +6,7 @@ import time
 import aio_pika
 import boto3
 from botocore.exceptions import ClientError
-from fastapi import APIRouter
+from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import generate_latest
 from sqlalchemy import text
@@ -54,16 +55,20 @@ async def health_check() -> JSONResponse:
         logger.warning("Health check: rabbitmq unreachable")
         checks["rabbitmq"] = {"status": "degraded"}
 
-    # MinIO/S3 check (non-critical)
+    # MinIO/S3 check (non-critical) — run in thread to avoid blocking event loop
     try:
-        s3 = boto3.client(
-            "s3",
-            endpoint_url=settings.s3_endpoint_url,
-            aws_access_key_id=settings.s3_access_key,
-            aws_secret_access_key=settings.s3_secret_key,
-            region_name=settings.s3_region,
-        )
-        s3.head_bucket(Bucket=settings.s3_bucket_name)
+
+        def _check_s3() -> None:
+            s3 = boto3.client(
+                "s3",
+                endpoint_url=settings.s3_endpoint_url,
+                aws_access_key_id=settings.s3_access_key,
+                aws_secret_access_key=settings.s3_secret_key,
+                region_name=settings.s3_region,
+            )
+            s3.head_bucket(Bucket=settings.s3_bucket_name)
+
+        await asyncio.to_thread(_check_s3)
         checks["minio"] = {"status": "healthy"}
     except (ClientError, Exception):
         logger.warning("Health check: minio unreachable")
@@ -103,8 +108,21 @@ async def health_check() -> JSONResponse:
 
 
 @router.get("/metrics", include_in_schema=False)
-async def prometheus_metrics() -> PlainTextResponse:
-    """Prometheus metrics endpoint for scraping. No auth required (internal)."""
+async def prometheus_metrics(
+    authorization: str | None = Header(default=None),
+) -> PlainTextResponse:
+    """Prometheus metrics endpoint for scraping. Requires bearer token when configured."""
+    if not settings.prometheus_enabled:
+        raise HTTPException(status_code=404, detail="Metrics disabled")
+
+    # When a prometheus_token is configured, require it as a bearer token
+    if settings.prometheus_token:
+        if not authorization:
+            raise HTTPException(status_code=401, detail="Authorization required")
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() != "bearer" or token != settings.prometheus_token:
+            raise HTTPException(status_code=403, detail="Invalid metrics token")
+
     # Update DB pool stats on each scrape
     pool_checked_in = engine.pool.checkedin()
     pool_checked_out = engine.pool.checkedout()

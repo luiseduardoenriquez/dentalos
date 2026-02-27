@@ -312,7 +312,7 @@ export function useStartAppointment() {
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiPost<Appointment>(`/appointments/${id}/start`),
+      apiPost<Appointment>(`/appointments/${id}/start`, {}),
     onSuccess: (appointment) => {
       queryClient.invalidateQueries({ queryKey: appointmentKey(appointment.id) });
       queryClient.invalidateQueries({ queryKey: APPOINTMENTS_KEY });

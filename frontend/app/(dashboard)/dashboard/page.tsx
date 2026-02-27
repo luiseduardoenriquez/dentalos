@@ -98,7 +98,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   {
     label: "Agendar cita",
     description: "Programa una nueva cita",
-    href: "/appointments/new",
+    href: "/agenda",
     icon: CalendarDays,
     variant: "outline",
   },

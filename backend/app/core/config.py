@@ -96,6 +96,7 @@ class Settings(BaseSettings):
 
     # ─── Monitoring ────────────────────────────────────
     prometheus_enabled: bool = True
+    prometheus_token: str = ""
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
@@ -122,6 +123,16 @@ class Settings(BaseSettings):
     # ─── Google Calendar ─────────────────────────────────
     google_client_id: str = ""
     google_client_secret: str = ""
+
+    # ─── Voice AI (STT + NLP) ─────────────────────────────
+    voice_stt_provider: str = "local"  # "local" | "openai"
+    voice_nlp_provider: str = "local"  # "local" | "anthropic"
+    whisper_model_size: str = "base"  # "tiny" | "base" | "small" | "medium"
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen2.5:32b"
+    ollama_timeout_seconds: int = 120
+    openai_api_key: str = ""
+    anthropic_api_key: str = ""
 
 
 settings = Settings()

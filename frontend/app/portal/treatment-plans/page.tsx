@@ -5,6 +5,7 @@ import {
   usePortalTreatmentPlans,
   usePortalApprovePlan,
 } from "@/lib/hooks/use-portal";
+import { SignaturePad } from "@/components/signature-pad";
 
 export default function PortalTreatmentPlans() {
   const {
@@ -13,20 +14,26 @@ export default function PortalTreatmentPlans() {
     hasNextPage,
     isFetchingNextPage,
     isLoading,
+    isError,
+    error,
+    refetch,
   } = usePortalTreatmentPlans();
   const approveMutation = usePortalApprovePlan();
 
   // Track which plan is being confirmed before approval
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  // Track which plan has the signature modal open
+  const [signingId, setSigningId] = useState<string | null>(null);
 
   const plans = data?.pages.flatMap((p) => p.data) ?? [];
 
-  async function handleApprove(planId: string) {
+  async function handleApprove(planId: string, signatureBase64: string) {
     await approveMutation.mutateAsync({
       planId,
-      signature_data: "placeholder_signature_base64",
+      signature_data: signatureBase64,
       agreed_terms: true,
     });
+    setSigningId(null);
     setConfirmingId(null);
   }
 
@@ -44,6 +51,21 @@ export default function PortalTreatmentPlans() {
               className="h-40 rounded-xl bg-slate-100 dark:bg-zinc-800 animate-pulse"
             />
           ))}
+        </div>
+      ) : isError ? (
+        <div className="text-center py-12 space-y-3">
+          <p className="text-red-600 dark:text-red-400 font-medium">
+            Error al cargar los datos
+          </p>
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">
+            {error instanceof Error ? error.message : "Ocurrió un error inesperado."}
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="mt-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
+          >
+            Reintentar
+          </button>
         </div>
       ) : plans.length === 0 ? (
         <div className="text-center py-12">
@@ -179,21 +201,40 @@ export default function PortalTreatmentPlans() {
               {/* Approve button for pending plans */}
               {plan.status === "pending_approval" && (
                 <div className="mt-4">
-                  {confirmingId === plan.id ? (
+                  {signingId === plan.id ? (
+                    <div className="space-y-3">
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                        Al firmar este plan aceptas los procedimientos y costos
+                        indicados. Tu firma digital tiene validez legal (Ley 527/1999).
+                      </p>
+                      <SignaturePad
+                        disabled={approveMutation.isPending}
+                        onSignature={(base64) => handleApprove(plan.id, base64)}
+                        onClear={() => {}}
+                      />
+                      <button
+                        onClick={() => {
+                          setSigningId(null);
+                          setConfirmingId(null);
+                        }}
+                        disabled={approveMutation.isPending}
+                        className="w-full px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm text-[hsl(var(--muted-foreground))] hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : confirmingId === plan.id ? (
                     <div className="space-y-2">
                       <p className="text-xs text-[hsl(var(--muted-foreground))]">
                         Al aprobar este plan aceptas los procedimientos y costos
-                        indicados.
+                        indicados. Se requiere tu firma digital.
                       </p>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleApprove(plan.id)}
-                          disabled={approveMutation.isPending}
-                          className="flex-1 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                          onClick={() => setSigningId(plan.id)}
+                          className="flex-1 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
                         >
-                          {approveMutation.isPending
-                            ? "Aprobando..."
-                            : "Confirmar aprobación"}
+                          Firmar y aprobar
                         </button>
                         <button
                           onClick={() => setConfirmingId(null)}

@@ -1,17 +1,14 @@
 """Voice transcription worker -- consumes from the 'clinical' queue.
 
 Handles ``voice.transcribe`` jobs: downloads audio from S3, runs
-speech-to-text (Whisper API stub for MVP), and updates the
-VoiceTranscription record.
+speech-to-text via the configured provider (local faster-whisper or
+OpenAI Whisper API), and updates the VoiceTranscription record.
 
-Production pipeline:
+Pipeline:
   1. Download audio bytes from S3 (tenant-isolated key)
-  2. Call OpenAI Whisper API (``openai.audio.transcriptions.create``)
+  2. Transcribe via ``voice_stt.transcribe_audio()``
   3. Update VoiceTranscription.text and .duration_seconds
   4. Update VoiceTranscription.status to 'completed'
-
-For MVP: marks transcription as completed with stub text so the
-parse step can proceed during development.
 
 Security:
   - PHI (transcription text) is NEVER logged.
@@ -68,32 +65,29 @@ class VoiceWorker(BaseWorker):
             message.tenant_id[:8] if message.tenant_id else "?",
         )
 
-        # MVP stub: update transcription status to completed with placeholder text.
-        # Production implementation will:
-        #   1. Resolve tenant schema from message.tenant_id
-        #   2. Download audio from S3 via storage_client.download_file(key=s3_key)
-        #   3. Call Whisper: openai.audio.transcriptions.create(model="whisper-1", file=audio)
-        #   4. Update transcription.text = whisper_response.text
-        #   5. Update transcription.duration_seconds = audio_duration
-        #   6. Update transcription.estimated_cost_usd = calculated_cost
-        #   7. Update transcription.status = "completed"
         try:
             from sqlalchemy import select
 
             from app.core.database import AsyncSessionLocal
+            from app.core.storage import storage_client
             from app.core.tenant import validate_schema_name
             from app.models.tenant.voice_session import VoiceTranscription
+            from app.services.voice_stt import transcribe_audio
 
             # Extract tenant schema for search_path
             tenant_id = message.tenant_id
             schema_name = f"tn_{tenant_id}" if not tenant_id.startswith("tn_") else tenant_id
 
+            # Download audio from S3 and transcribe
+            audio_bytes = await storage_client.download_file(key=s3_key)
+            text = await transcribe_audio(audio_bytes)
+
             async with AsyncSessionLocal() as db:
                 # Set tenant search_path
                 if validate_schema_name(schema_name):
-                    from sqlalchemy import text
+                    from sqlalchemy import text as sa_text
 
-                    await db.execute(text(f"SET search_path TO {schema_name}, public"))
+                    await db.execute(sa_text(f"SET search_path TO {schema_name}, public"))
 
                 result = await db.execute(
                     select(VoiceTranscription).where(
@@ -109,20 +103,17 @@ class VoiceWorker(BaseWorker):
                     )
                     return
 
-                # MVP: set stub text and mark completed
                 transcription.status = "completed"
-                transcription.text = (
-                    "[MVP stub] Transcripcion de audio pendiente de integracion "
-                    "con OpenAI Whisper API."
-                )
-                transcription.duration_seconds = 0.0
+                transcription.text = text
+                transcription.duration_seconds = len(audio_bytes) / 32000.0  # rough estimate
 
                 await db.commit()
 
             logger.info(
-                "Voice transcription completed (stub): id=%s tenant=%s",
+                "Voice transcription completed: id=%s tenant=%s chars=%d",
                 transcription_id[:8],
                 message.tenant_id[:8],
+                len(text),
             )
 
         except Exception:

@@ -509,8 +509,10 @@ class VoiceService:
         # Concatenate all transcription texts
         concatenated_text = " ".join(completed_texts)
 
-        # Run LLM parse (MVP stub)
-        findings = self._parse_dental_text(concatenated_text)
+        # Run NLP parse via provider
+        from app.services.voice_nlp import get_model_identifier
+
+        findings = await self._parse_dental_text(concatenated_text)
 
         # Determine parse status
         parse_status = "success" if findings else "partial"
@@ -523,7 +525,7 @@ class VoiceService:
             corrections=[],
             filtered_speech=[],
             warnings=[],
-            llm_model="stub-v1",  # Will be "claude-3-haiku" in production
+            llm_model=get_model_identifier(),
             status=parse_status,
         )
         db.add(parse)
@@ -811,54 +813,22 @@ class VoiceService:
     # ── Private Helpers ──────────────────────────────────────────────────
 
     async def _transcribe_audio(self, s3_key: str) -> str:
-        """Transcribe audio using OpenAI Whisper API.
+        """Download audio from S3 and transcribe via the configured STT provider."""
+        from app.core.storage import storage_client
+        from app.services.voice_stt import transcribe_audio
 
-        TODO: Replace with OpenAI Whisper API call.
-        Requires OPENAI_API_KEY environment variable.
+        audio_bytes = await storage_client.download_file(key=s3_key)
+        return await transcribe_audio(audio_bytes)
 
-        Production implementation:
-            import openai
-            client = openai.AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
-            audio_file = await storage_client.download_file(s3_key)
-            transcription = await client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                language="es",
-                response_format="text",
-            )
-            return transcription.text
+    async def _parse_dental_text(self, text: str) -> list[dict[str, Any]]:
+        """Parse dental dictation text into structured findings via NLP provider."""
+        from app.services.voice_nlp import parse_dental_text
 
-        MVP stub returns a sample transcription for testing.
-        """
-        logger.info("Whisper transcription stub called (MVP mode) for key=%s", s3_key[:30])
-        return (
-            "El paciente presenta caries en el diente 36 cara oclusal "
-            "y fractura en el diente 11 borde incisal. "
-            "Se observa corona en el 46 y resina en el 24 cara mesial."
-        )
-
-    def _parse_dental_text(self, text: str) -> list[dict[str, Any]]:
-        """Parse dental dictation text into structured findings using Claude.
-
-        TODO: Replace with Anthropic Claude API call.
-        Requires ANTHROPIC_API_KEY environment variable.
-
-        Production implementation:
-            import anthropic
-            client = anthropic.AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-            response = await client.messages.create(
-                model="claude-3-haiku-20240307",
-                max_tokens=2048,
-                system=DENTAL_NLP_PROMPT,
-                messages=[{"role": "user", "content": text}],
-            )
-            return json.loads(response.content[0].text)
-
-        MVP stub returns empty findings -- the real pipeline will be
-        implemented when the Anthropic API integration is set up.
-        """
-        logger.info("Voice parse stub called (MVP mode)")
-        return []
+        try:
+            return await parse_dental_text(text, DENTAL_NLP_PROMPT)
+        except Exception:
+            logger.exception("NLP parse failed, returning empty findings")
+            return []
 
 
 # Module-level singleton for dependency injection

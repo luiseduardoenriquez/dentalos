@@ -158,8 +158,16 @@ function ThreadDetail({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PortalMessages() {
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
-    usePortalMessages();
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = usePortalMessages();
   const sendMutation = usePortalSendMessage();
 
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
@@ -216,6 +224,21 @@ export default function PortalMessages() {
               className="h-20 rounded-xl bg-slate-100 dark:bg-zinc-800 animate-pulse"
             />
           ))}
+        </div>
+      ) : isError ? (
+        <div className="text-center py-12 space-y-3">
+          <p className="text-red-600 dark:text-red-400 font-medium">
+            Error al cargar los datos
+          </p>
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">
+            {error instanceof Error ? error.message : "Ocurrió un error inesperado."}
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="mt-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
+          >
+            Reintentar
+          </button>
         </div>
       ) : threads.length === 0 ? (
         <div className="text-center py-12">

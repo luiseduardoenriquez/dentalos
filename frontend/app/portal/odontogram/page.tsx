@@ -167,7 +167,7 @@ function ArchRow({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PortalOdontogram() {
-  const { data: odontogram, isLoading } = usePortalOdontogram();
+  const { data: odontogram, isLoading, isError, error, refetch } = usePortalOdontogram();
 
   // Build a map from tooth_number → conditions for fast lookup
   const teethMap = new Map<
@@ -211,6 +211,21 @@ export default function PortalOdontogram() {
 
       {isLoading ? (
         <div className="h-72 rounded-xl bg-slate-100 dark:bg-zinc-800 animate-pulse" />
+      ) : isError ? (
+        <div className="text-center py-12 space-y-3">
+          <p className="text-red-600 dark:text-red-400 font-medium">
+            Error al cargar los datos
+          </p>
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">
+            {error instanceof Error ? error.message : "Ocurrió un error inesperado."}
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="mt-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
       ) : !odontogram || odontogram.teeth.length === 0 ? (
         <div className="text-center py-16 bg-white dark:bg-zinc-900 rounded-xl border border-[hsl(var(--border))]">
           <svg

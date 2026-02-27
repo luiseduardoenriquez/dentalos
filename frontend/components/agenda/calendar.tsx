@@ -285,7 +285,7 @@ function WeekView({ weekStart, slots, onAppointmentClick, onSlotClick }: WeekVie
               className="absolute right-2 -translate-y-[9px] text-[10px] leading-none text-[hsl(var(--muted-foreground))] font-medium tabular-nums"
               style={{ top: (hour - 7) * 60 }}
             >
-              {hour % 12 || 12}{hour < 12 ? "a" : "p"}
+              {hour % 12 || 12}{hour < 12 ? "\u00a0a.m." : "\u00a0p.m."}
             </div>
           ))}
         </div>

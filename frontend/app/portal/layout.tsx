@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { usePortalAuthStore } from "@/lib/stores/portal-auth-store";
 import { usePortalMe } from "@/lib/hooks/use-portal";
@@ -102,7 +103,7 @@ function PortalNavbar({
               <p className="text-sm font-semibold">{patientName}</p>
             </div>
             {PORTAL_NAV_ITEMS.map((item) => (
-              <a
+              <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
@@ -114,7 +115,7 @@ function PortalNavbar({
               >
                 <span>{item.icon}</span>
                 <span>{item.label}</span>
-              </a>
+              </Link>
             ))}
             <div className="pt-4 mt-4 border-t border-[hsl(var(--border))]">
               <button
@@ -131,7 +132,7 @@ function PortalNavbar({
       {/* Desktop sidebar */}
       <nav className="hidden md:flex fixed left-0 top-16 h-[calc(100vh-4rem)] w-56 border-r border-[hsl(var(--border))] bg-[hsl(var(--background))] flex-col p-3 space-y-1">
         {PORTAL_NAV_ITEMS.map((item) => (
-          <a
+          <Link
             key={item.href}
             href={item.href}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
@@ -142,7 +143,7 @@ function PortalNavbar({
           >
             <span>{item.icon}</span>
             <span>{item.label}</span>
-          </a>
+          </Link>
         ))}
       </nav>
     </>

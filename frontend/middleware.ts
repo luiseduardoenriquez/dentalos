@@ -111,7 +111,10 @@ export function middleware(request: NextRequest): NextResponse {
     pathname.startsWith("/billing") ||
     pathname.startsWith("/settings") ||
     pathname.startsWith("/team") ||
-    pathname.startsWith("/reports");
+    pathname.startsWith("/reports") ||
+    pathname.startsWith("/analytics") ||
+    pathname.startsWith("/compliance") ||
+    pathname.startsWith("/inventory");
 
   const isPortalRoute = pathname.startsWith("/portal");
 

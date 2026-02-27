@@ -94,8 +94,12 @@ class PortalActionService:
         """Book an appointment from the portal (PP-08).
 
         Creates appointment with status 'pending' — requires clinic confirmation.
+        Validates slot availability before creating.
         """
+        from datetime import timedelta
         from datetime import datetime as dt
+
+        from app.services.appointment_service import appointment_service
 
         pid = uuid.UUID(patient_id)
         did = uuid.UUID(doctor_id)
@@ -110,14 +114,40 @@ class PortalActionService:
                 status_code=422,
             )
 
-        # TODO: Validate slot availability via appointment service
+        # Map appointment_type_id to a type string and resolve duration
+        _type_durations: dict[str, int] = {
+            "consultation": 30,
+            "procedure": 60,
+            "emergency": 30,
+            "follow_up": 20,
+        }
+        appt_type = appointment_type_id if appointment_type_id in _type_durations else "consultation"
+        duration_minutes = _type_durations[appt_type]
+        end_time = scheduled_at + timedelta(minutes=duration_minutes)
+
+        # Validate slot availability — reuse the service overlap check
+        has_overlap = await appointment_service._check_overlap(
+            db=db,
+            doctor_id=did,
+            start_time=scheduled_at,
+            end_time=end_time,
+            exclude_appointment_id=None,
+        )
+        if has_overlap:
+            raise DentalOSError(
+                error="APPOINTMENT_slot_unavailable",
+                message="El horario seleccionado no está disponible. Por favor elige otro.",
+                status_code=409,
+            )
 
         appointment = Appointment(
             patient_id=pid,
             doctor_id=did,
-            scheduled_at=scheduled_at,
-            duration_minutes=30,  # Default, TODO: get from appointment type
-            status="pending",
+            start_time=scheduled_at,
+            end_time=end_time,
+            duration_minutes=duration_minutes,
+            type=appt_type,
+            status="scheduled",
             notes=notes,
             source="portal",
         )
@@ -130,7 +160,7 @@ class PortalActionService:
 
         return {
             "id": str(appointment.id),
-            "scheduled_at": appointment.scheduled_at,
+            "start_time": appointment.start_time,
             "duration_minutes": appointment.duration_minutes,
             "status": appointment.status,
             "message": "Cita solicitada. La clínica confirmará tu cita.",
