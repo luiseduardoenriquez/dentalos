@@ -1,11 +1,13 @@
 """Seed development database with demo data.
 
 Creates:
-  - Plans: free, starter
+  - Plans: free, starter, enterprise
   - Tenant: Clínica Demo Dental (Colombia)
   - Users: clinic_owner, doctor, assistant, receptionist
   - UserTenantMemberships for each user
   - 5 sample patients with realistic Colombian data
+  - 5 sample inventory items (materials, instruments, medications)
+  - 1 superadmin account for platform administration
 
 Usage:
     cd backend
@@ -16,6 +18,9 @@ Demo credentials (password: DemoPass1):
     doctor@demo.dentalos.co      — doctor
     assistant@demo.dentalos.co   — assistant
     receptionist@demo.dentalos.co — receptionist
+
+Superadmin credentials (password: AdminPass1):
+    admin@dentalos.app           — superadmin
 """
 
 import asyncio
@@ -35,6 +40,7 @@ from app.core.database import AsyncSessionLocal, engine
 from app.core.security import hash_password
 from app.models.base import TenantBase
 from app.models.public.plan import Plan
+from app.models.public.superadmin import Superadmin
 from app.models.public.tenant import Tenant
 from app.models.public.user_tenant_membership import UserTenantMembership
 from app.models.tenant.user import User
@@ -580,6 +586,164 @@ async def seed_patients(schema_name: str, db: AsyncSession) -> None:
     await db.commit()
 
 
+async def seed_inventory(schema_name: str, db: AsyncSession) -> None:
+    """Insert sample inventory items using raw SQL.
+
+    Items are chosen to exercise the semaphore status logic:
+    - Green (ok): Resina compuesta A2, Espejo dental #5, Implante Nobel Biocare
+    - Yellow / warning zone: Lidocaína 2% (expiry 2026-08-01)
+    - Red / critical zone: Guantes nitrilo M (expiry 2026-04-15, low stock)
+
+    Columns match the spec in specs/inventory/inventory-model.md.
+    """
+    _print_section("Inventory Items")
+
+    await db.execute(text(f"SET search_path TO {schema_name}, public"))
+
+    # Gracefully skip if the inventory_items table has not been migrated yet.
+    table_check = await db.execute(
+        text("SELECT to_regclass(:qualified_name)"),
+        {"qualified_name": f"{schema_name}.inventory_items"},
+    )
+    if table_check.scalar_one_or_none() is None:
+        print(
+            "  [SKIP] 'inventory_items' table not found in tenant schema — "
+            "will be available after inventory migrations."
+        )
+        await db.execute(text("SET search_path TO public"))
+        await db.commit()
+        return
+
+    sample_items: list[dict] = [
+        {
+            "name": "Resina compuesta A2",
+            "category": "material",
+            "quantity": 50,
+            "unit": "unidades",
+            "lot_number": "RC-2024-001",
+            "expiry_date": date(2027, 6, 15),
+            "manufacturer": "3M ESPE",
+            "cost_per_unit": 15000,  # COP cents
+            "minimum_stock": 10,
+            "location": "Armario A — Estante 2",
+        },
+        {
+            "name": "Espejo dental #5",
+            "category": "instrument",
+            "quantity": 20,
+            "unit": "unidades",
+            "lot_number": "ED-2023-042",
+            "expiry_date": None,
+            "manufacturer": "Hu-Friedy",
+            "cost_per_unit": 8000,
+            "minimum_stock": 5,
+            "location": "Cajón de instrumentos — B1",
+        },
+        {
+            "name": "Implante Nobel Biocare",
+            "category": "implant",
+            "quantity": 5,
+            "unit": "unidades",
+            "lot_number": "NB-2025-0817",
+            "expiry_date": date(2028, 1, 1),
+            "manufacturer": "Nobel Biocare",
+            "cost_per_unit": 1500000,
+            "minimum_stock": 2,
+            "location": "Refrigerador — Bandeja implantes",
+        },
+        {
+            "name": "Lidocaína 2%",
+            "category": "medication",
+            "quantity": 30,
+            "unit": "ml",
+            "lot_number": "LIDO-2024-999",
+            "expiry_date": date(2026, 8, 1),
+            "manufacturer": "Laboratorios Rymco",
+            "cost_per_unit": 3500,
+            "minimum_stock": 10,
+            "location": "Cajón medicamentos — C3",
+        },
+        {
+            "name": "Guantes nitrilo M",
+            "category": "material",
+            "quantity": 10,
+            "unit": "cajas",
+            "lot_number": "GN-2025-077",
+            "expiry_date": date(2026, 4, 15),
+            "manufacturer": "Ansell",
+            "cost_per_unit": 25000,
+            "minimum_stock": 5,
+            "location": "Armario A — Estante 1",
+        },
+    ]
+
+    for item in sample_items:
+        # Idempotency: skip if item with same name already exists.
+        dup_check = await db.execute(
+            text("SELECT id FROM inventory_items WHERE name = :name"),
+            {"name": item["name"]},
+        )
+        if dup_check.scalar_one_or_none():
+            _print_skip(f"Inventory item '{item['name']}'")
+            continue
+
+        await db.execute(
+            text(
+                """
+                INSERT INTO inventory_items (
+                    id,
+                    name, category, quantity, unit,
+                    lot_number, expiry_date, manufacturer,
+                    cost_per_unit, minimum_stock, location,
+                    created_by,
+                    is_active, created_at, updated_at
+                ) VALUES (
+                    gen_random_uuid(),
+                    :name, :category, :quantity, :unit,
+                    :lot_number, :expiry_date, :manufacturer,
+                    :cost_per_unit, :minimum_stock, :location,
+                    NULL,
+                    true, now(), now()
+                )
+                """
+            ),
+            item,
+        )
+        _print_ok(f"Created inventory item '{item['name']}' (category={item['category']})")
+
+    await db.commit()
+
+    await db.execute(text("SET search_path TO public"))
+    await db.commit()
+
+
+async def seed_superadmin(db: AsyncSession) -> None:
+    """Create a superadmin account in the public schema for dev/testing.
+
+    Uses ORM (not raw SQL) since this targets the public schema directly.
+    Idempotent: skips creation if admin@dentalos.app already exists.
+    """
+    _print_section("Superadmin")
+
+    stmt = select(Superadmin).where(Superadmin.email == "admin@dentalos.app")
+    existing = (await db.execute(stmt)).scalar_one_or_none()
+
+    if existing:
+        _print_skip("Superadmin admin@dentalos.app")
+        return
+
+    superadmin = Superadmin(
+        email="admin@dentalos.app",
+        name="Superadmin Dev",
+        password_hash=hash_password("AdminPass1"),
+        totp_enabled=False,
+        is_active=True,
+    )
+    db.add(superadmin)
+    await db.commit()
+    _print_ok(f"Created superadmin admin@dentalos.app (id={superadmin.id})")
+
+
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
@@ -637,6 +801,12 @@ async def main() -> None:
 
         # 7. Sample patients (graceful skip if table doesn't exist yet)
         await seed_patients(DEMO_SCHEMA_NAME, db)
+
+        # 8. Inventory items (graceful skip if table doesn't exist yet)
+        await seed_inventory(DEMO_SCHEMA_NAME, db)
+
+        # 9. Superadmin
+        await seed_superadmin(db)
 
     print_summary(tenant, user_ids)
 

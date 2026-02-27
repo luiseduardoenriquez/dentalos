@@ -45,6 +45,13 @@ from app.models.tenant.user_invite import UserInvite
 from app.models.tenant.user_session import UserSession
 from app.models.tenant.voice_session import VoiceParse, VoiceSession, VoiceTranscription
 from app.models.tenant.waitlist_entry import WaitlistEntry
+from app.models.tenant.inventory import (
+    InventoryItem,
+    InventoryQuantityHistory,
+    SterilizationRecord,
+    SterilizationRecordInstrument,
+    ImplantPlacement,
+)
 
 __all__ = [
     "AuditLog",
@@ -102,4 +109,9 @@ __all__ = [
     "VoiceSession",
     "VoiceTranscription",
     "WaitlistEntry",
+    "InventoryItem",
+    "InventoryQuantityHistory",
+    "SterilizationRecord",
+    "SterilizationRecordInstrument",
+    "ImplantPlacement",
 ]

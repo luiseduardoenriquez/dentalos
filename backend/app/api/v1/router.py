@@ -97,3 +97,18 @@ api_v1_router.include_router(referrals_router)
 from app.api.v1.compliance.router import router as compliance_router
 
 api_v1_router.include_router(compliance_router)
+
+# Sprint 15-16: Inventory
+from app.api.v1.inventory.router import router as inventory_router
+
+api_v1_router.include_router(inventory_router)
+
+# Sprint 15-16: Analytics
+from app.api.v1.analytics.router import router as analytics_router
+
+api_v1_router.include_router(analytics_router)
+
+# Sprint 15-16: Admin
+from app.api.v1.admin.router import router as admin_router
+
+api_v1_router.include_router(admin_router)

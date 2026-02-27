@@ -11,6 +11,7 @@ import {
   BarChart3,
   Settings,
   ShieldCheck,
+  Package,
   X,
   ChevronLeft,
   ChevronRight,
@@ -88,11 +89,16 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["clinic_owner"],
   },
   {
-    href: "/reports",
-    label: "Reportes",
+    href: "/analytics",
+    label: "Analíticas",
     icon: BarChart3,
-    roles: ["clinic_owner"],
-    disabled: true,
+    roles: ["clinic_owner", "doctor"],
+  },
+  {
+    href: "/inventory",
+    label: "Inventario",
+    icon: Package,
+    roles: ["clinic_owner", "assistant"],
   },
   {
     href: "/settings",

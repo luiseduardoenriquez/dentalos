@@ -1,4 +1,4 @@
-"""Patient service — create, read, update, deactivate, and search.
+"""Patient service — create, read, update, deactivate, search, export, and merge.
 
 Security invariants:
   - PHI (patient names, document numbers, phone, email) is NEVER logged.
@@ -7,12 +7,16 @@ Security invariants:
     All other queries use the ORM exclusively.
   - Soft delete only — clinical data is never hard-deleted (Res. 1888).
   - Plan limits are enforced before every patient creation.
+  - Merge operations run in a single transaction and use bound parameters.
 """
 
 import contextlib
+import csv
 import hashlib
+import io
 import logging
 import uuid
+from collections.abc import AsyncGenerator
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -20,7 +24,12 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import cache_delete_pattern, get_cached, set_cached
-from app.core.exceptions import DentalOSError, ResourceConflictError, ResourceNotFoundError
+from app.core.exceptions import (
+    BusinessValidationError,
+    DentalOSError,
+    ResourceConflictError,
+    ResourceNotFoundError,
+)
 from app.models.tenant.patient import Patient
 from app.services.tenant_service import get_tenant_with_plan
 
@@ -716,6 +725,206 @@ class PatientService:
             await set_cached(cache_key, response, ttl_seconds=_SEARCH_CACHE_TTL)
 
         return response
+
+    # ─── Export CSV ───────────────────────────────────────────────────────
+
+    async def export_patients_csv(
+        self,
+        *,
+        db: AsyncSession,
+        is_active: bool | None = None,
+        created_from: date | None = None,
+        created_to: date | None = None,
+    ) -> AsyncGenerator[str, None]:
+        """Yield patient data as CSV rows for streaming download.
+
+        Uses chunked query execution to avoid loading all patient
+        records into memory at once. The first yielded value is the
+        CSV header line.
+
+        Args:
+            is_active: Filter by active/inactive status.
+            created_from: Include patients created on or after this date.
+            created_to: Include patients created on or before this date.
+        """
+        # Header row
+        header_buf = io.StringIO()
+        writer = csv.writer(header_buf)
+        writer.writerow([
+            "tipo_documento",
+            "numero_documento",
+            "nombres",
+            "apellidos",
+            "fecha_nacimiento",
+            "genero",
+            "email",
+            "telefono",
+            "ciudad",
+            "fecha_creacion",
+        ])
+        yield header_buf.getvalue()
+
+        # Build query with filters
+        stmt = select(Patient)
+
+        if is_active is not None:
+            stmt = stmt.where(Patient.is_active.is_(is_active))
+        else:
+            stmt = stmt.where(Patient.is_active.is_(True))
+
+        if created_from is not None:
+            stmt = stmt.where(Patient.created_at >= datetime(
+                created_from.year, created_from.month, created_from.day,
+                tzinfo=UTC,
+            ))
+        if created_to is not None:
+            created_to_end = datetime(
+                created_to.year, created_to.month, created_to.day,
+                23, 59, 59, tzinfo=UTC,
+            )
+            stmt = stmt.where(Patient.created_at <= created_to_end)
+
+        stmt = stmt.order_by(Patient.last_name.asc())
+
+        # Stream results in chunks to keep memory bounded
+        result = await db.stream_scalars(stmt)
+        async for patient in result:
+            row_buf = io.StringIO()
+            row_writer = csv.writer(row_buf)
+            row_writer.writerow([
+                patient.document_type or "",
+                patient.document_number or "",
+                patient.first_name or "",
+                patient.last_name or "",
+                patient.birthdate.isoformat() if patient.birthdate else "",
+                patient.gender or "",
+                patient.email or "",
+                patient.phone or "",
+                patient.city or "",
+                patient.created_at.isoformat() if patient.created_at else "",
+            ])
+            yield row_buf.getvalue()
+
+    # ─── Merge Patients ──────────────────────────────────────────────────
+
+    # Tables that hold a patient_id FK and need re-pointing during merge.
+    _MERGE_TABLES: list[str] = [
+        "clinical_records",
+        "odontogram_states",
+        "appointments",
+        "invoices",
+        "prescriptions",
+        "consents",
+        "diagnoses",
+        "treatment_plans",
+        "patient_documents",
+        "implant_placements",
+        "procedures",
+        "quotations",
+    ]
+
+    async def merge_patients(
+        self,
+        *,
+        db: AsyncSession,
+        tenant_id: str,
+        primary_patient_id: str,
+        secondary_patient_id: str,
+        merged_by_id: str,
+    ) -> dict[str, Any]:
+        """Merge two patient records by transferring all clinical data.
+
+        All FK references in related tables are re-pointed from the
+        secondary patient to the primary patient in a single transaction.
+        The secondary patient is then soft-deactivated.
+
+        Uses raw SQL UPDATE with bound parameters for each table because
+        the merge touches many tables that may not all have ORM models
+        loaded, and the FK update is a simple SET operation.
+
+        Args:
+            primary_patient_id: The patient that survives the merge.
+            secondary_patient_id: The patient to be absorbed and deactivated.
+            merged_by_id: User ID performing the merge (for audit trail).
+
+        Returns:
+            dict with primary_patient_id, merged_records (counts per table),
+            and deactivated_secondary flag.
+
+        Raises:
+            BusinessValidationError — if both IDs are the same.
+            ResourceNotFoundError — if either patient is not found or inactive.
+        """
+        if primary_patient_id == secondary_patient_id:
+            raise BusinessValidationError(
+                message="No se puede fusionar un paciente consigo mismo."
+            )
+
+        # Load both patients (must exist and be active)
+        primary_result = await db.execute(
+            select(Patient).where(
+                Patient.id == uuid.UUID(primary_patient_id),
+                Patient.is_active.is_(True),
+            )
+        )
+        primary = primary_result.scalar_one_or_none()
+        if primary is None:
+            raise ResourceNotFoundError(
+                error="PATIENT_not_found",
+                resource_name="Primary Patient",
+            )
+
+        secondary_result = await db.execute(
+            select(Patient).where(
+                Patient.id == uuid.UUID(secondary_patient_id),
+                Patient.is_active.is_(True),
+            )
+        )
+        secondary = secondary_result.scalar_one_or_none()
+        if secondary is None:
+            raise ResourceNotFoundError(
+                error="PATIENT_not_found",
+                resource_name="Secondary Patient",
+            )
+
+        # Transfer FK references across all clinical tables
+        merged_records: dict[str, int] = {}
+        params = {
+            "primary_id": uuid.UUID(primary_patient_id),
+            "secondary_id": uuid.UUID(secondary_patient_id),
+        }
+
+        for table_name in self._MERGE_TABLES:
+            update_sql = text(
+                f"UPDATE {table_name} "
+                f"SET patient_id = :primary_id "
+                f"WHERE patient_id = :secondary_id"
+            )
+            result = await db.execute(update_sql, params)
+            merged_records[table_name] = result.rowcount
+
+        # Deactivate the secondary patient
+        secondary.is_active = False
+        secondary.deleted_at = datetime.now(UTC)
+
+        await db.flush()
+
+        logger.info(
+            "Patients merged in tenant=%s: primary=%s secondary=%s tables=%d",
+            tenant_id[:8],
+            primary_patient_id[:8],
+            secondary_patient_id[:8],
+            sum(merged_records.values()),
+        )
+
+        # Invalidate all patient caches for this tenant
+        await cache_delete_pattern(_invalidate_search_cache(tenant_id))
+
+        return {
+            "primary_patient_id": str(primary.id),
+            "merged_records": merged_records,
+            "deactivated_secondary": True,
+        }
 
 
 # Module-level singleton for dependency injection

@@ -696,53 +696,53 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 
 ### Backend: Analytics (AN-01 through AN-07)
 
-- [ ] **AN-01** `GET /api/v1/analytics/dashboard` -- Clinic dashboard metrics
-- [ ] **AN-02** `GET /api/v1/analytics/patients` -- Patient analytics (retention, demographics)
-- [ ] **AN-03** `GET /api/v1/analytics/appointments` -- Appointment analytics (utilization, no-shows)
-- [ ] **AN-04** `GET /api/v1/analytics/revenue` -- Revenue analytics (by period, doctor, procedure)
-- [ ] **AN-05** `GET /api/v1/analytics/clinical` -- Clinical analytics (common diagnoses, procedures)
-- [ ] **AN-06** `GET /api/v1/analytics/export` -- Export analytics to CSV/Excel
-- [ ] **AN-07** `GET /api/v1/analytics/audit-trail` -- Audit trail viewer (clinic_owner only)
+- [x] **AN-01** `GET /api/v1/analytics/dashboard` -- Clinic dashboard metrics
+- [x] **AN-02** `GET /api/v1/analytics/patients` -- Patient analytics (retention, demographics)
+- [x] **AN-03** `GET /api/v1/analytics/appointments` -- Appointment analytics (utilization, no-shows)
+- [x] **AN-04** `GET /api/v1/analytics/revenue` -- Revenue analytics (by period, doctor, procedure)
+- [x] **AN-05** `GET /api/v1/analytics/clinical` -- Clinical analytics (common diagnoses, procedures)
+- [x] **AN-06** `GET /api/v1/analytics/export` -- Export analytics to CSV/Excel
+- [x] **AN-07** `GET /api/v1/analytics/audit-trail` -- Audit trail viewer (clinic_owner only)
 
 ### Frontend: Analytics Screens (FE-AN-01 through FE-AN-04)
 
-- [ ] **FE-AN-01** Analytics main dashboard (KPI cards, charts, period selector)
-- [ ] **FE-AN-02** Patient analytics page (trends, retention, demographics)
-- [ ] **FE-AN-03** Appointment analytics (utilization, cancellations, peak hours heatmap)
-- [ ] **FE-AN-04** Revenue analytics (trends, by doctor, by procedure, payment methods)
-- [ ] **FE-S-09** Audit log viewer (searchable, filterable)
+- [x] **FE-AN-01** Analytics main dashboard (KPI cards, charts, period selector)
+- [x] **FE-AN-02** Patient analytics page (trends, retention, demographics)
+- [x] **FE-AN-03** Appointment analytics (utilization, cancellations, peak hours heatmap)
+- [x] **FE-AN-04** Revenue analytics (trends, by doctor, by procedure, payment methods)
+- [x] **FE-S-09** Audit log viewer (searchable, filterable)
 
 ### Backend: Patient Advanced Operations
 
-- [ ] **P-08** `POST /api/v1/patients/import` -- Bulk import from CSV/Excel (async via queue)
-- [ ] **P-09** `GET /api/v1/patients/export` -- Export patient list to CSV (streaming)
-- [ ] **P-10** `POST /api/v1/patients/merge` -- Merge duplicate records (clinic_owner only)
-- [ ] **FE-P-06** Patient import page (upload, column mapping, validation, progress)
+- [x] **P-08** `POST /api/v1/patients/import` -- Bulk import from CSV/Excel (async via queue)
+- [x] **P-09** `GET /api/v1/patients/export` -- Export patient list to CSV (streaming)
+- [x] **P-10** `POST /api/v1/patients/merge` -- Merge duplicate records (clinic_owner only)
+- [x] **FE-P-06** Patient import page (upload, column mapping, validation, progress)
 
 ### Backend: Inventory Management (INV-01 through INV-07)
 
 Minimal viable inventory: materials tracking, expiry alerts, sterilization cycles, implant traceability. No purchase orders or supplier management in MVP -- keep scope focused.
 
-- [ ] **INV-01** `POST /api/v1/inventory/items` -- Create inventory item (name, category, unit, initial stock, min_stock threshold, expiry_date)
-- [ ] **INV-02** `GET /api/v1/inventory/items` -- List inventory items with semaphore status: green (ok), yellow (below min_stock), red (expired or out of stock)
-- [ ] **INV-03** `PUT /api/v1/inventory/items/{item_id}` -- Update item (stock adjustment, expiry update)
-- [ ] **INV-04** `POST /api/v1/inventory/items/{item_id}/movements` -- Record stock movement (consumption, restock, waste)
-- [ ] **INV-05** `GET /api/v1/inventory/alerts` -- Active stock alerts (low stock + expiry within 30 days)
-- [ ] **INV-06** `POST /api/v1/inventory/sterilization-cycles` -- Log sterilization cycle (autoclave batch, items included, timestamp, operator)
-- [ ] **INV-07** `POST /api/v1/inventory/implants` -- Register implant with traceability (brand, lot number, patient link, tooth, date placed)
-  - [ ] `GET /api/v1/patients/{patient_id}/implants` -- List implants for patient (traceability report)
+- [x] **INV-01** `POST /api/v1/inventory` -- Create inventory item (name, category, unit, initial stock, min_stock threshold, expiry_date)
+- [x] **INV-02** `GET /api/v1/inventory` -- List inventory items with semaphore status: green (ok), yellow (below min_stock), red (expired or out of stock)
+- [x] **INV-03** `PUT /api/v1/inventory/{item_id}` -- Update item (stock adjustment, expiry update — creates QuantityHistory row atomically)
+- [x] **INV-04** Quantity history is created inline on update (quantity_change + change_reason fields on PUT endpoint)
+- [x] **INV-05** `GET /api/v1/inventory/alerts` -- Active stock alerts (low stock + expiry within 30 days)
+- [x] **INV-06** `POST /api/v1/inventory/sterilization` -- Log sterilization cycle (autoclave batch, items included, timestamp, operator, SHA-256 signature)
+- [x] **INV-07** `POST /api/v1/inventory/implants/link` -- Register implant with traceability (brand, lot number, patient link, tooth, date placed); atomic quantity decrement
+  - [x] `GET /api/v1/inventory/implants/search` -- Search implant placements by lot_number (ILIKE recall) or patient_id
 
 ### Frontend: Inventory Screens (FE-INV-01 through FE-INV-03)
 
-- [ ] **FE-INV-01** Inventory dashboard (item list with semaphore color indicators, search, filter by category/status)
-- [ ] **FE-INV-02** Item detail page (stock history, movement log, expiry tracking, sterilization records)
-- [ ] **FE-INV-03** Alerts panel (red/yellow items, expiry warnings, one-click restock request draft)
+- [x] **FE-INV-01** Inventory dashboard (item list with semaphore color indicators, search, filter by category/status)
+- [x] **FE-INV-02** Item detail page (stock history, movement log, expiry tracking, sterilization records)
+- [x] **FE-INV-03** Alerts panel (red/yellow items, expiry warnings, one-click restock request draft)
 
 ### Mexico Compliance Adapter
 
 - [ ] **INT-05** SAT CFDI integration (PAC, XML stamping, UUID)
-- [ ] Mexico compliance adapter: NOM-024 requirements
-- [ ] Mexico-specific document types (CURP validation, RFC)
+- [x] Mexico compliance adapter: NOM-024 requirements
+- [x] Mexico-specific document types (CURP validation, RFC)
 - [ ] CFDI electronic invoicing flow
 
 ### Offline Support (if time allows)
@@ -753,18 +753,18 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 
 ### Backend: Admin / Superadmin (AD-01 through AD-07)
 
-- [ ] **AD-01** `POST /api/v1/admin/auth/login` -- Superadmin login (MFA required)
-- [ ] **AD-02** `GET /api/v1/admin/tenants` -- Platform-wide tenant management with metrics
-- [ ] **AD-03** `GET/PUT /api/v1/admin/plans` -- Manage subscription plans
-- [ ] **AD-04** `GET /api/v1/admin/analytics` -- Platform-level analytics (MRR, MAU, churn)
-- [ ] **AD-05** `GET/PUT /api/v1/admin/feature-flags` -- Feature flag management
-- [ ] **AD-06** `GET /api/v1/admin/health` -- System health dashboard
-- [ ] **AD-07** `POST .../admin/tenants/{tenant_id}/impersonate` -- Tenant impersonation
+- [x] **AD-01** `POST /api/v1/admin/auth/login` -- Superadmin login (MFA required)
+- [x] **AD-02** `GET /api/v1/admin/tenants` -- Platform-wide tenant management with metrics
+- [x] **AD-03** `GET/PUT /api/v1/admin/plans` -- Manage subscription plans
+- [x] **AD-04** `GET /api/v1/admin/analytics` -- Platform-level analytics (MRR, MAU, churn)
+- [x] **AD-05** `GET/PUT /api/v1/admin/feature-flags` -- Feature flag management
+- [x] **AD-06** `GET /api/v1/admin/health` -- System health dashboard
+- [x] **AD-07** `POST .../admin/tenants/{tenant_id}/impersonate` -- Tenant impersonation
 
 ### Email Templates
 
-- [ ] **E-16** Daily clinic summary email
-- [ ] **E-17** Plan upgrade prompt (limit approaching)
+- [x] **E-16** Daily clinic summary email
+- [x] **E-17** Plan upgrade prompt (limit approaching)
 
 ---
 

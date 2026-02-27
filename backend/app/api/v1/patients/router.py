@@ -1,8 +1,12 @@
-"""Patient API routes — P-01 through P-06, P-15.
+"""Patient API routes — P-01 through P-10, P-15.
 
 Endpoint map:
   GET  /patients/search          — P-01: Type-ahead search (any staff)
   GET  /patients/                — P-02: Paginated list   (any staff)
+  GET  /patients/export          — P-09: CSV export        (clinic_owner)
+  POST /patients/import          — P-08: CSV import        (clinic_owner)
+  GET  /patients/import/{job_id} — P-08: Import job status (staff)
+  POST /patients/merge           — P-10: Merge patients    (clinic_owner)
   GET  /patients/{patient_id}    — P-03: Get detail       (any staff)
   POST /patients/                — P-04: Create patient   (patients:write)
   PUT  /patients/{patient_id}    — P-05: Update patient   (patients:write)
@@ -10,20 +14,25 @@ Endpoint map:
   POST /patients/{patient_id}/referrals  — P-15: Create referral (doctor)
   GET  /patients/{patient_id}/referrals  — P-15: List referrals  (staff)
 
-IMPORTANT: /search is registered BEFORE /{patient_id} so FastAPI does not
-           treat the literal string "search" as a UUID path parameter.
+IMPORTANT: /search, /export, /import, /merge are registered BEFORE
+           /{patient_id} so FastAPI does not treat them as UUID path parameters.
 """
 
-from datetime import date
+import uuid
+from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.context import AuthenticatedUser
 from app.auth.dependencies import get_current_user, require_permission, require_role
 from app.core.audit import audit_action
+from app.core.cache import get_cached, set_cached
 from app.core.database import get_tenant_db
-from app.core.exceptions import ResourceNotFoundError
+from app.core.exceptions import DentalOSError, ResourceNotFoundError
+from app.core.queue import publish_message
+from app.core.storage import storage_client
 from app.schemas.medical_history import MedicalHistoryResponse
 from app.schemas.patient import (
     PatientCreate,
@@ -35,11 +44,18 @@ from app.schemas.patient import (
     PatientUpdate,
 )
 from app.schemas.patient_document import PatientDocumentListResponse, PatientDocumentResponse
+from app.schemas.patient_import import (
+    PatientExportParams,
+    PatientImportJobResponse,
+    PatientMergeRequest,
+    PatientMergeResponse,
+)
 from app.schemas.portal import (
     PortalAccessGrantResponse,
     PortalAccessRequest,
     PortalAccessRevokeResponse,
 )
+from app.schemas.queue import QueueMessage
 from app.services.medical_history_service import medical_history_service
 from app.services.patient_document_service import patient_document_service
 from app.services.patient_service import patient_service
@@ -116,6 +132,282 @@ async def list_patients(
         page=result["page"],
         page_size=result["page_size"],
     )
+
+
+# ─── P-09: Export CSV ────────────────────────────────────────────────────────
+# Registered BEFORE /{patient_id} to avoid path collision.
+
+
+@router.get("/export")
+async def export_patients(
+    is_active: bool | None = Query(default=None),
+    created_from: date | None = Query(default=None),
+    created_to: date | None = Query(default=None),
+    request: Request = None,  # type: ignore[assignment]
+    current_user: AuthenticatedUser = Depends(
+        require_role(["clinic_owner"])
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> StreamingResponse:
+    """Export patients to CSV (clinic_owner only).
+
+    Streams the CSV response row by row so that large patient lists
+    never need to be buffered entirely in memory. The exported file
+    contains demographic data only -- no clinical PHI beyond what is
+    stored on the patient record itself.
+    """
+    # Also enforce patients:read permission
+    if "patients:read" not in current_user.permissions:
+        raise DentalOSError(
+            error="AUTH_insufficient_permission",
+            message="Missing required permission: patients:read",
+            status_code=403,
+        )
+
+    today = date.today().isoformat()
+    filename = f"pacientes_{today}.csv"
+
+    csv_generator = patient_service.export_patients_csv(
+        db=db,
+        is_active=is_active,
+        created_from=created_from,
+        created_to=created_to,
+    )
+
+    await audit_action(
+        request=request,
+        db=db,
+        current_user=current_user,
+        action="export",
+        resource_type="patient",
+    )
+
+    return StreamingResponse(
+        csv_generator,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+# ─── P-08: Import CSV ────────────────────────────────────────────────────────
+# Registered BEFORE /{patient_id} to avoid path collision.
+
+
+_REQUIRED_CSV_HEADERS = {
+    "tipo_documento",
+    "numero_documento",
+    "nombres",
+    "apellidos",
+}
+
+_IMPORT_JOB_TTL = 86400  # 24 hours
+
+
+@router.post("/import", response_model=PatientImportJobResponse, status_code=202)
+async def import_patients(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: AuthenticatedUser = Depends(
+        require_role(["clinic_owner"])
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> PatientImportJobResponse:
+    """Import patients from a CSV file (clinic_owner only).
+
+    Validates the CSV header, uploads the file to S3, and enqueues
+    a background job for processing. Returns 202 with a job ID that
+    can be polled via GET /patients/import/{job_id}.
+
+    The file must be a CSV with at least the required columns:
+    tipo_documento, numero_documento, nombres, apellidos.
+    """
+    # Also enforce patients:write permission
+    if "patients:write" not in current_user.permissions:
+        raise DentalOSError(
+            error="AUTH_insufficient_permission",
+            message="Missing required permission: patients:write",
+            status_code=403,
+        )
+
+    # Validate file type
+    content_type = file.content_type or ""
+    filename = file.filename or ""
+    if (
+        "csv" not in content_type.lower()
+        and not filename.lower().endswith(".csv")
+    ):
+        raise DentalOSError(
+            error="VALIDATION_invalid_file_type",
+            message="El archivo debe ser un CSV.",
+            status_code=400,
+        )
+
+    # Read and validate CSV header
+    raw_bytes = await file.read()
+    try:
+        text_content = raw_bytes.decode("utf-8-sig")  # Handle BOM
+    except UnicodeDecodeError:
+        raise DentalOSError(
+            error="VALIDATION_invalid_encoding",
+            message="El archivo CSV debe usar codificación UTF-8.",
+            status_code=400,
+        )
+
+    # Parse first line for header validation
+    import csv as csv_mod
+    import io
+
+    reader = csv_mod.reader(io.StringIO(text_content))
+    try:
+        header_row = next(reader)
+    except StopIteration:
+        raise DentalOSError(
+            error="VALIDATION_empty_file",
+            message="El archivo CSV está vacío.",
+            status_code=400,
+        )
+
+    header_normalized = {col.strip().lower() for col in header_row}
+    missing_cols = _REQUIRED_CSV_HEADERS - header_normalized
+    if missing_cols:
+        raise DentalOSError(
+            error="VALIDATION_missing_columns",
+            message=f"Columnas requeridas faltantes: {', '.join(sorted(missing_cols))}.",
+            status_code=400,
+            details={"missing_columns": sorted(missing_cols)},
+        )
+
+    # Count total rows (excluding header)
+    total_rows = sum(1 for _ in reader)
+
+    # Generate job ID and S3 path
+    job_id = str(uuid.uuid4())
+    tenant_id = current_user.tenant.tenant_id
+    s3_path = f"{tenant_id}/imports/{job_id}.csv"
+
+    # Upload CSV to S3
+    await storage_client.upload_file(
+        key=s3_path,
+        data=raw_bytes,
+        content_type="text/plain",
+    )
+
+    # Store initial job status in Redis
+    now = datetime.now(UTC).isoformat()
+    job_data = {
+        "job_id": job_id,
+        "status": "queued",
+        "total_rows": total_rows,
+        "processed_rows": 0,
+        "error_rows": 0,
+        "error_csv_url": None,
+        "created_at": now,
+    }
+    redis_key = f"dentalos:{tenant_id[:8]}:import:jobs:{job_id}"
+    await set_cached(redis_key, job_data, ttl_seconds=_IMPORT_JOB_TTL)
+
+    # Enqueue import job
+    message = QueueMessage(
+        tenant_id=tenant_id,
+        job_type="patient.import",
+        payload={
+            "job_id": job_id,
+            "s3_path": s3_path,
+            "tenant_id": tenant_id,
+            "total_rows": total_rows,
+        },
+        priority=5,
+    )
+    await publish_message("import", message)
+
+    await audit_action(
+        request=request,
+        db=db,
+        current_user=current_user,
+        action="import",
+        resource_type="patient",
+        resource_id=job_id,
+    )
+
+    return PatientImportJobResponse(**job_data)
+
+
+@router.get("/import/{job_id}", response_model=PatientImportJobResponse)
+async def get_import_job_status(
+    job_id: str,
+    current_user: AuthenticatedUser = Depends(
+        require_permission("patients:read")
+    ),
+) -> PatientImportJobResponse:
+    """Poll the status of a patient import job.
+
+    Reads job progress from Redis. Returns 404 if the job ID is not
+    found (it may have expired after 24 hours).
+    """
+    tenant_id = current_user.tenant.tenant_id
+    redis_key = f"dentalos:{tenant_id[:8]}:import:jobs:{job_id}"
+    job_data = await get_cached(redis_key)
+
+    if job_data is None:
+        raise ResourceNotFoundError(
+            error="PATIENT_import_job_not_found",
+            resource_name="Import Job",
+        )
+
+    return PatientImportJobResponse(**job_data)
+
+
+# ─── P-10: Merge ─────────────────────────────────────────────────────────────
+# Registered BEFORE /{patient_id} to avoid path collision.
+
+
+@router.post("/merge", response_model=PatientMergeResponse)
+async def merge_patients(
+    body: PatientMergeRequest,
+    request: Request,
+    current_user: AuthenticatedUser = Depends(
+        require_role(["clinic_owner"])
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> PatientMergeResponse:
+    """Merge two patient records (clinic_owner only).
+
+    Transfers all clinical records from the secondary patient to the
+    primary patient and deactivates the secondary. This operation is
+    irreversible and runs in a single database transaction.
+    """
+    # Also enforce patients:delete permission
+    if "patients:delete" not in current_user.permissions:
+        raise DentalOSError(
+            error="AUTH_insufficient_permission",
+            message="Missing required permission: patients:delete",
+            status_code=403,
+        )
+
+    result = await patient_service.merge_patients(
+        db=db,
+        tenant_id=current_user.tenant.tenant_id,
+        primary_patient_id=str(body.primary_patient_id),
+        secondary_patient_id=str(body.secondary_patient_id),
+        merged_by_id=current_user.user_id,
+    )
+
+    await audit_action(
+        request=request,
+        db=db,
+        current_user=current_user,
+        action="merge",
+        resource_type="patient",
+        resource_id=result["primary_patient_id"],
+        changes={
+            "secondary_patient_id": str(body.secondary_patient_id),
+            "merged_records": result["merged_records"],
+        },
+    )
+
+    return PatientMergeResponse(**result)
 
 
 # ─── P-03: Get detail ────────────────────────────────────────────────────────

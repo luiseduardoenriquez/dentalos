@@ -40,7 +40,9 @@ def get_compliance_adapter(country_code: str) -> ComplianceAdapter:
 
 
 # Register available adapters at module load time.
-# Only Colombia is implemented for MVP; others are added as they ship.
+# Colombia is MVP; Mexico stub added in Sprint 15-16.
 from app.compliance.colombia.adapter import ColombiaComplianceAdapter  # noqa: E402
+from app.compliance.mexico.adapter import MexicoComplianceAdapter  # noqa: E402
 
 register_adapter(ColombiaComplianceAdapter)
+register_adapter(MexicoComplianceAdapter)

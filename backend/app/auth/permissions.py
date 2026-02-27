@@ -91,7 +91,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "signatures:read",
         "photos:read", "photos:write",
         "messages:read", "messages:write",
-        "inventory:read",
+        "inventory:read", "inventory:write",
     }),
     "receptionist": frozenset({
         "patients:read", "patients:write",

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Límite de plan próximo — DentalOS</title>
+    <style>
+        /* Reset */
+        body, table, td { margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; font-size: 15px; line-height: 1.6; }
+        img { border: 0; display: block; }
+
+        /* Container */
+        .wrapper { width: 100%; background-color: #f8fafc; padding: 24px 0; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+        /* Header */
+        .header { background-color: #0891B2; padding: 24px 32px; text-align: center; }
+        .header h1 { color: #ffffff; font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.3px; }
+        .header .subtitle { color: rgba(255,255,255,0.85); font-size: 13px; margin-top: 4px; }
+
+        /* Body */
+        .content { padding: 32px; }
+        .title { font-size: 18px; font-weight: 700; color: #1e293b; margin-bottom: 16px; }
+        .greeting { font-size: 16px; color: #1e293b; margin-bottom: 12px; }
+        .message { color: #475569; margin-bottom: 20px; }
+
+        /* Usage bar */
+        .usage-box { background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px 20px; margin: 20px 0; }
+        .usage-box .usage-title { font-weight: 600; color: #c2410c; font-size: 14px; margin-bottom: 12px; }
+        .usage-detail { font-size: 14px; color: #1e293b; margin-bottom: 6px; }
+        .usage-detail span { font-weight: 600; color: #0891B2; }
+
+        /* Progress bar */
+        .progress-wrapper { margin: 12px 0; }
+        .progress-label { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+        .progress-bar-bg { background-color: #e2e8f0; border-radius: 9999px; height: 10px; width: 100%; }
+        .progress-bar-fill { background-color: #f97316; border-radius: 9999px; height: 10px; width: {{ usage_percentage }}%; max-width: 100%; }
+
+        /* CTA */
+        .cta-wrapper { text-align: center; margin: 28px 0; }
+        .cta-button { display: inline-block; background-color: #0891B2; color: #ffffff !important; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 15px; }
+
+        /* Footer */
+        .footer { background-color: #f8fafc; padding: 20px 32px; text-align: center; border-top: 1px solid #e2e8f0; }
+        .footer p { color: #94a3b8; font-size: 12px; margin: 4px 0; }
+        .footer a { color: #0891B2; text-decoration: underline; }
+
+        /* Responsive */
+        @media only screen and (max-width: 620px) {
+            .container { margin: 0 12px; }
+            .content { padding: 24px 20px; }
+            .header { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <table role="presentation" width="100%"><tr><td align="center">
+            <div class="container">
+                <div class="header">
+                    <h1>DentalOS</h1>
+                    <div class="subtitle">Aviso sobre límite de plan</div>
+                </div>
+                <div class="content">
+                    <p class="title">Tu clínica está cerca del límite de tu plan</p>
+
+                    <p class="greeting">Hola {{ owner_name }},</p>
+
+                    <p class="message">
+                        Tu clínica <strong>{{ clinic_name }}</strong> ha alcanzado el
+                        <strong>{{ usage_percentage }}%</strong> del límite de
+                        <strong>{{ limit_type }}</strong> de tu plan <strong>{{ plan_name }}</strong>.
+                    </p>
+
+                    <div class="usage-box">
+                        <p class="usage-title">Detalle de uso actual</p>
+                        <p class="usage-detail">Límite actual: <span>{{ current_limit }}</span></p>
+                        <p class="usage-detail">Uso actual: <span>{{ current_usage }}</span></p>
+
+                        <div class="progress-wrapper">
+                            <p class="progress-label">{{ usage_percentage }}% utilizado</p>
+                            <div class="progress-bar-bg">
+                                <div class="progress-bar-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="message">
+                        Para evitar interrupciones en el servicio de tu clínica, te recomendamos actualizar tu plan antes de alcanzar el límite.
+                    </p>
+
+                    <div class="cta-wrapper">
+                        <a href="{{ upgrade_url }}" class="cta-button">Actualizar plan</a>
+                    </div>
+
+                    <p style="color: #94a3b8; font-size: 13px; text-align: center;">
+                        Si tienes preguntas sobre los planes disponibles, visita nuestro sitio web o contáctanos.
+                    </p>
+                </div>
+                <div class="footer">
+                    <p>Este es un correo automático de DentalOS. Por favor no respondas a este mensaje.</p>
+                    <p>Si no deseas recibir estos avisos, <a href="{{ unsubscribe_url | default('#') }}">cancela tu suscripción</a>.</p>
+                    <p>&copy; {{ current_year | default('2026') }} DentalOS. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </td></tr></table>
+    </div>
+</body>
+</html>

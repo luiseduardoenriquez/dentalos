@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resumen diario — DentalOS</title>
+    <style>
+        /* Reset */
+        body, table, td { margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; font-size: 15px; line-height: 1.6; }
+        img { border: 0; display: block; }
+
+        /* Container */
+        .wrapper { width: 100%; background-color: #f8fafc; padding: 24px 0; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+        /* Header */
+        .header { background-color: #0891B2; padding: 24px 32px; text-align: center; }
+        .header h1 { color: #ffffff; font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.3px; }
+        .header .subtitle { color: rgba(255,255,255,0.85); font-size: 13px; margin-top: 4px; }
+
+        /* Body */
+        .content { padding: 32px; }
+        .title { font-size: 18px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+        .date-label { color: #64748b; font-size: 13px; margin-bottom: 24px; }
+
+        /* Stats grid */
+        .stats-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; margin: 20px 0; }
+        .stat-row td { padding: 12px 16px; }
+        .stat-label { color: #64748b; font-size: 14px; font-weight: 500; }
+        .stat-value { color: #0891B2; font-size: 18px; font-weight: 700; text-align: right; }
+        .stat-card { background-color: #f0fdfa; border: 1px solid #99f6e4; border-radius: 8px; }
+
+        /* Divider */
+        .divider { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+
+        /* Footer */
+        .footer { background-color: #f8fafc; padding: 20px 32px; text-align: center; border-top: 1px solid #e2e8f0; }
+        .footer p { color: #94a3b8; font-size: 12px; margin: 4px 0; }
+
+        /* Responsive */
+        @media only screen and (max-width: 620px) {
+            .container { margin: 0 12px; }
+            .content { padding: 24px 20px; }
+            .header { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <table role="presentation" width="100%"><tr><td align="center">
+            <div class="container">
+                <div class="header">
+                    <h1>DentalOS</h1>
+                    <div class="subtitle">Resumen diario automatizado</div>
+                </div>
+                <div class="content">
+                    <p class="title">Resumen diario de {{ clinic_name }}</p>
+                    <p class="date-label">{{ date }}</p>
+
+                    <table class="stats-table" role="presentation">
+                        <tr class="stat-row">
+                            <td class="stat-card">
+                                <table role="presentation" width="100%">
+                                    <tr>
+                                        <td class="stat-label">Pacientes atendidos</td>
+                                        <td class="stat-value">{{ patients_attended }}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr class="stat-row">
+                            <td class="stat-card">
+                                <table role="presentation" width="100%">
+                                    <tr>
+                                        <td class="stat-label">Citas completadas</td>
+                                        <td class="stat-value">{{ appointments_completed }}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr class="stat-row">
+                            <td class="stat-card">
+                                <table role="presentation" width="100%">
+                                    <tr>
+                                        <td class="stat-label">Citas no-show</td>
+                                        <td class="stat-value">{{ no_shows }}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr class="stat-row">
+                            <td class="stat-card">
+                                <table role="presentation" width="100%">
+                                    <tr>
+                                        <td class="stat-label">Ingresos del día</td>
+                                        <td class="stat-value">{{ daily_revenue }}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <hr class="divider">
+
+                    <p style="color: #64748b; font-size: 13px; text-align: center;">
+                        Este resumen fue generado automáticamente a las 11:59 p.m. del día de hoy.
+                    </p>
+                </div>
+                <div class="footer">
+                    <p>Este es un correo automático de DentalOS. Por favor no respondas a este mensaje.</p>
+                    <p>&copy; {{ current_year | default('2026') }} DentalOS. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </td></tr></table>
+    </div>
+</body>
+</html>
