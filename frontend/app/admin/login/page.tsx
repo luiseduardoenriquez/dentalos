@@ -23,7 +23,7 @@ import { z } from "zod";
 import type { AxiosError } from "axios";
 import { ShieldCheck, KeyRound, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { setAdminToken, useAdminAuthStore } from "@/lib/hooks/use-admin-auth";
+// Auth state is set by the useAdminLogin hook's onSuccess callback
 import {
   useAdminLogin,
   type AdminLoginResponse,
@@ -104,7 +104,6 @@ interface CredentialsStepProps {
 
 function CredentialsStep({ onTOTPRequired }: CredentialsStepProps) {
   const router = useRouter();
-  const set_admin_auth = useAdminAuthStore((s) => s.set_admin_auth);
   const { mutate: login, isPending, error } = useAdminLogin();
   const [showPassword, setShowPassword] = useState(false);
 
@@ -121,17 +120,12 @@ function CredentialsStep({ onTOTPRequired }: CredentialsStepProps) {
       { email: values.email, password: values.password },
       {
         onSuccess: (data: AdminLoginResponse) => {
-          if (data.requires_totp) {
-            // Move to TOTP step — credentials are passed up to the parent
+          if (data.totp_required) {
             onTOTPRequired(values.email, values.password);
             return;
           }
-          // Direct login — TOTP not enabled or already verified
-          if (data.access_token && data.admin_user) {
-            setAdminToken(data.access_token);
-            set_admin_auth(data.admin_user, data.admin_user.id);
-            router.replace("/admin/dashboard");
-          }
+          // Hook's onSuccess already called setAdminToken + set_admin_auth
+          router.replace("/admin/dashboard");
         },
       },
     );
@@ -264,7 +258,6 @@ interface TOTPStepProps {
 
 function TOTPStep({ email, password, onBack }: TOTPStepProps) {
   const router = useRouter();
-  const set_admin_auth = useAdminAuthStore((s) => s.set_admin_auth);
   const { mutate: login, isPending, error } = useAdminLogin();
 
   const {
@@ -281,13 +274,11 @@ function TOTPStep({ email, password, onBack }: TOTPStepProps) {
       { email, password, totp_code: values.totp_code },
       {
         onSuccess: (data: AdminLoginResponse) => {
-          if (!data.access_token || !data.admin_user) {
-            // Backend returned success but without a token — should not happen
+          if (!data.access_token) {
             setError("totp_code", { message: "Respuesta inesperada del servidor." });
             return;
           }
-          setAdminToken(data.access_token);
-          set_admin_auth(data.admin_user, data.admin_user.id);
+          // Hook's onSuccess already called setAdminToken + set_admin_auth
           router.replace("/admin/dashboard");
         },
       },

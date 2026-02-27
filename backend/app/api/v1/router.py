@@ -24,6 +24,13 @@ from app.api.v1.users.router import router as users_router
 
 api_v1_router = APIRouter(prefix="/api/v1")
 
+# Sprint 15-16: Admin — included early to take priority over the legacy
+# tenants_router whose prefix="/admin/tenants" overlaps with the admin
+# router's GET /admin/tenants endpoint.
+from app.api.v1.admin.router import router as admin_router
+
+api_v1_router.include_router(admin_router)
+
 api_v1_router.include_router(health_router)
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(tenants_router)
@@ -108,7 +115,4 @@ from app.api.v1.analytics.router import router as analytics_router
 
 api_v1_router.include_router(analytics_router)
 
-# Sprint 15-16: Admin
-from app.api.v1.admin.router import router as admin_router
-
-api_v1_router.include_router(admin_router)
+# Sprint 15-16: Admin (included at top of file for route priority)

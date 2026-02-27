@@ -53,6 +53,12 @@ const ALWAYS_ACCESSIBLE_PREFIXES = [
  */
 const SESSION_COOKIE = "dentalos_session";
 
+/**
+ * Session indicator cookie set by the admin auth store after a successful
+ * admin login. Separate from the clinic session cookie.
+ */
+const ADMIN_SESSION_COOKIE = "dentalos_admin_session";
+
 // ─── Middleware ───────────────────────────────────────────────────────────────
 
 export function middleware(request: NextRequest): NextResponse {
@@ -65,7 +71,32 @@ export function middleware(request: NextRequest): NextResponse {
     }
   }
 
-  // Check if the user appears authenticated by refresh cookie presence
+  // ── Admin routes: separate auth flow ─────────────────────────────────────
+  // /admin/login is always accessible (it IS the admin login page).
+  // Other /admin/* routes require the admin session cookie.
+  if (pathname.startsWith("/admin")) {
+    const isAdminLogin =
+      pathname === "/admin/login" || pathname.startsWith("/admin/login/");
+
+    if (isAdminLogin) {
+      // Already logged-in admin visiting login → send to admin dashboard
+      if (request.cookies.has(ADMIN_SESSION_COOKIE)) {
+        return NextResponse.redirect(new URL("/admin/dashboard", request.url));
+      }
+      return NextResponse.next();
+    }
+
+    // Protected admin route — require admin session cookie
+    if (!request.cookies.has(ADMIN_SESSION_COOKIE)) {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
+
+    return NextResponse.next();
+  }
+
+  // ── Clinic routes ────────────────────────────────────────────────────────
+
+  // Check if the user appears authenticated by session cookie presence
   const hasSessionCookie = request.cookies.has(SESSION_COOKIE);
 
   const isPublicRoute = PUBLIC_ROUTES.some(
@@ -80,8 +111,7 @@ export function middleware(request: NextRequest): NextResponse {
     pathname.startsWith("/billing") ||
     pathname.startsWith("/settings") ||
     pathname.startsWith("/team") ||
-    pathname.startsWith("/reports") ||
-    pathname.startsWith("/admin");
+    pathname.startsWith("/reports");
 
   const isPortalRoute = pathname.startsWith("/portal");
 
