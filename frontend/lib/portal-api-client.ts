@@ -137,7 +137,11 @@ portalApiClient.interceptors.response.use(
     } catch (refreshError) {
       processQueue(refreshError, null);
       clearPortalAccessToken();
-      if (typeof window !== "undefined") {
+      // Only redirect if not already on the login page (prevents reload loop)
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith("/portal/login")
+      ) {
         window.location.href = "/portal/login";
       }
       return Promise.reject(refreshError);

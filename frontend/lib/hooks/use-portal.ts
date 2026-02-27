@@ -166,7 +166,7 @@ const PORTAL_KEYS = {
 /**
  * Hydrates portal auth store on mount. Similar to useMe() for dashboard.
  */
-export function usePortalMe() {
+export function usePortalMe(enabled = true) {
   const { set_portal_auth, clear_portal_auth, set_loading } =
     usePortalAuthStore();
 
@@ -175,7 +175,7 @@ export function usePortalMe() {
     queryFn: () => portalApiGet<PortalPatientProfile>("/portal/me"),
     retry: false,
     staleTime: 5 * 60_000,
-    enabled: typeof window !== "undefined",
+    enabled: enabled && typeof window !== "undefined",
   });
 
   useEffect(() => {

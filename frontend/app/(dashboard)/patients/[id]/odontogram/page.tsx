@@ -18,6 +18,10 @@ import { HistoryPanel } from "@/components/odontogram/history-panel";
 import { ToothDetailPanel } from "@/components/odontogram/tooth-detail-panel";
 import { OdontogramToolbar } from "@/components/odontogram/odontogram-toolbar";
 
+import { VoiceContextualPanel } from "@/components/voice/voice-contextual-panel";
+import { useVoiceStore } from "@/lib/stores/voice-store";
+import { useVoiceNavigationGuard } from "@/lib/hooks/use-voice-navigation-guard";
+
 import {
   useOdontogram,
   useConditionsCatalog,
@@ -77,6 +81,22 @@ export default function OdontogramPage() {
   const { data: odontogram, isLoading: isLoadingOdontogram } =
     useOdontogram(patientId);
   const { data: catalog } = useConditionsCatalog();
+
+  // ── Voice ─────────────────────────────────────────────────────────
+  const [voiceActive, setVoiceActive] = React.useState(false);
+  const voiceStore = useVoiceStore();
+  useVoiceNavigationGuard();
+
+  const handleVoiceStart = React.useCallback(() => {
+    if (voiceStore.phase !== "idle" && voiceStore.phase !== "success") return;
+    voiceStore.start_contextual(patientId, patient?.full_name ?? "");
+    setVoiceActive(true);
+  }, [voiceStore, patientId, patient?.full_name]);
+
+  const handleVoiceClose = React.useCallback(() => {
+    setVoiceActive(false);
+    voiceStore.reset();
+  }, [voiceStore]);
 
   // ── Mutations ─────────────────────────────────────────────────────
   const { mutate: updateCondition, isPending: isUpdating } =
@@ -283,6 +303,8 @@ export default function OdontogramPage() {
         onDentitionChange={handleDentitionChange}
         onSnapshotCreate={handleSnapshotCreate}
         onHistoryOpen={handleHistoryOpen}
+        onVoiceStart={handleVoiceStart}
+        isVoiceActive={voiceActive}
         isLoading={isMutating}
         readOnly={!canWrite}
       />
@@ -306,8 +328,17 @@ export default function OdontogramPage() {
 
         {/* Sidebar: Condition Panel / Tooth Detail / History */}
         <div className="w-full lg:w-80 shrink-0 space-y-4">
-          {/* History Panel (takes precedence when open) */}
-          {showHistory && (
+          {/* Voice Panel (takes precedence when active) */}
+          {voiceActive && (
+            <VoiceContextualPanel
+              patient_id={patientId}
+              patient_name={patient?.full_name ?? ""}
+              onClose={handleVoiceClose}
+            />
+          )}
+
+          {/* History Panel (takes precedence when open, hidden during voice) */}
+          {showHistory && !voiceActive && (
             <HistoryPanel
               patientId={patientId}
               toothNumber={historyToothFilter}
@@ -317,7 +348,7 @@ export default function OdontogramPage() {
           )}
 
           {/* Tooth Detail Panel */}
-          {showToothDetail && selectedTooth && !showHistory && (
+          {showToothDetail && selectedTooth && !showHistory && !voiceActive && (
             <ToothDetailPanel
               patientId={patientId}
               toothNumber={selectedTooth}
@@ -326,8 +357,8 @@ export default function OdontogramPage() {
             />
           )}
 
-          {/* Condition Panel (always visible when not read-only) */}
-          {canWrite && !showHistory && (
+          {/* Condition Panel (always visible when not read-only, hidden during voice) */}
+          {canWrite && !showHistory && !voiceActive && (
             <ConditionPanel
               conditions={catalog ?? []}
               selectedCondition={selectedCondition}

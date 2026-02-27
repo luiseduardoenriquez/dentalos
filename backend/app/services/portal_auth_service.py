@@ -313,7 +313,13 @@ class PortalAuthService:
         db: AsyncSession,
         raw_refresh_token: str,
     ) -> dict[str, Any]:
-        """Refresh a portal access token using the refresh token."""
+        """Refresh a portal access token using the refresh token.
+
+        The DB session may arrive without a tenant search path set (the
+        /refresh endpoint has no JWT or tenant_id in the body).  After
+        resolving tenant_id from the Redis-stored refresh token data, we
+        set the search path on the session so Patient queries work.
+        """
         refresh_hash = hash_refresh_token(raw_refresh_token)
         refresh_key = f"dentalos:portal:refresh:{refresh_hash}"
 
@@ -334,6 +340,20 @@ class PortalAuthService:
             )
 
         patient_id_str, tenant_id = parts
+
+        # Set tenant search path — the endpoint provides a public-schema
+        # session, so we need to point it at the right tenant schema.
+        from app.core.database import _set_search_path
+        from app.core.tenant import validate_schema_name
+
+        schema = f"tn_{tenant_id}" if not tenant_id.startswith("tn_") else tenant_id
+        if not validate_schema_name(schema):
+            raise AuthError(
+                error="AUTH_invalid_refresh",
+                message="Token de refresco inválido.",
+                status_code=401,
+            )
+        await _set_search_path(db, schema)
 
         # Load patient for fresh claims
         patient_uuid = uuid.UUID(patient_id_str)

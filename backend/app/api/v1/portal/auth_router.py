@@ -11,8 +11,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.portal_context import PortalUser
-from app.auth.portal_dependencies import get_current_portal_user
-from app.core.database import get_tenant_db
+from app.auth.portal_dependencies import get_current_portal_user, resolve_portal_tenant_from_body
+from app.core.database import get_db, get_tenant_db
+from app.core.tenant import TenantContext
 from app.schemas.portal import (
     MagicLinkResponse,
     MagicLinkVerifyRequest,
@@ -29,6 +30,7 @@ router = APIRouter(prefix="/portal/auth", tags=["portal-auth"])
 @router.post("/login", response_model=PortalLoginResponse | MagicLinkResponse)
 async def portal_login(
     body: PortalLoginRequest,
+    _tenant: TenantContext = Depends(resolve_portal_tenant_from_body),
     db: AsyncSession = Depends(get_tenant_db),
 ) -> PortalLoginResponse | MagicLinkResponse:
     """Portal login — password or magic link request.
@@ -66,6 +68,7 @@ async def portal_login(
 @router.post("/magic", response_model=PortalLoginResponse)
 async def verify_magic_link(
     body: MagicLinkVerifyRequest,
+    _tenant: TenantContext = Depends(resolve_portal_tenant_from_body),
     db: AsyncSession = Depends(get_tenant_db),
 ) -> PortalLoginResponse:
     """Verify and redeem a magic link token."""
@@ -80,10 +83,15 @@ async def verify_magic_link(
 @router.post("/refresh", response_model=PortalTokenResponse)
 async def refresh_portal_token(
     body: dict,
-    db: AsyncSession = Depends(get_tenant_db),
+    db: AsyncSession = Depends(get_db),
 ) -> PortalTokenResponse:
-    """Refresh a portal access token using the refresh token."""
-    refresh_token = body.get("refresh_token")
+    """Refresh a portal access token using the refresh token.
+
+    Uses get_db (public schema) because there is no JWT or tenant_id in
+    the request body.  The service resolves the tenant from the Redis-stored
+    refresh token data and sets the search path internally.
+    """
+    refresh_token = body.get("refresh_token") if body else None
     if not refresh_token:
         from app.core.exceptions import DentalOSError
 

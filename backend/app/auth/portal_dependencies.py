@@ -18,12 +18,45 @@ from app.core.cache import get_cached
 from app.core.database import get_db
 from app.core.exceptions import AuthError
 from app.core.security import decode_access_token
-from app.core.tenant import set_current_tenant
+from app.core.tenant import TenantContext, set_current_tenant
 from app.services.tenant_service import get_tenant_with_plan
 
 logger = logging.getLogger("dentalos.portal_auth")
 
 portal_bearer_scheme = HTTPBearer(auto_error=False)
+
+
+async def resolve_portal_tenant_from_body(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> TenantContext:
+    """Resolve tenant from the request body's tenant_id field.
+
+    Used by portal endpoints (login, magic link, refresh) that receive
+    tenant_id in the JSON body rather than in a JWT. Sets the ContextVar
+    so get_tenant_db() works downstream.
+    """
+    body = await request.json()
+    tenant_id = body.get("tenant_id")
+
+    if not tenant_id:
+        raise AuthError(
+            error="AUTH_missing_tenant",
+            message="Se requiere el ID de la clínica.",
+            status_code=422,
+        )
+
+    try:
+        tenant_ctx = await get_tenant_with_plan(tenant_id, db)
+    except Exception:
+        raise AuthError(
+            error="AUTH_tenant_not_found",
+            message="Clínica no encontrada o inactiva.",
+            status_code=401,
+        ) from None
+
+    set_current_tenant(tenant_ctx)
+    return tenant_ctx
 
 
 async def get_current_portal_user(

@@ -158,11 +158,12 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
   const { patient, is_loading, is_authenticated, clear_portal_auth } =
     usePortalAuthStore();
 
-  // Hydrate portal auth on mount
-  usePortalMe();
-
   // Login page doesn't need auth guard
   const isLoginPage = pathname === "/portal/login" || pathname === "/portal/register";
+
+  // Hydrate portal auth on mount — skip on login/register to avoid
+  // a 401 → refresh fail → redirect → reload loop.
+  usePortalMe(!isLoginPage);
 
   async function handleSignOut() {
     try {

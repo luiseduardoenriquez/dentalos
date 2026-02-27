@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Sidebar, type UserRole } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { NotificationDrawer } from "@/components/notifications/notification-drawer";
+import { GlobalVoiceFab } from "@/components/voice/global-voice-fab";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -100,6 +101,9 @@ export function DashboardShell({
         open={notificationDrawerOpen}
         onOpenChange={setNotificationDrawerOpen}
       />
+
+      {/* Global voice FAB */}
+      <GlobalVoiceFab />
     </div>
   );
 }

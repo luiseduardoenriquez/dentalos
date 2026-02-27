@@ -4,6 +4,7 @@ import * as React from "react";
 import { Camera, Clock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { VoiceMicButton } from "@/components/voice/voice-mic-button";
 import {
   DENTITION_TYPES,
   DENTITION_LABELS,
@@ -21,6 +22,10 @@ export interface OdontogramToolbarProps {
   onSnapshotCreate: () => void;
   /** Callback to open the history panel */
   onHistoryOpen: () => void;
+  /** Callback to start voice dictation */
+  onVoiceStart?: () => void;
+  /** Whether voice dictation is currently active */
+  isVoiceActive?: boolean;
   /** Whether any save/mutation is currently in progress */
   isLoading?: boolean;
   /** Whether the toolbar is in read-only mode */
@@ -46,6 +51,8 @@ function OdontogramToolbar({
   onDentitionChange,
   onSnapshotCreate,
   onHistoryOpen,
+  onVoiceStart,
+  isVoiceActive = false,
   isLoading = false,
   readOnly = false,
 }: OdontogramToolbarProps) {
@@ -103,6 +110,14 @@ function OdontogramToolbar({
             <Camera className="mr-1.5 h-3.5 w-3.5" />
             Captura
           </Button>
+        )}
+
+        {/* Voice mic button */}
+        {!readOnly && onVoiceStart && (
+          <VoiceMicButton
+            onActivate={onVoiceStart}
+            isActive={isVoiceActive}
+          />
         )}
 
         {/* History button */}

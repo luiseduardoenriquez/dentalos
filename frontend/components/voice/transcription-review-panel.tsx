@@ -48,6 +48,8 @@ interface TranscriptionReviewPanelProps {
   onApplyComplete?: (result: ApplyResponse) => void;
   /** Callback fired when the user cancels the review */
   onCancel?: () => void;
+  /** Compact mode for sidebar rendering — uses card list instead of table */
+  compact?: boolean;
 }
 
 interface EditingState {
@@ -92,6 +94,7 @@ export function TranscriptionReviewPanel({
   sessionId,
   onApplyComplete,
   onCancel,
+  compact = false,
 }: TranscriptionReviewPanelProps) {
   // ─── State ──────────────────────────────────────────────────────────────────
   const [findings, setFindings] = React.useState<VoiceFinding[]>(initialFindings);
@@ -290,11 +293,46 @@ export function TranscriptionReviewPanel({
           </div>
         )}
 
-        {/* Findings table */}
+        {/* Findings */}
         {findings.length === 0 ? (
           <p className="py-8 text-center text-sm text-[hsl(var(--muted-foreground))]">
             No se encontraron hallazgos clinicos en la transcripcion.
           </p>
+        ) : compact ? (
+          /* Compact card list for sidebar */
+          <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+            {findings.map((finding, index) => (
+              <div
+                key={index}
+                className={cn(
+                  "flex items-start gap-2 rounded-lg border p-2 text-sm transition-colors",
+                  selectedIndices.has(index)
+                    ? "border-primary-300 bg-primary-50/50 dark:border-primary-700 dark:bg-primary-900/10"
+                    : "border-[hsl(var(--border))]",
+                )}
+              >
+                <Checkbox
+                  checked={selectedIndices.has(index)}
+                  onCheckedChange={() => toggleSelection(index)}
+                  className="mt-0.5"
+                  aria-label={`Seleccionar hallazgo diente ${finding.tooth_number}`}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-medium">{finding.tooth_number}</span>
+                    <span className="text-[hsl(var(--muted-foreground))]">&middot;</span>
+                    <span className="capitalize">{finding.condition}</span>
+                    <Badge variant={getConfidenceBadgeVariant(finding.confidence)} className="ml-auto text-[10px] px-1 py-0">
+                      {Math.round(finding.confidence * 100)}%
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                    {translateZone(finding.zone)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -547,7 +585,7 @@ export function TranscriptionReviewPanel({
                 disabled={selectedIndices.size === 0 || isApplying}
               >
                 {isApplying && <Loader2 className="h-4 w-4 animate-spin" />}
-                Aplicar al odontograma ({selectedIndices.size})
+                {compact ? `Aplicar (${selectedIndices.size})` : `Aplicar al odontograma (${selectedIndices.size})`}
               </Button>
             </div>
           </div>
