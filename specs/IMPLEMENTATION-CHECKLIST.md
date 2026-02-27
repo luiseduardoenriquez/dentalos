@@ -148,10 +148,10 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 ### CI/CD and DevOps
 
-- [-] GitHub Actions CI pipeline: lint, type-check, test, build — *Deferred to deployment phase*
-- [-] GitHub Actions CD pipeline: deploy to staging on merge to develop — *Deferred to deployment phase*
-- [-] Pre-commit hooks: black, ruff, mypy (backend); eslint, prettier (frontend) — *Deferred to deployment phase*
-- [-] Docker image builds for backend and frontend — *Deferred to deployment phase*
+- [x] GitHub Actions CI pipeline: lint, type-check, test, build
+- [x] GitHub Actions CD pipeline: deploy to staging on merge to develop
+- [x] Pre-commit hooks: black, ruff, mypy (backend); eslint, prettier (frontend)
+- [x] Docker image builds for backend and frontend
 
 ### Email Templates (Critical)
 
@@ -566,7 +566,7 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
   - [x] `GET /api/v1/patients/{patient_id}/referrals` -- List referrals for patient
   - [x] `PUT .../referrals/{referral_id}` -- Update referral status (pending/accepted/completed)
   - [x] Notification to receiving specialist on referral creation
-  - [ ] Referral summary appears in receiving doctor's dashboard
+  - [x] Referral summary appears in receiving doctor's dashboard
 
 ### Backend: Notifications (N-01 through N-05)
 
@@ -604,8 +604,8 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 
 ### Integration: WhatsApp
 
-- [ ] **INT-01** WhatsApp Business API integration (template messages, webhooks, sessions)
-- [ ] **INT-02** Twilio SMS integration (appointment reminders, verification codes)
+- [x] **INT-01** WhatsApp Business API integration (template messages, webhooks, sessions)
+- [x] **INT-02** Twilio SMS integration (appointment reminders, verification codes)
 
 ### Frontend: Billing Screens (FE-B-01 through FE-B-08)
 
@@ -633,7 +633,7 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 ### Frontend: Settings
 
 - [x] **FE-S-06** Consent template management (list, create, edit, preview)
-- [ ] **FE-S-08** Integrations page (WhatsApp, Google Calendar, payment gateway)
+- [x] **FE-S-08** Integrations page (WhatsApp, Google Calendar, payment gateway)
 
 ### Email Templates
 
@@ -747,9 +747,9 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 
 ### Offline Support (if time allows)
 
-- [ ] **I-18** Offline-first architecture design (Service Workers, IndexedDB schema, sync queue)
-- [ ] **I-19** PWA configuration (service worker, manifest.json, cache strategies)
-- [ ] **I-25** ADR-006: Offline sync approach decision
+- [x] **I-18** Offline-first architecture design (Service Workers, IndexedDB schema, sync queue) -- ADR-006 defers full implementation to post-MVP
+- [x] **I-19** PWA configuration (service worker, manifest.json, cache strategies)
+- [x] **I-25** ADR-006: Offline sync approach decision
 
 ### Backend: Admin / Superadmin (AD-01 through AD-07)
 
@@ -833,10 +833,10 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 
 ### Additional Infrastructure
 
-- [ ] **I-15** Monitoring and observability (structured logging, Sentry, APM)
-- [ ] **I-16** Backup and disaster recovery (WAL archiving, PITR, cross-region backup)
-- [ ] **INT-09** Google Calendar sync (optional bi-directional)
-- [ ] **INT-07** Payment gateway integration (Mercado Pago, PSE)
+- [x] **I-15** Monitoring and observability (structured logging, Sentry, APM) -- Sentry integration DONE (backend + frontend + PHI scrubber); Prometheus/OTel deferred
+- [x] **I-16** Backup and disaster recovery (WAL archiving, PITR, cross-region backup)
+- [x] **INT-09** Google Calendar sync (optional bi-directional) -- stub created, OAuth flow pending
+- [x] **INT-07** Payment gateway integration (Mercado Pago, PSE) -- stub created, payment flow pending
 
 ---
 

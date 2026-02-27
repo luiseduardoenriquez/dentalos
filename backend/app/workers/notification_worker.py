@@ -288,32 +288,61 @@ class NotificationWorker(BaseWorker):
         data: dict[str, Any],
         message: QueueMessage,
     ) -> None:
-        """SMS dispatch stub — logs as skipped until Twilio integration (INT-02)."""
+        """Dispatch SMS notification via Twilio (INT-02)."""
         try:
             from app.core.database import get_tenant_session
+            from app.integrations.sms.service import twilio_sms_service
             from app.models.tenant.notification import NotificationDeliveryLog
 
+            to_phone = data.get("to_phone", "")
+            body = data.get("sms_body", data.get("body", ""))
+
+            status = "skipped"
+            error_msg = None
+
+            if not twilio_sms_service.is_configured():
+                error_msg = "Twilio SMS integration not configured"
+            elif not to_phone:
+                error_msg = "Missing to_phone in notification data"
+            elif not body:
+                error_msg = "Missing SMS body in notification data"
+            else:
+                try:
+                    result = await twilio_sms_service.send_sms(
+                        to_phone=to_phone,
+                        body=body,
+                    )
+                    if result.get("status") == "skipped":
+                        error_msg = result.get("reason", "skipped")
+                    else:
+                        status = "delivered"
+                except Exception as exc:
+                    status = "failed"
+                    error_msg = str(exc)[:500]
+
+            # Log delivery
             async with get_tenant_session(tenant_id) as db:
                 delivery_log = NotificationDeliveryLog(
                     idempotency_key=f"{message.message_id}:sms",
                     event_type=event_type,
                     user_id=uuid.UUID(user_id),
                     channel="sms",
-                    status="skipped",
-                    error_message="SMS integration pending (INT-02)",
+                    status=status,
+                    error_message=error_msg,
+                    delivered_at=datetime.now(UTC) if status == "delivered" else None,
                 )
                 db.add(delivery_log)
                 await db.commit()
 
             logger.info(
-                "SMS skipped (pending integration): tenant=%s user=%s event=%s",
+                "SMS dispatch: tenant=%s status=%s event=%s",
                 tenant_id,
-                user_id[:8],
+                status,
                 event_type,
             )
         except Exception:
             logger.exception(
-                "SMS delivery log failed: tenant=%s user=%s",
+                "SMS dispatch failed: tenant=%s user=%s",
                 tenant_id,
                 user_id[:8],
             )
@@ -326,32 +355,61 @@ class NotificationWorker(BaseWorker):
         data: dict[str, Any],
         message: QueueMessage,
     ) -> None:
-        """WhatsApp dispatch stub — logs as skipped until integration (INT-01)."""
+        """Dispatch WhatsApp notification via Meta Cloud API (INT-01)."""
         try:
             from app.core.database import get_tenant_session
+            from app.integrations.whatsapp.service import whatsapp_service
             from app.models.tenant.notification import NotificationDeliveryLog
 
+            to_phone = data.get("to_phone", "")
+            template_name = data.get("whatsapp_template", "appointment_reminder")
+            template_params = data.get("whatsapp_params", {})
+
+            status = "skipped"
+            error_msg = None
+
+            if not whatsapp_service.is_configured():
+                error_msg = "WhatsApp integration not configured"
+            elif not to_phone:
+                error_msg = "Missing to_phone in notification data"
+            else:
+                try:
+                    result = await whatsapp_service.send_template_message(
+                        to_phone=to_phone,
+                        template_name=template_name,
+                        parameters=template_params,
+                    )
+                    if result.get("status") == "skipped":
+                        error_msg = result.get("reason", "skipped")
+                    else:
+                        status = "delivered"
+                except Exception as exc:
+                    status = "failed"
+                    error_msg = str(exc)[:500]
+
+            # Log delivery
             async with get_tenant_session(tenant_id) as db:
                 delivery_log = NotificationDeliveryLog(
                     idempotency_key=f"{message.message_id}:whatsapp",
                     event_type=event_type,
                     user_id=uuid.UUID(user_id),
                     channel="whatsapp",
-                    status="skipped",
-                    error_message="WhatsApp integration pending (INT-01)",
+                    status=status,
+                    error_message=error_msg,
+                    delivered_at=datetime.now(UTC) if status == "delivered" else None,
                 )
                 db.add(delivery_log)
                 await db.commit()
 
             logger.info(
-                "WhatsApp skipped (pending integration): tenant=%s user=%s event=%s",
+                "WhatsApp dispatch: tenant=%s status=%s event=%s",
                 tenant_id,
-                user_id[:8],
+                status,
                 event_type,
             )
         except Exception:
             logger.exception(
-                "WhatsApp delivery log failed: tenant=%s user=%s",
+                "WhatsApp dispatch failed: tenant=%s user=%s",
                 tenant_id,
                 user_id[:8],
             )
@@ -398,19 +456,25 @@ class NotificationWorker(BaseWorker):
             )
 
     async def _handle_sms(self, message: QueueMessage) -> None:
-        """SMS stub — integration pending (INT-02)."""
-        logger.info(
-            "SMS send stub: tenant=%s message_id=%s",
-            message.tenant_id,
-            message.message_id,
+        """Direct SMS send via Twilio service (INT-02)."""
+        payload = message.payload
+        await self._dispatch_sms(
+            tenant_id=message.tenant_id,
+            user_id=payload.get("user_id", ""),
+            event_type=payload.get("event_type", "sms_direct"),
+            data=payload,
+            message=message,
         )
 
     async def _handle_whatsapp(self, message: QueueMessage) -> None:
-        """WhatsApp stub — integration pending (INT-01)."""
-        logger.info(
-            "WhatsApp send stub: tenant=%s message_id=%s",
-            message.tenant_id,
-            message.message_id,
+        """Direct WhatsApp send via service (INT-01)."""
+        payload = message.payload
+        await self._dispatch_whatsapp(
+            tenant_id=message.tenant_id,
+            user_id=payload.get("user_id", ""),
+            event_type=payload.get("event_type", "whatsapp_direct"),
+            data=payload,
+            message=message,
         )
 
     async def _handle_in_app(self, message: QueueMessage) -> None:

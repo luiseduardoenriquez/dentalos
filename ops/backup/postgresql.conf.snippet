@@ -1,0 +1,19 @@
+# DentalOS — PostgreSQL WAL Archive Settings
+# Copy these settings to your postgresql.conf for continuous archiving / PITR.
+#
+# See: https://www.postgresql.org/docs/16/continuous-archiving.html
+
+# Enable WAL archiving
+wal_level = replica
+archive_mode = on
+archive_command = '/opt/dentalos/ops/backup/pg_wal_archive.sh %p %f'
+archive_timeout = 300  # Force archive every 5 minutes even if WAL not full
+
+# WAL settings for production
+max_wal_size = 2GB
+min_wal_size = 512MB
+wal_keep_size = 1GB
+
+# Checkpoint settings
+checkpoint_timeout = 10min
+checkpoint_completion_target = 0.9

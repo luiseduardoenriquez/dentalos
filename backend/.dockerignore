@@ -1,0 +1,54 @@
+# ── Python bytecode & caches ──────────────────────────────────────────────────
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# ── Test infrastructure ───────────────────────────────────────────────────────
+# Tests are never needed in the production image.
+.pytest_cache
+htmlcov
+.coverage
+.coverage.*
+coverage.xml
+
+# ── Linting & type-check caches ───────────────────────────────────────────────
+.ruff_cache
+.mypy_cache
+
+# ── Test source directory ─────────────────────────────────────────────────────
+tests/
+
+# ── Environment files — NEVER bake secrets into an image ─────────────────────
+.env
+.env.*
+!.env.example
+
+# ── JWT private key — mount at runtime via secrets, not baked in ──────────────
+# Remove this exclusion if you are intentionally COPYing keys in the Dockerfile
+# for self-hosted deployments that manage key rotation externally.
+keys/*.pem
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv
+venv
+env
+
+# ── Editor / OS artifacts ──────────────────────────────────────────────────────
+.git
+.gitignore
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# ── Docs & specs ──────────────────────────────────────────────────────────────
+# Spec files and markdown docs are build-time context — not runtime deps.
+*.md
+docs/
+
+# ── Coverage & profiling output ───────────────────────────────────────────────
+*.prof

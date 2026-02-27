@@ -1,0 +1,35 @@
+# ── Build output — rebuilt inside the container ───────────────────────────────
+.next
+out
+
+# ── Dependencies — installed from package-lock.json inside the container ──────
+# Excluding node_modules is the single biggest speed-up for frontend Docker
+# builds.  Without this, Docker copies hundreds of MB of nested packages into
+# the build context before the COPY instruction even runs.
+node_modules
+
+# ── Environment files — NEVER bake secrets into an image ─────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Test infrastructure ───────────────────────────────────────────────────────
+coverage
+.nyc_output
+*.lcov
+
+# ── Editor / OS artifacts ──────────────────────────────────────────────────────
+.git
+.gitignore
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# ── Storybook output ──────────────────────────────────────────────────────────
+storybook-static
+
+# ── Docs ──────────────────────────────────────────────────────────────────────
+*.md

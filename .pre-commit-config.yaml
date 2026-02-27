@@ -30,3 +30,30 @@ repos:
       - id: conventional-pre-commit
         stages: [commit-msg]
         args: [feat, fix, refactor, docs, test, chore, ci, perf, style]
+
+  # ─── Local Hooks (Backend) ──────────────────────────────
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (backend)
+        entry: bash -c 'cd backend && mypy app/'
+        language: system
+        files: ^backend/app/.*\.py$
+        pass_filenames: false
+
+  # ─── Local Hooks (Frontend) ─────────────────────────────
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint (frontend)
+        entry: bash -c 'cd frontend && npx next lint --max-warnings 0'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+      - id: prettier
+        name: prettier (frontend)
+        entry: bash -c 'cd frontend && npx prettier --check .'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx|json|css|md)$
+        pass_filenames: false

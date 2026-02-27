@@ -21,6 +21,10 @@ logger = logging.getLogger("dentalos")
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup and shutdown events."""
+    # Initialize Sentry early (before logging setup) so it captures startup errors
+    from app.core.sentry import setup_sentry
+
+    setup_sentry()
     setup_logging(settings.log_level)
     logger.info(
         "Starting %s v%s (env=%s)",

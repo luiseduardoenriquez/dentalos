@@ -9,12 +9,14 @@ import {
   UserPlus,
   ArrowRight,
   TrendingUp,
+  GitPullRequestArrow,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/hooks/use-auth";
 import { usePatients } from "@/lib/hooks/use-patients";
+import { useIncomingReferrals, useUpdateReferral } from "@/lib/hooks/use-referrals";
 import { cn } from "@/lib/utils";
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
@@ -152,6 +154,104 @@ function EmptyState() {
   );
 }
 
+// ─── Referral Widget ──────────────────────────────────────────────────────────
+
+function ReferralWidget() {
+  const { data, isLoading } = useIncomingReferrals(1, 5);
+  const updateReferral = useUpdateReferral();
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <GitPullRequestArrow className="h-4 w-4 text-primary-600" />
+            Referencias recibidas
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data || data.total === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <GitPullRequestArrow className="h-4 w-4 text-primary-600" />
+            Referencias pendientes
+          </CardTitle>
+          <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400">
+            {data.total}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {data.items.map((ref) => (
+            <div
+              key={ref.id}
+              className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border bg-card"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground truncate">
+                  De: {ref.from_doctor_name ?? "Doctor"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                  {ref.reason}
+                </p>
+                {ref.priority === "urgent" && (
+                  <span className="inline-block mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-destructive-100 text-destructive-700 dark:bg-destructive-900/30 dark:text-destructive-400">
+                    Urgente
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-1.5 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() =>
+                    updateReferral.mutate({
+                      referralId: ref.id,
+                      status: "declined",
+                    })
+                  }
+                  disabled={updateReferral.isPending}
+                >
+                  Rechazar
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() =>
+                    updateReferral.mutate({
+                      referralId: ref.id,
+                      status: "accepted",
+                    })
+                  }
+                  disabled={updateReferral.isPending}
+                >
+                  Aceptar
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -258,6 +358,13 @@ export default function DashboardPage() {
           ))}
         </div>
       </section>
+
+      {/* ── Referral widget (doctor only) ── */}
+      {role === "doctor" && (
+        <section aria-label="Referencias pendientes">
+          <ReferralWidget />
+        </section>
+      )}
 
       {/* ── Quick actions ── */}
       <section aria-label="Acciones rápidas">

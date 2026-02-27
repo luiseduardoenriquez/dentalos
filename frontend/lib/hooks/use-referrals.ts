@@ -65,6 +65,24 @@ export function usePatientReferrals(
   });
 }
 
+// ─── Query Keys (incoming) ──────────────────────────────────────────────────
+
+export const incomingReferralsQueryKey = (page: number, pageSize: number) =>
+  ["referrals", "incoming", page, pageSize] as const;
+
+// ─── useIncomingReferrals ───────────────────────────────────────────────────
+
+export function useIncomingReferrals(page: number = 1, pageSize: number = 5) {
+  return useQuery({
+    queryKey: incomingReferralsQueryKey(page, pageSize),
+    queryFn: () =>
+      apiGet<ReferralListResponse>(
+        `/referrals/incoming${buildQueryString({ page, page_size: pageSize })}`,
+      ),
+    staleTime: 60_000,
+  });
+}
+
 // ─── useCreateReferral ───────────────────────────────────────────────────────
 
 export function useCreateReferral(patientId: string) {

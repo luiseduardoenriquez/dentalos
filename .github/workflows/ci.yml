@@ -1,0 +1,172 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Backend ───────────────────────────────────────────
+  backend-lint:
+    name: "Backend: Lint & Format"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check .
+      - run: ruff format --check .
+
+  backend-typecheck:
+    name: "Backend: Type Check"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install uv && uv pip install --system ".[dev]"
+      - run: mypy app/
+
+  backend-test:
+    name: "Backend: Tests"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: dentalos_test
+          POSTGRES_USER: dentalos_test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U dentalos_test -d dentalos_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      ENVIRONMENT: test
+      DATABASE_URL: "postgresql+asyncpg://dentalos_test:test@localhost:5433/dentalos_test"
+      DATABASE_SYNC_URL: "postgresql+psycopg://dentalos_test:test@localhost:5433/dentalos_test"
+      REDIS_URL: "redis://localhost:6379/1"
+      SECRET_KEY: "test-secret-key-not-for-production"
+      JWT_ALGORITHM: RS256
+      RABBITMQ_URL: "amqp://guest:guest@localhost:5672/"
+      S3_ENDPOINT_URL: "http://localhost:9000"
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_BUCKET_NAME: dentalos-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install uv && uv pip install --system ".[dev]"
+      - run: pytest --tb=short -q
+
+  backend-security:
+    name: "Backend: Security Audit"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit uv
+      - run: uv pip compile pyproject.toml --no-header -o /tmp/requirements.txt && pip-audit -r /tmp/requirements.txt
+        continue-on-error: true
+
+  # ─── Frontend ──────────────────────────────────────────
+  frontend-lint:
+    name: "Frontend: Lint"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx next lint
+
+  frontend-typecheck:
+    name: "Frontend: Type Check"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  frontend-test:
+    name: "Frontend: Tests"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx vitest run
+
+  frontend-security:
+    name: "Frontend: Security Audit"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=high
+        continue-on-error: true

@@ -202,6 +202,68 @@ class ReferralService:
             "page_size": page_size,
         }
 
+    async def list_incoming_referrals(
+        self,
+        *,
+        db: AsyncSession,
+        doctor_id: str,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> dict[str, Any]:
+        """List incoming pending referrals for a doctor (dashboard widget)."""
+        did = uuid.UUID(doctor_id)
+        offset = (page - 1) * page_size
+
+        total = (await db.execute(
+            select(func.count(PatientReferral.id)).where(
+                PatientReferral.to_doctor_id == did,
+                PatientReferral.status == "pending",
+                PatientReferral.is_active.is_(True),
+            )
+        )).scalar_one()
+
+        referrals = (await db.execute(
+            select(PatientReferral)
+            .where(
+                PatientReferral.to_doctor_id == did,
+                PatientReferral.status == "pending",
+                PatientReferral.is_active.is_(True),
+            )
+            .order_by(PatientReferral.created_at.desc())
+            .offset(offset)
+            .limit(page_size)
+        )).scalars().all()
+
+        # Resolve doctor names in batch
+        doctor_ids = set()
+        for r in referrals:
+            doctor_ids.add(r.from_doctor_id)
+            doctor_ids.add(r.to_doctor_id)
+
+        name_map: dict[uuid.UUID, str] = {}
+        if doctor_ids:
+            doctors = (await db.execute(
+                select(User.id, User.name).where(User.id.in_(doctor_ids))
+            )).all()
+            for uid, name in doctors:
+                name_map[uid] = name
+
+        items = [
+            _referral_to_dict(
+                r,
+                from_name=name_map.get(r.from_doctor_id),
+                to_name=name_map.get(r.to_doctor_id),
+            )
+            for r in referrals
+        ]
+
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+        }
+
     async def update_referral_status(
         self,
         *,

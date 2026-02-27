@@ -91,5 +91,23 @@ class Settings(BaseSettings):
     matias_base_url: str = "https://api.matias.com.co"
     matias_environment: str = "test"  # "test" or "production"
 
+    # ─── WhatsApp (Meta Cloud API) ───────────────────────
+    whatsapp_access_token: str = ""
+    whatsapp_app_secret: str = ""
+    whatsapp_verify_token: str = "dentalos-whatsapp-verify"
+    whatsapp_phone_number_id: str = ""
+
+    # ─── Twilio SMS ──────────────────────────────────────
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_from_number: str = ""
+
+    # ─── Mercado Pago ────────────────────────────────────
+    mercadopago_access_token: str = ""
+
+    # ─── Google Calendar ─────────────────────────────────
+    google_client_id: str = ""
+    google_client_secret: str = ""
+
 
 settings = Settings()

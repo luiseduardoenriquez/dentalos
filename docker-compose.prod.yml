@@ -1,0 +1,264 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# DentalOS — Production Docker Compose
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml down
+#
+# Prerequisites:
+#   - A .env file at the project root with all ${VAR} values filled in.
+#     Copy .env.example and populate it before first deploy.
+#   - JWT keys at backend/keys/private.pem and backend/keys/public.pem
+#     (or mount via Docker secrets for higher-security environments).
+#
+# Architecture:
+#   Browser → Hetzner LB (TLS termination) → frontend:3000
+#                                           → backend:8000
+#   backend → postgres:5432 | redis:6379 | rabbitmq:5672 | minio:9000
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  # Explicit bridge network keeps all DentalOS services isolated from other
+  # workloads that may be running on the same Docker host.
+  dentalos-network:
+    driver: bridge
+    name: dentalos-prod
+
+volumes:
+  # Named volumes persist data across container restarts and upgrades.
+  # They are managed by Docker and survive `docker compose down` unless
+  # you explicitly pass --volumes.
+  postgres_data:
+    name: dentalos_postgres_data
+  redis_data:
+    name: dentalos_redis_data
+  rabbitmq_data:
+    name: dentalos_rabbitmq_data
+  minio_data:
+    name: dentalos_minio_data
+
+
+services:
+
+  # ── PostgreSQL 16 ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: dentalos-postgres-prod
+    restart: unless-stopped
+    networks:
+      - dentalos-network
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      # Bind to 127.0.0.1 only — the database must never be directly reachable
+      # from the public internet.  Backend connects via the internal network.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # The init script creates the public schema and any required extensions.
+      - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # Resource caps — adjust to match the Hetzner instance size.
+    # CX21 (2 vCPU, 4 GB): postgres can use up to 1.5 GB safely.
+    deploy:
+      resources:
+        limits:
+          memory: 1536m
+          cpus: "1.5"
+
+
+  # ── Redis 7 ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: dentalos-redis-prod
+    restart: unless-stopped
+    networks:
+      - dentalos-network
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    # appendonly yes: survive restarts without losing cached sessions.
+    # maxmemory / maxmemory-policy: cap memory usage and evict LRU keys when
+    # full rather than blocking writers.
+    command: >
+      redis-server
+        --appendonly yes
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+        --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 384m
+          cpus: "0.5"
+
+
+  # ── RabbitMQ 3 ──────────────────────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: dentalos-rabbitmq-prod
+    restart: unless-stopped
+    networks:
+      - dentalos-network
+    environment:
+      RABBITMQ_DEFAULT_USER:  ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS:  ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-dentalos}
+    ports:
+      # AMQP protocol port — backend workers connect via the internal network.
+      - "127.0.0.1:5672:5672"
+      # Management UI — bind to localhost; access via SSH tunnel or VPN.
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.5"
+
+
+  # ── MinIO (S3-compatible object storage) ─────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: dentalos-minio-prod
+    restart: unless-stopped
+    networks:
+      - dentalos-network
+    environment:
+      MINIO_ROOT_USER:     ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      # S3 API — backend connects via internal network; bind to 127.0.0.1.
+      - "127.0.0.1:9000:9000"
+      # Web console — restrict to localhost; access via SSH tunnel.
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      # MinIO >= RELEASE.2023-01 ships mc as a sidecar; use the HTTP readiness
+      # endpoint directly for simpler healthchecks.
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.5"
+
+
+  # ── FastAPI Backend ─────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      # Pass build-time args if you need to vary the image per environment
+      # (e.g., different uv version, base image digest).
+      args:
+        BUILDKIT_INLINE_CACHE: "1"
+    image: dentalos-backend:latest
+    container_name: dentalos-backend-prod
+    restart: unless-stopped
+    networks:
+      - dentalos-network
+    ports:
+      # Only expose to localhost; the Hetzner LB / Nginx reverse proxy forwards
+      # traffic here.  Never expose the API port directly to 0.0.0.0.
+      - "127.0.0.1:8000:8000"
+    # Load all runtime secrets and config from a .env file.  Docker substitutes
+    # ${VAR} in this file with values from the shell or the project-root .env.
+    env_file:
+      - .env
+    environment:
+      # Override specific variables that differ between dev and prod.
+      ENVIRONMENT: production
+      # Connect to sibling containers using their service names as hostnames —
+      # Docker's internal DNS resolves these within dentalos-network.
+      DATABASE_URL:      "postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+      DATABASE_SYNC_URL: "postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+      REDIS_URL:         "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      RABBITMQ_URL:      "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/${RABBITMQ_VHOST:-dentalos}"
+      S3_ENDPOINT_URL:   "http://minio:9000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 1024m
+          cpus: "1.0"
+
+
+  # ── Next.js Frontend ─────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        BUILDKIT_INLINE_CACHE: "1"
+    image: dentalos-frontend:latest
+    container_name: dentalos-frontend-prod
+    restart: unless-stopped
+    networks:
+      - dentalos-network
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      # NEXT_PUBLIC_* variables are inlined at build time by Next.js, so this
+      # runtime variable only affects SSR fetch calls made from the container.
+      # The value here points to the backend service via Docker's internal DNS.
+      NEXT_PUBLIC_API_URL: "http://backend:8000"
+      # For browser-originated requests, the API must be reachable from the
+      # user's machine.  Set this to your public API domain in .env:
+      #   NEXT_PUBLIC_EXTERNAL_API_URL=https://api.dentalos.co
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 25s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.5"

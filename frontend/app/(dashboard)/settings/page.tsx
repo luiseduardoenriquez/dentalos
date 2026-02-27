@@ -4,7 +4,7 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Lock, Grid3X3, Bell, ChevronRight } from "lucide-react";
+import { Lock, Grid3X3, Bell, ChevronRight, Plug } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -376,6 +376,30 @@ export default function ClinicSettingsPage() {
               </p>
               <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))] truncate">
                 Preferencias de canales por tipo de notificación
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))] group-hover:text-foreground transition-colors" />
+          </Link>
+
+          {/* Integrations settings link card */}
+          <Link
+            href="/settings/integraciones"
+            className={cn(
+              "flex items-center gap-4 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4",
+              "hover:bg-[hsl(var(--muted))]/50 hover:border-primary-300 dark:hover:border-primary-700",
+              "transition-colors duration-150 group",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600",
+            )}
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary-100 dark:bg-primary-900/30">
+              <Plug className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground leading-none">
+                Integraciones
+              </p>
+              <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))] truncate">
+                WhatsApp, Google Calendar, Mercado Pago y más
               </p>
             </div>
             <ChevronRight className="h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))] group-hover:text-foreground transition-colors" />

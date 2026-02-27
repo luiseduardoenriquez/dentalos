@@ -115,4 +115,13 @@ from app.api.v1.analytics.router import router as analytics_router
 
 api_v1_router.include_router(analytics_router)
 
+# Sprint 17+: Webhooks (provider-authenticated, not JWT)
+from app.integrations.whatsapp.webhook_router import router as whatsapp_webhook_router
+
+api_v1_router.include_router(whatsapp_webhook_router)
+
+from app.integrations.sms.webhook_router import router as twilio_webhook_router
+
+api_v1_router.include_router(twilio_webhook_router)
+
 # Sprint 15-16: Admin (included at top of file for route priority)
