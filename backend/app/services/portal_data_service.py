@@ -481,10 +481,10 @@ class PortalDataService:
                 "legend": {},
             }
 
-        # Get conditions
+        # Get conditions — linked by patient_id, not by state FK
         conditions_result = await db.execute(
             select(OdontogramCondition).where(
-                OdontogramCondition.odontogram_state_id == state.id,
+                OdontogramCondition.patient_id == pid,
                 OdontogramCondition.is_active.is_(True),
             )
         )
@@ -499,16 +499,16 @@ class PortalDataService:
                 teeth_map[tn] = []
             teeth_map[tn].append({
                 "condition_code": cond.condition_code,
-                "condition_name": cond.condition_name if hasattr(cond, "condition_name") else cond.condition_code,
-                "surface": cond.surface if hasattr(cond, "surface") else None,
+                "condition_name": cond.condition_code,
+                "surface": cond.zone,
                 "description": None,
             })
             if cond.condition_code not in legend:
-                legend[cond.condition_code] = cond.condition_name if hasattr(cond, "condition_name") else cond.condition_code
+                legend[cond.condition_code] = cond.condition_code
 
         teeth = [
             {
-                "tooth_number": tn,
+                "tooth_number": str(tn),
                 "conditions": conds,
                 "status": None,
             }
