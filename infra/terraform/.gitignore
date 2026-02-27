@@ -1,0 +1,31 @@
+# ── Terraform state files ─────────────────────────────────────────────────────
+# State contains secrets (IP addresses, resource IDs). Never commit.
+# Use a remote backend (S3/Hetzner Object Storage) for team collaboration.
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfstate.d/
+
+# ── Variables with secrets ────────────────────────────────────────────────────
+# terraform.tfvars.example is committed (no real secrets).
+# terraform.tfvars is NOT.
+terraform.tfvars
+*.tfvars
+!terraform.tfvars.example
+
+# ── Terraform working directory ───────────────────────────────────────────────
+.terraform/
+.terraform.lock.hcl
+
+# ── Plan files (may contain sensitive values) ─────────────────────────────────
+*.tfplan
+*.plan
+
+# ── Override files ────────────────────────────────────────────────────────────
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# ── Crash logs ────────────────────────────────────────────────────────────────
+crash.log
+crash.*.log

@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     # ─── Application ──────────────────────────────────
     environment: str = "development"
     debug: bool = False
+    api_docs_enabled: bool = True
     app_name: str = "DentalOS"
     app_version: str = "0.1.0"
     log_level: str = "INFO"
@@ -105,6 +106,12 @@ class Settings(BaseSettings):
     matias_secret: str = ""
     matias_base_url: str = "https://api.matias.com.co"
     matias_environment: str = "test"  # "test" or "production"
+
+    # ─── Mexico SAT / PAC ──────────────────────────────
+    pac_provider_url: str = ""
+    pac_username: str = ""
+    pac_password: str = ""
+    pac_environment: str = "test"  # "test" or "production"
 
     # ─── WhatsApp (Meta Cloud API) ───────────────────────
     whatsapp_access_token: str = ""

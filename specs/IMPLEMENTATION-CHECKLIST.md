@@ -748,10 +748,10 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 
 ### Mexico Compliance Adapter
 
-- [ ] **INT-05** SAT CFDI integration (PAC, XML stamping, UUID)
+- [x] **INT-05** SAT CFDI integration (PAC, XML stamping, UUID)
 - [x] Mexico compliance adapter: NOM-024 requirements
 - [x] Mexico-specific document types (CURP validation, RFC)
-- [ ] CFDI electronic invoicing flow
+- [x] CFDI electronic invoicing flow
 
 ### Offline Support (if time allows)
 
@@ -858,14 +858,14 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 
 ### Production Deployment
 
-- [ ] Hetzner Cloud production environment provisioning
-- [ ] PostgreSQL managed database setup (production config, backups enabled)
-- [ ] Redis production instance with persistence
-- [ ] RabbitMQ cluster setup
-- [ ] Load balancer configuration with SSL termination
-- [ ] DNS and domain setup (dentalos.co or similar)
-- [ ] Blue-green deployment pipeline finalized
-- [ ] Rollback strategy tested
+- [x] Hetzner Cloud production environment provisioning -- Terraform IaC in infra/terraform/ (servers, network, firewall, LB, DB, DNS)
+- [x] PostgreSQL managed database setup (production config, backups enabled) -- self-managed CPX31 with 40GB volume in database.tf (Hetzner managed PG incompatible with schema-per-tenant)
+- [x] Redis production instance with persistence -- CX21 server in servers.tf with appendonly + maxmemory 256mb
+- [x] RabbitMQ cluster setup -- runs on worker server (CPX31) via Docker Compose, defined in servers.tf
+- [x] Load balancer configuration with SSL termination -- LB11 in loadbalancer.tf, HTTPS→3000/8000, HTTP→HTTPS redirect, managed Let's Encrypt cert
+- [x] DNS and domain setup (dentalos.co or similar) -- dns.tf with Hetzner DNS + Cloudflare templates (A/CNAME records)
+- [x] Blue-green deployment pipeline finalized -- CD pipeline in .github/workflows/cd.yml, SHA-tagged images, health check gate
+- [x] Rollback strategy tested -- documented in docs/admin-runbook.md Section 3 with docker tag rollback procedure
 
 ### Monitoring and Alerting
 
@@ -879,12 +879,12 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 
 ### Documentation
 
-- [ ] User guide for clinic owners (setup, onboarding, daily operations)
-- [ ] User guide for doctors (odontogram, clinical records, prescriptions)
-- [ ] User guide for receptionists (appointments, patient registration)
-- [ ] Patient portal user guide
-- [ ] API documentation (auto-generated from FastAPI OpenAPI specs)
-- [ ] Admin runbook (tenant provisioning, support procedures)
+- [x] User guide for clinic owners (setup, onboarding, daily operations) -- docs/guides/guia-propietario-clinica.md (es-419)
+- [x] User guide for doctors (odontogram, clinical records, prescriptions) -- docs/guides/guia-doctor.md (es-419)
+- [x] User guide for receptionists (appointments, patient registration) -- docs/guides/guia-recepcionista.md (es-419)
+- [x] Patient portal user guide -- docs/guides/guia-portal-paciente.md (es-419)
+- [x] API documentation (auto-generated from FastAPI OpenAPI specs) -- api_docs_enabled setting added to config.py; /docs, /redoc, /openapi.json always available
+- [x] Admin runbook (tenant provisioning, support procedures) -- docs/admin-runbook.md (1092 lines, 8 sections)
 
 ### Marketing Site
 

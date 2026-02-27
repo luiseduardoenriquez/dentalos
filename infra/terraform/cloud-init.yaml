@@ -1,0 +1,247 @@
+#cloud-config
+# ─────────────────────────────────────────────────────────────────────────────
+# DentalOS — Cloud-Init Base Configuration
+#
+# Applied to EVERY server at first boot. Handles:
+#   - System hardening (unattended-upgrades, SSH config)
+#   - Docker + Docker Compose installation
+#   - dentalos service user creation
+#   - UFW firewall baseline
+#   - Timezone and locale
+#
+# This template is rendered by Terraform's templatefile() function.
+# Variables:
+#   ${environment}  — "production" | "staging"
+#   ${server_role}  — "app" | "worker" | "redis" | "db"
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── System Locale + Timezone ──────────────────────────────────────────────────
+# All servers run UTC. Application code converts to tenant timezone on display.
+
+timezone: UTC
+
+locale: en_US.UTF-8
+
+# ── Package Updates ───────────────────────────────────────────────────────────
+
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+
+# ── Required Packages ─────────────────────────────────────────────────────────
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - ufw
+  - fail2ban
+  - unattended-upgrades
+  - logrotate
+  - htop
+  - jq
+  - git
+  - rsync
+  - ncdu
+
+# ── Users ─────────────────────────────────────────────────────────────────────
+# The 'dentalos' user runs services. It never gets a password; ops access is
+# via SSH key only through the root or ubuntu account added by Hetzner.
+
+users:
+  - name: dentalos
+    system: false
+    shell: /bin/bash
+    home: /opt/dentalos
+    create_home: true
+    groups:
+      - docker
+    lock_passwd: true
+
+# ── Write Files ───────────────────────────────────────────────────────────────
+
+write_files:
+  # Unattended upgrades — security patches only, no distribution upgrades
+  - path: /etc/apt/apt.conf.d/50unattended-upgrades
+    content: |
+      Unattended-Upgrade::Allowed-Origins {
+          "${distro_id}:${distro_codename}-security";
+      };
+      Unattended-Upgrade::Package-Blacklist {};
+      Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+      Unattended-Upgrade::MinimalSteps "true";
+      Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+      Unattended-Upgrade::Remove-Unused-Dependencies "true";
+      Unattended-Upgrade::Automatic-Reboot "false";
+      Unattended-Upgrade::Mail "";
+    owner: root:root
+    permissions: '0644'
+
+  # Auto-upgrade schedule
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Download-Upgradeable-Packages "1";
+      APT::Periodic::AutocleanInterval "7";
+      APT::Periodic::Unattended-Upgrade "1";
+    owner: root:root
+    permissions: '0644'
+
+  # SSH hardening — disable password auth, restrict ciphers
+  - path: /etc/ssh/sshd_config.d/99-dentalos.conf
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin prohibit-password
+      X11Forwarding no
+      MaxAuthTries 3
+      ClientAliveInterval 300
+      ClientAliveCountMax 2
+      LoginGraceTime 30
+      AllowTcpForwarding no
+      AllowAgentForwarding no
+      Protocol 2
+    owner: root:root
+    permissions: '0600'
+
+  # fail2ban — ban IPs after 5 failed SSH attempts for 1 hour
+  - path: /etc/fail2ban/jail.local
+    content: |
+      [DEFAULT]
+      bantime  = 3600
+      findtime = 600
+      maxretry = 5
+      backend  = systemd
+
+      [sshd]
+      enabled = true
+      port    = ssh
+      logpath = %(sshd_log)s
+    owner: root:root
+    permissions: '0644'
+
+  # Sysctl hardening — network-level security tuning
+  - path: /etc/sysctl.d/99-dentalos.conf
+    content: |
+      # Prevent IP spoofing
+      net.ipv4.conf.all.rp_filter = 1
+      net.ipv4.conf.default.rp_filter = 1
+      # Disable ICMP redirects
+      net.ipv4.conf.all.accept_redirects = 0
+      net.ipv4.conf.default.accept_redirects = 0
+      net.ipv6.conf.all.accept_redirects = 0
+      # Disable IP source routing
+      net.ipv4.conf.all.accept_source_route = 0
+      # Enable TCP SYN cookies (SYN flood protection)
+      net.ipv4.tcp_syncookies = 1
+      # Increase local port range for high-throughput workloads
+      net.ipv4.ip_local_port_range = 1024 65535
+      # Docker needs this for container networking
+      net.ipv4.ip_forward = 1
+    owner: root:root
+    permissions: '0644'
+
+  # logrotate for DentalOS application logs
+  - path: /etc/logrotate.d/dentalos
+    content: |
+      /var/log/dentalos/*.log {
+          daily
+          missingok
+          rotate 30
+          compress
+          delaycompress
+          notifempty
+          sharedscripts
+          postrotate
+              systemctl kill -s HUP dentalos-*.service 2>/dev/null || true
+          endscript
+      }
+    owner: root:root
+    permissions: '0644'
+
+  # Docker daemon configuration
+  - path: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "50m",
+          "max-file": "5"
+        },
+        "storage-driver": "overlay2",
+        "live-restore": true,
+        "userland-proxy": false
+      }
+    owner: root:root
+    permissions: '0644'
+
+  # Application log directory
+  - path: /var/log/dentalos/.gitkeep
+    content: ""
+    owner: dentalos:dentalos
+    permissions: '0755'
+
+# ── Run Commands ──────────────────────────────────────────────────────────────
+# Executes once at first boot in order. Each command runs as root.
+
+runcmd:
+  # Apply sysctl immediately
+  - sysctl --system
+
+  # Install Docker via official apt repository (Ubuntu 24.04)
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - |
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+    https://download.docker.com/linux/ubuntu \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+    > /etc/apt/sources.list.d/docker.list
+  - apt-get update -q
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+  # Enable and start Docker
+  - systemctl enable docker
+  - systemctl start docker
+
+  # Add dentalos user to docker group (group was created by Docker install)
+  - usermod -aG docker dentalos
+
+  # UFW baseline — deny all inbound, allow all outbound.
+  # Hetzner Firewall (defined in network.tf) is the primary layer;
+  # UFW is defence-in-depth at the OS level.
+  - ufw --force reset
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp comment 'SSH'
+  - ufw allow 80/tcp comment 'HTTP'
+  - ufw allow 443/tcp comment 'HTTPS'
+  - ufw allow from 10.0.0.0/16 comment 'Hetzner private network'
+  - ufw --force enable
+
+  # Restart SSH to pick up hardened config
+  - systemctl restart sshd
+
+  # Start fail2ban
+  - systemctl enable fail2ban
+  - systemctl start fail2ban
+
+  # Create application directory structure
+  - mkdir -p /opt/dentalos/{releases,shared,scripts,keys}
+  - chown -R dentalos:dentalos /opt/dentalos
+  - chmod 750 /opt/dentalos/keys
+  - mkdir -p /var/log/dentalos
+  - chown -R dentalos:dentalos /var/log/dentalos
+
+  # Signal completion
+  - touch /var/lib/cloud/instance/boot-finished
+  - echo "DentalOS cloud-init complete at $(date -u)" >> /var/log/dentalos/cloud-init.log
+
+# ── Final Message ─────────────────────────────────────────────────────────────
+
+final_message: |
+  DentalOS server initialization complete.
+  System version: $DISTRO $RELEASE
+  Uptime: $UPTIME seconds
+  Docker: $(docker --version 2>/dev/null || echo 'not available yet')

@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# DentalOS — Terraform Variables Example
+#
+# Copy this file to terraform.tfvars and fill in real values:
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# IMPORTANT: terraform.tfvars is gitignored. NEVER commit it.
+# Store secrets in your password manager (1Password, Bitwarden, etc.)
+# and rotate them every 90 days.
+#
+# For CI/CD (GitHub Actions), use repository secrets and pass via:
+#   TF_VAR_hcloud_token=${{ secrets.HCLOUD_TOKEN }}
+#   TF_VAR_postgres_password=${{ secrets.POSTGRES_PASSWORD }}
+#   ... etc.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Hetzner Cloud API Token ───────────────────────────────────────────────────
+# Generate at: https://console.hetzner.cloud → Project → Security → API Tokens
+# Permissions: Read + Write
+# Rotate every 90 days. Revoke immediately if exposed.
+
+hcloud_token = "REPLACE_WITH_YOUR_HETZNER_API_TOKEN"
+
+# ── SSH Public Key ────────────────────────────────────────────────────────────
+# Path to the public key file to upload to Hetzner.
+# The corresponding private key must be kept in your password manager.
+# For CI runners: use a dedicated deploy key pair, not your personal key.
+
+ssh_public_key_path = "~/.ssh/id_rsa.pub"
+
+# ── Environment ───────────────────────────────────────────────────────────────
+# "production" for the live environment.
+# For staging, create a separate Hetzner project and use "staging" here.
+
+environment = "production"
+
+# ── Datacenter Location ───────────────────────────────────────────────────────
+# Falkenstein (fsn1) is the primary location for Colombia/LATAM.
+# Alternatives: nbg1 (Nuremberg), hel1 (Helsinki), ash (Ashburn, US East)
+
+location = "fsn1"
+
+# ── Domain ────────────────────────────────────────────────────────────────────
+
+domain = "dentalos.co"
+
+# ── Database Password ─────────────────────────────────────────────────────────
+# Minimum 20 characters. Use a random generator:
+#   openssl rand -base64 32
+# This password is used for the PostgreSQL dentalos user.
+
+postgres_password = "REPLACE_WITH_STRONG_PASSWORD_MIN_20_CHARS"
+
+# ── Redis Password ────────────────────────────────────────────────────────────
+# Minimum 20 characters. Redis AUTH password.
+# Used in: REDIS_URL=redis://:PASSWORD@10.0.1.30:6379/0
+
+redis_password = "REPLACE_WITH_STRONG_PASSWORD_MIN_20_CHARS"
+
+# ── RabbitMQ Password ─────────────────────────────────────────────────────────
+# Minimum 20 characters. RabbitMQ default user password.
+# Used in: RABBITMQ_URL=amqp://dentalos:PASSWORD@10.0.1.20:5672/dentalos
+
+rabbitmq_password = "REPLACE_WITH_STRONG_PASSWORD_MIN_20_CHARS"
