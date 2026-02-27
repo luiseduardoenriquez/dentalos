@@ -4,6 +4,17 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import type { ZoneData } from "@/lib/hooks/use-odontogram";
 import { isAnteriorTooth, ZONE_LABELS } from "@/lib/validations/odontogram";
+import {
+  ZONE_POLYGONS,
+  EMPTY_FILL,
+  EMPTY_STROKE,
+  CONDITION_STROKE,
+  SELECTED_STROKE,
+  getZonePositionMap,
+  getZoneFill,
+  zoneHasCondition,
+  type ZonePosition,
+} from "@/lib/odontogram/zone-helpers";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,102 +39,7 @@ export interface ToothCellProps {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/**
- * Default zone fill when no condition is present.
- * Using white for light mode visibility with a light gray stroke.
- */
-const EMPTY_FILL = "#FFFFFF";
-const EMPTY_STROKE = "#CBD5E1"; // slate-300
-const CONDITION_STROKE = "#94A3B8"; // slate-400
-const SELECTED_STROKE = "#2563EB"; // primary-600
 const HOVER_OPACITY = 0.75;
-
-/**
- * SVG polygon points for each zone within a 56x56 viewBox.
- * Crown area occupies the top 40px, root extends below.
- *
- * Layout (cross-shape):
- *          [vestibular]
- *   [mesial] [center] [distal]
- *          [lingual]
- *            [root]
- *
- * For lower jaw teeth, vestibular/lingual swap visually but the
- * zone names remain anatomically correct.
- */
-const ZONE_POLYGONS = {
-  // Top triangle — vestibular for upper jaw, lingual for lower
-  top: "14,0 42,0 35,14 21,14",
-  // Bottom triangle — lingual for upper jaw, vestibular for lower
-  bottom: "21,26 35,26 42,40 14,40",
-  // Left trapezoid — mesial
-  left: "0,0 14,0 21,14 21,26 14,40 0,40",
-  // Right trapezoid — distal
-  right: "42,0 56,0 56,40 42,40 35,26 35,14",
-  // Center square — oclusal/incisal
-  center: "21,14 35,14 35,26 21,26",
-  // Root rectangle below the crown
-  root: "18,43 38,43 38,56 18,56",
-} as const;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Determines which anatomical zone maps to which SVG position
- * based on whether the tooth is in the upper or lower jaw.
- *
- * Upper jaw (quadrants 1, 2, 5, 6):
- *   top = vestibular, bottom = lingual/palatino
- *
- * Lower jaw (quadrants 3, 4, 7, 8):
- *   top = lingual, bottom = vestibular
- */
-function getZonePositionMap(toothNumber: number): Record<string, string> {
-  const quadrant = Math.floor(toothNumber / 10);
-  const isUpper = [1, 2, 5, 6].includes(quadrant);
-  const centerZone = isAnteriorTooth(toothNumber) ? "incisal" : "oclusal";
-
-  if (isUpper) {
-    return {
-      vestibular: "top",
-      lingual: "bottom",
-      palatino: "bottom",
-      mesial: "left",
-      distal: "right",
-      [centerZone]: "center",
-      root: "root",
-    };
-  }
-
-  // Lower jaw: vestibular is at the bottom, lingual at top
-  return {
-    lingual: "top",
-    vestibular: "bottom",
-    mesial: "left",
-    distal: "right",
-    [centerZone]: "center",
-    root: "root",
-  };
-}
-
-/**
- * Finds the condition fill color for a given zone.
- */
-function getZoneFill(zones: ZoneData[], zoneName: string): string {
-  const zoneData = zones.find((z) => z.zone === zoneName);
-  if (zoneData?.condition?.condition_color) {
-    return zoneData.condition.condition_color;
-  }
-  return EMPTY_FILL;
-}
-
-/**
- * Checks if a zone has an active condition.
- */
-function zoneHasCondition(zones: ZoneData[], zoneName: string): boolean {
-  const zoneData = zones.find((z) => z.zone === zoneName);
-  return zoneData?.condition !== null && zoneData?.condition !== undefined;
-}
 
 // ─── ZonePolygon Sub-component ────────────────────────────────────────────────
 
@@ -150,7 +66,7 @@ function ZonePolygon({
   onMouseLeave,
   onClick,
 }: ZonePolygonProps) {
-  const points = ZONE_POLYGONS[position as keyof typeof ZONE_POLYGONS];
+  const points = ZONE_POLYGONS[position as ZonePosition];
   if (!points) return null;
 
   const stroke = isZoneSelected

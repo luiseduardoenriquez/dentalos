@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Camera, Clock, Loader2 } from "lucide-react";
+import { Camera, Clock, Loader2, Grid3X3, ArrowUpDown, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { VoiceMicButton } from "@/components/voice/voice-mic-button";
@@ -12,6 +12,8 @@ import {
 } from "@/lib/validations/odontogram";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+export type ViewMode = "classic" | "anatomic";
 
 export interface OdontogramToolbarProps {
   /** Current dentition type selection */
@@ -30,6 +32,12 @@ export interface OdontogramToolbarProps {
   isLoading?: boolean;
   /** Whether the toolbar is in read-only mode */
   readOnly?: boolean;
+  /** Current view mode (only shown when onViewModeChange is provided) */
+  viewMode?: ViewMode;
+  /** Callback when view mode changes */
+  onViewModeChange?: (mode: ViewMode) => void;
+  /** Whether the anatomic view is available for the current plan */
+  canUseAnatomic?: boolean;
 }
 
 // ─── Dentition Button Labels (short form for toolbar) ─────────────────────────
@@ -55,38 +63,91 @@ function OdontogramToolbar({
   isVoiceActive = false,
   isLoading = false,
   readOnly = false,
+  viewMode,
+  onViewModeChange,
+  canUseAnatomic = true,
 }: OdontogramToolbarProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      {/* ── Dentition Type Selector ────────────────────────────────── */}
-      <div
-        className="inline-flex rounded-lg border border-[hsl(var(--border))] p-0.5 bg-[hsl(var(--muted))]"
-        role="radiogroup"
-        aria-label="Tipo de denticion"
-      >
-        {DENTITION_TYPES.map((type) => {
-          const isActive = dentitionType === type;
-          return (
+      <div className="flex flex-wrap items-center gap-3">
+        {/* ── Dentition Type Selector ────────────────────────────────── */}
+        <div
+          className="inline-flex rounded-lg border border-[hsl(var(--border))] p-0.5 bg-[hsl(var(--muted))]"
+          role="radiogroup"
+          aria-label="Tipo de denticion"
+        >
+          {DENTITION_TYPES.map((type) => {
+            const isActive = dentitionType === type;
+            return (
+              <button
+                key={type}
+                type="button"
+                role="radio"
+                aria-checked={isActive}
+                onClick={() => onDentitionChange(type)}
+                disabled={readOnly || isLoading}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md",
+                  "transition-all duration-150",
+                  isActive
+                    ? "bg-[hsl(var(--background))] text-foreground shadow-sm"
+                    : "text-[hsl(var(--muted-foreground))] hover:text-foreground",
+                  (readOnly || isLoading) && "opacity-50 cursor-not-allowed",
+                )}
+              >
+                {SHORT_LABELS[type]}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── View Mode Toggle (only when onViewModeChange is provided) ── */}
+        {onViewModeChange && viewMode && (
+          <div
+            className="inline-flex rounded-lg border border-[hsl(var(--border))] p-0.5 bg-[hsl(var(--muted))]"
+            role="radiogroup"
+            aria-label="Modo de vista"
+          >
             <button
-              key={type}
               type="button"
               role="radio"
-              aria-checked={isActive}
-              onClick={() => onDentitionChange(type)}
-              disabled={readOnly || isLoading}
+              aria-checked={viewMode === "classic"}
+              onClick={() => onViewModeChange("classic")}
+              disabled={isLoading}
               className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-md",
+                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md",
                 "transition-all duration-150",
-                isActive
+                viewMode === "classic"
                   ? "bg-[hsl(var(--background))] text-foreground shadow-sm"
                   : "text-[hsl(var(--muted-foreground))] hover:text-foreground",
-                (readOnly || isLoading) && "opacity-50 cursor-not-allowed",
+                isLoading && "opacity-50 cursor-not-allowed",
               )}
             >
-              {SHORT_LABELS[type]}
+              <Grid3X3 className="h-3.5 w-3.5" />
+              Grilla
             </button>
-          );
-        })}
+            <button
+              type="button"
+              role="radio"
+              aria-checked={viewMode === "anatomic"}
+              onClick={() => canUseAnatomic && onViewModeChange("anatomic")}
+              disabled={isLoading || !canUseAnatomic}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md",
+                "transition-all duration-150",
+                viewMode === "anatomic"
+                  ? "bg-[hsl(var(--background))] text-foreground shadow-sm"
+                  : "text-[hsl(var(--muted-foreground))] hover:text-foreground",
+                (isLoading || !canUseAnatomic) && "opacity-50 cursor-not-allowed",
+              )}
+              title={!canUseAnatomic ? "Vista anatomica disponible en planes Starter+" : undefined}
+            >
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              Arco
+              {!canUseAnatomic && <Lock className="h-3 w-3 ml-0.5" />}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Action Buttons ────────────────────────────────────────── */}

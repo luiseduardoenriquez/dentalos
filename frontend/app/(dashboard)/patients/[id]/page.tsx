@@ -18,9 +18,14 @@ import {
   ClipboardList,
   FilePlus,
   Globe,
+  FileText,
+  Download,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiGet } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,12 +42,76 @@ import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/empty-state";
 import { MedicalHistoryTimeline } from "@/components/medical-history-timeline";
 import { usePatient, useDeactivatePatient, useManagePortalAccess } from "@/lib/hooks/use-patients";
-import { formatDate, formatDateTime, getInitials } from "@/lib/utils";
+import { useAppointments, type Appointment, type AppointmentStatus } from "@/lib/hooks/use-appointments";
+import { useTreatmentPlans, type TreatmentPlanResponse } from "@/lib/hooks/use-treatment-plans";
+import { formatDate, formatDateTime, formatCurrency, getInitials } from "@/lib/utils";
 import {
   DOCUMENT_TYPE_LABELS,
   GENDER_LABELS,
   REFERRAL_SOURCE_LABELS,
 } from "@/lib/validations/patient";
+
+// ─── Appointment Status Config ────────────────────────────────────────────────
+
+const APPOINTMENT_STATUS_CONFIG: Record<
+  AppointmentStatus,
+  { label: string; variant: "default" | "secondary" | "success" | "destructive" | "warning" }
+> = {
+  scheduled: { label: "Agendada", variant: "default" },
+  confirmed: { label: "Confirmada", variant: "success" },
+  in_progress: { label: "En curso", variant: "default" },
+  completed: { label: "Completada", variant: "secondary" },
+  cancelled: { label: "Cancelada", variant: "destructive" },
+  no_show: { label: "No asistió", variant: "warning" },
+};
+
+const APPOINTMENT_TYPE_LABELS: Record<string, string> = {
+  consultation: "Consulta",
+  procedure: "Procedimiento",
+  emergency: "Urgencia",
+  follow_up: "Control",
+};
+
+const TREATMENT_STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "success" | "destructive" }> = {
+  draft: { label: "Borrador", variant: "secondary" },
+  active: { label: "Activo", variant: "default" },
+  completed: { label: "Completado", variant: "success" },
+  cancelled: { label: "Cancelado", variant: "destructive" },
+};
+
+const DOCUMENT_TYPE_MAP: Record<string, string> = {
+  xray: "Radiografía",
+  consent: "Consentimiento",
+  lab_result: "Resultado de laboratorio",
+  referral: "Remisión",
+  photo: "Fotografía",
+  other: "Otro",
+};
+
+// ─── Document types for inline hook ──────────────────────────────────────────
+
+interface PatientDocument {
+  id: string;
+  patient_id: string;
+  document_type: string;
+  file_name: string;
+  file_size_bytes: number;
+  mime_type: string;
+  description: string | null;
+  tooth_number: number | null;
+  uploaded_by: string;
+  download_url: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PatientDocumentListResponse {
+  items: PatientDocument[];
+  total: number;
+  page: number;
+  page_size: number;
+}
 
 // ─── Info Row ─────────────────────────────────────────────────────────────────
 
@@ -117,6 +186,273 @@ function PatientDetailSkeleton() {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Citas Tab Component ──────────────────────────────────────────────────────
+
+function CitasTab({ patientId }: { patientId: string }) {
+  const { data, isLoading } = useAppointments({ patient_id: patientId });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex items-center gap-4 p-4 border rounded-lg">
+            <Skeleton className="h-10 w-10 rounded-md" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const appointments = data?.items ?? [];
+
+  if (appointments.length === 0) {
+    return (
+      <EmptyState
+        icon={CalendarDays}
+        title="Sin citas registradas"
+        description="Este paciente no tiene citas agendadas todavía."
+        action={{ label: "Agendar cita", href: "/agenda" }}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+          {data?.total ?? appointments.length} cita{(data?.total ?? appointments.length) !== 1 ? "s" : ""}
+        </p>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/agenda">
+            <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+            Ir a agenda
+          </Link>
+        </Button>
+      </div>
+
+      <div className="rounded-lg border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-[hsl(var(--muted))]">
+              <th className="px-4 py-2.5 text-left font-medium text-[hsl(var(--muted-foreground))]">Fecha</th>
+              <th className="px-4 py-2.5 text-left font-medium text-[hsl(var(--muted-foreground))]">Hora</th>
+              <th className="px-4 py-2.5 text-left font-medium text-[hsl(var(--muted-foreground))] hidden md:table-cell">Doctor</th>
+              <th className="px-4 py-2.5 text-left font-medium text-[hsl(var(--muted-foreground))] hidden sm:table-cell">Tipo</th>
+              <th className="px-4 py-2.5 text-left font-medium text-[hsl(var(--muted-foreground))]">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {appointments.map((apt) => {
+              const statusConfig = APPOINTMENT_STATUS_CONFIG[apt.status];
+              const startDate = new Date(apt.start_time);
+              const endDate = new Date(apt.end_time);
+              return (
+                <tr key={apt.id} className="border-b last:border-0 hover:bg-[hsl(var(--muted)/0.5)] transition-colors">
+                  <td className="px-4 py-3">
+                    {formatDate(startDate)}
+                  </td>
+                  <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">
+                    {startDate.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}
+                    {" - "}
+                    {endDate.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}
+                  </td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    {apt.doctor_name ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 hidden sm:table-cell text-[hsl(var(--muted-foreground))]">
+                    {APPOINTMENT_TYPE_LABELS[apt.type] ?? apt.type}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant={statusConfig.variant} className="text-xs">
+                      {statusConfig.label}
+                    </Badge>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tratamientos Tab Component ──────────────────────────────────────────────
+
+function TratamientosTab({ patientId }: { patientId: string }) {
+  const { data, isLoading } = useTreatmentPlans(patientId, 1, 10);
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {[1, 2].map((i) => (
+          <div key={i} className="p-4 border rounded-xl space-y-3">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const plans = data?.items ?? [];
+
+  if (plans.length === 0) {
+    return (
+      <EmptyState
+        icon={ClipboardList}
+        title="Sin planes de tratamiento"
+        description="Este paciente no tiene planes de tratamiento creados."
+        action={{ label: "Crear plan", href: `/patients/${patientId}/treatment-plans/new` }}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+          {data?.total ?? plans.length} plan{(data?.total ?? plans.length) !== 1 ? "es" : ""}
+        </p>
+        <Button size="sm" asChild>
+          <Link href={`/patients/${patientId}/treatment-plans/new`}>
+            <FilePlus className="mr-1.5 h-3.5 w-3.5" />
+            Crear plan
+          </Link>
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {plans.map((plan) => {
+          const statusConfig = TREATMENT_STATUS_CONFIG[plan.status] ?? {
+            label: plan.status,
+            variant: "secondary" as const,
+          };
+          return (
+            <Card key={plan.id}>
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-sm font-semibold truncate">
+                    {plan.name}
+                  </CardTitle>
+                  <Badge variant={statusConfig.variant} className="text-xs shrink-0">
+                    {statusConfig.label}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs text-[hsl(var(--muted-foreground))]">
+                    <span>Progreso</span>
+                    <span className="font-medium text-foreground">{plan.progress_percent}%</span>
+                  </div>
+                  <Progress value={plan.progress_percent} className="h-1.5" />
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[hsl(var(--muted-foreground))]">
+                    {plan.items.length} procedimiento{plan.items.length !== 1 ? "s" : ""}
+                  </span>
+                  <span className="font-semibold">
+                    {formatCurrency(plan.total_cost_estimated)}
+                  </span>
+                </div>
+
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  Creado el {formatDate(plan.created_at)}
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Documentos Tab Component ────────────────────────────────────────────────
+
+function DocumentosTab({ patientId }: { patientId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["patient_documents", patientId],
+    queryFn: () =>
+      apiGet<PatientDocumentListResponse>(`/patients/${patientId}/documents?page=1&page_size=20`),
+    enabled: Boolean(patientId),
+    staleTime: 30_000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2].map((i) => (
+          <div key={i} className="flex items-center gap-4 p-4 border rounded-lg">
+            <Skeleton className="h-10 w-10 rounded-md" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const documents = data?.items ?? [];
+
+  if (documents.length === 0) {
+    return (
+      <EmptyState
+        icon={FileText}
+        title="Sin documentos"
+        description="Este paciente no tiene documentos subidos todavía."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-[hsl(var(--muted-foreground))]">
+        {data?.total ?? documents.length} documento{(data?.total ?? documents.length) !== 1 ? "s" : ""}
+      </p>
+
+      <div className="rounded-lg border divide-y">
+        {documents.map((doc) => (
+          <div
+            key={doc.id}
+            className="flex items-center gap-4 px-4 py-3 hover:bg-[hsl(var(--muted)/0.5)] transition-colors"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[hsl(var(--muted))]">
+              <FileText className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium truncate">{doc.file_name}</p>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                {DOCUMENT_TYPE_MAP[doc.document_type] ?? doc.document_type}
+                {" · "}
+                {formatDate(doc.created_at)}
+                {doc.description && ` · ${doc.description}`}
+              </p>
+            </div>
+            {doc.download_url && (
+              <Button variant="ghost" size="sm" asChild>
+                <a href={doc.download_url} target="_blank" rel="noopener noreferrer">
+                  <Download className="h-4 w-4" />
+                </a>
+              </Button>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -490,26 +826,17 @@ export default function PatientDetailPage() {
 
           {/* ── Tratamientos Tab ─────────────────────────────────────────── */}
           <TabsContent value="tratamientos" className="mt-4">
-            <EmptyState
-              title="Planes de tratamiento"
-              description="Próximamente podrás gestionar los planes de tratamiento del paciente aquí."
-            />
+            <TratamientosTab patientId={patient.id} />
           </TabsContent>
 
           {/* ── Citas Tab ────────────────────────────────────────────────── */}
           <TabsContent value="citas" className="mt-4">
-            <EmptyState
-              title="Citas"
-              description="Próximamente podrás ver el historial de citas del paciente aquí."
-            />
+            <CitasTab patientId={patient.id} />
           </TabsContent>
 
           {/* ── Documentos Tab ───────────────────────────────────────────── */}
           <TabsContent value="documentos" className="mt-4">
-            <EmptyState
-              title="Documentos"
-              description="Próximamente podrás subir y gestionar documentos del paciente aquí."
-            />
+            <DocumentosTab patientId={patient.id} />
           </TabsContent>
         </Tabs>
       </div>

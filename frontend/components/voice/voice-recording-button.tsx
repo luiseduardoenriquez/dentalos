@@ -4,6 +4,7 @@ import * as React from "react";
 import { Mic, MicOff, Square, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useVoiceOrchestrator } from "@/lib/hooks/use-voice-orchestrator";
+import type { ParseResponse } from "@/lib/hooks/use-voice";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -12,7 +13,7 @@ interface VoiceRecordingButtonProps {
   /** Patient ID for session creation */
   patientId: string;
   /** Callback fired after recording stops and parse results are ready */
-  onParseComplete?: (results: { findings: unknown[]; warnings: string[]; filtered_speech: string[] }) => void;
+  onParseComplete?: (results: ParseResponse) => void;
   /** Additional CSS class for the container */
   className?: string;
 }

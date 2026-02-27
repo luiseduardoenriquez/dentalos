@@ -13,7 +13,7 @@ export type VoicePhase =
   | "reviewing"
   | "success";
 
-export type VoiceContext = "odontogram" | "evolution" | "general";
+export type VoiceContext = "odontogram" | "evolution" | "examination";
 export type VoiceEntryPoint = "global_fab" | "contextual";
 
 interface VoiceState {
@@ -25,7 +25,7 @@ interface VoiceState {
   entry_point: VoiceEntryPoint | null;
   findings: VoiceFinding[];
   warnings: string[];
-  filtered_speech: string[];
+  filtered_speech: Record<string, unknown>[];
   apply_result: ApplyResponse | null;
 
   // Actions
@@ -34,7 +34,7 @@ interface VoiceState {
   set_session: (session_id: string) => void;
   set_phase: (phase: VoicePhase) => void;
   set_patient: (patient_id: string, patient_name: string) => void;
-  set_findings: (findings: VoiceFinding[], warnings: string[], filtered_speech: string[]) => void;
+  set_findings: (findings: VoiceFinding[], warnings: string[], filtered_speech: Record<string, unknown>[]) => void;
   set_apply_result: (result: ApplyResponse) => void;
   reset: () => void;
   is_active: () => boolean;
@@ -51,13 +51,13 @@ const INITIAL_STATE: {
   entry_point: null;
   findings: VoiceFinding[];
   warnings: string[];
-  filtered_speech: string[];
+  filtered_speech: Record<string, unknown>[];
   apply_result: null;
 } = {
   session_id: null,
   patient_id: null,
   patient_name: null,
-  context: "general",
+  context: "odontogram",
   phase: "idle",
   entry_point: null,
   findings: [],

@@ -159,6 +159,33 @@ class TenantSettingsUpdate(BaseModel):
         return v.strip() if v else v
 
 
+# ─── Add-ons ───────────────────────────────────────
+
+ALLOWED_ADDONS = {"voice_dictation", "radiograph_ai"}
+
+
+class AddonToggleRequest(BaseModel):
+    """Toggle an add-on feature for the current tenant."""
+
+    addon: str = Field(description="Add-on key to toggle")
+    enabled: bool
+
+    @field_validator("addon")
+    @classmethod
+    def validate_addon_key(cls, v: str) -> str:
+        if v not in ALLOWED_ADDONS:
+            raise ValueError(
+                f"Invalid add-on: {v}. Allowed: {', '.join(sorted(ALLOWED_ADDONS))}"
+            )
+        return v
+
+
+class AddonsResponse(BaseModel):
+    """Current add-on state for a tenant."""
+
+    addons: dict[str, bool]
+
+
 # ─── Plan Usage / Limits ────────────────────────────
 
 

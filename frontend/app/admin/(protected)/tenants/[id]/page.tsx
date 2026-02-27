@@ -13,13 +13,13 @@
  * - User clicks "Impersonar Clinica".
  * - Confirmation dialog warns that all actions will be audit-logged.
  * - On confirm: calls POST /admin/tenants/{id}/impersonate.
- * - On success: shows the access_token in a read-only copyable textarea.
- * - "Copiar Token" button copies the token to the clipboard.
+ * - On success: injects the token and redirects to /dashboard.
  */
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Copy, Check, AlertTriangle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -30,7 +30,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -43,8 +42,8 @@ import {
   useAdminTenants,
   useImpersonateTenant,
   type TenantSummary,
-  type ImpersonateResponse,
 } from "@/lib/hooks/use-admin";
+import { useImpersonationStore } from "@/lib/hooks/use-impersonation";
 import { cn } from "@/lib/utils";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -127,44 +126,6 @@ function InfoItem({
   );
 }
 
-// ─── Copy Token Button ────────────────────────────────────────────────────────
-
-function CopyTokenButton({ token }: { token: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(token);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard API not available — fallback: select the textarea
-    }
-  }
-
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={handleCopy}
-      className="shrink-0"
-    >
-      {copied ? (
-        <>
-          <Check className="h-3.5 w-3.5 mr-1.5 text-emerald-600" aria-hidden="true" />
-          Copiado
-        </>
-      ) : (
-        <>
-          <Copy className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-          Copiar Token
-        </>
-      )}
-    </Button>
-  );
-}
-
 // ─── Impersonation Dialog ─────────────────────────────────────────────────────
 
 interface ImpersonationDialogProps {
@@ -178,24 +139,17 @@ function ImpersonationDialog({
   onOpenChange,
   tenant,
 }: ImpersonationDialogProps) {
-  const [result, setResult] = useState<ImpersonateResponse | null>(null);
-
+  const router = useRouter();
+  const { enter } = useImpersonationStore();
   const { mutate: impersonate, isPending, error } = useImpersonateTenant();
 
   function handleConfirm() {
     impersonate(tenant.id, {
       onSuccess: (data) => {
-        setResult(data);
+        enter(data.access_token, `/admin/tenants/${tenant.id}`);
+        router.push("/dashboard");
       },
     });
-  }
-
-  function handleOpenChange(open: boolean) {
-    if (!open) {
-      // Clear result when dialog closes so it starts fresh next time
-      setResult(null);
-    }
-    onOpenChange(open);
   }
 
   const errorMessage =
@@ -206,89 +160,53 @@ function ImpersonationDialog({
         : null;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Impersonar clinica</DialogTitle>
           <DialogDescription>
-            {result
-              ? "Token de impersonacion generado exitosamente."
-              : `Vas a acceder a "${tenant.name}" como administrador.`}
+            {`Vas a acceder a "${tenant.name}" como administrador.`}
           </DialogDescription>
         </DialogHeader>
 
-        {/* ── Pre-confirm warning ── */}
-        {!result && (
-          <div className="space-y-4">
-            <div className="flex gap-3 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-700/40 dark:bg-amber-900/20 p-3">
-              <AlertTriangle
-                className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
-                aria-hidden="true"
-              />
-              <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
-                Vas a acceder a esta clinica como{" "}
-                <strong>clinic_owner</strong>. Todas las acciones realizadas
-                durante la sesion seran registradas en el log de auditoria con
-                tu identidad de superadmin.
-              </p>
-            </div>
-
-            {errorMessage && (
-              <p className="text-sm text-destructive-600 dark:text-destructive-400">
-                {errorMessage}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* ── Post-confirm token display ── */}
-        {result && (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Usa este token para autenticarte en la clinica. Expira en breve —
-              no lo compartas.
+        <div className="space-y-4">
+          <div className="flex gap-3 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-700/40 dark:bg-amber-900/20 p-3">
+            <AlertTriangle
+              className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
+              aria-hidden="true"
+            />
+            <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
+              Vas a acceder a esta clinica como{" "}
+              <strong>clinic_owner</strong>. Todas las acciones realizadas
+              durante la sesion seran registradas en el log de auditoria con
+              tu identidad de superadmin.
             </p>
-            <div className="space-y-2">
-              <Textarea
-                readOnly
-                value={result.access_token}
-                className="font-mono text-xs resize-none h-28"
-                aria-label="Token de impersonacion"
-              />
-              <CopyTokenButton token={result.access_token} />
-            </div>
           </div>
-        )}
+
+          {errorMessage && (
+            <p className="text-sm text-destructive-600 dark:text-destructive-400">
+              {errorMessage}
+            </p>
+          )}
+        </div>
 
         <DialogFooter>
-          {!result ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleOpenChange(false)}
-                disabled={isPending}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                onClick={handleConfirm}
-                disabled={isPending}
-                className="bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-600 dark:hover:bg-amber-700"
-              >
-                {isPending ? "Iniciando..." : "Iniciar Impersonacion"}
-              </Button>
-            </>
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleOpenChange(false)}
-            >
-              Cerrar
-            </Button>
-          )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isPending}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={handleConfirm}
+            disabled={isPending}
+            className="bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-600 dark:hover:bg-amber-700"
+          >
+            {isPending ? "Redirigiendo..." : "Iniciar Impersonacion"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

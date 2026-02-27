@@ -63,7 +63,7 @@ async def get_tenant_with_plan(tenant_id: str, db: AsyncSession) -> TenantContex
         timezone=tenant.timezone,
         currency_code=tenant.currency_code,
         status=tenant.status,
-        features=plan.features if plan else {},
+        features={**(plan.features if plan else {}), **(tenant.addons or {})},
         limits={
             "max_patients": plan.max_patients if plan else 0,
             "max_doctors": plan.max_doctors if plan else 0,

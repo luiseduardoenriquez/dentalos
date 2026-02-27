@@ -27,6 +27,7 @@ from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.error_codes import VoiceErrors
@@ -332,6 +333,9 @@ class VoiceService:
         )
         db.add(session)
         await db.flush()
+        # Eagerly load transcriptions (empty for new session) to avoid
+        # MissingGreenlet when _session_to_dict accesses the relationship.
+        await db.refresh(session, ["transcriptions"])
 
         logger.info(
             "Voice session created: session=%s doctor=%s context=%s",
@@ -419,12 +423,15 @@ class VoiceService:
                 status_code=410,
             )
 
+        # Normalize content type: strip codec params (e.g. "audio/webm;codecs=opus" → "audio/webm")
+        base_content_type = content_type.split(";")[0].strip()
+
         # Validate content type
-        if content_type not in _ALLOWED_AUDIO_TYPES:
+        if base_content_type not in _ALLOWED_AUDIO_TYPES:
             raise VoiceError(
                 error=VoiceErrors.UPLOAD_FAILED,
                 message=(
-                    f"Tipo de contenido '{content_type}' no permitido. "
+                    f"Tipo de contenido '{base_content_type}' no permitido. "
                     f"Formatos aceptados: {', '.join(sorted(_ALLOWED_AUDIO_TYPES))}."
                 ),
                 status_code=422,
@@ -439,7 +446,7 @@ class VoiceService:
         chunk_index = chunk_count_result.scalar() or 0
 
         # Generate S3 key (tenant-isolated path)
-        file_ext = content_type.split("/")[-1]
+        file_ext = base_content_type.split("/")[-1]
         s3_key = f"{tenant_id}/voice/{session_id}/{chunk_index}.{file_ext}"
 
         # Upload to S3 (try/except for graceful degradation)
@@ -449,7 +456,7 @@ class VoiceService:
             await storage_client.upload_file(
                 key=s3_key,
                 data=audio_data,
-                content_type=content_type,
+                content_type=base_content_type,
             )
         except ValueError as e:
             # Content type validation from storage client -- for audio we
@@ -534,7 +541,9 @@ class VoiceService:
         sid = uuid.UUID(session_id)
 
         session_result = await db.execute(
-            select(VoiceSession).where(
+            select(VoiceSession)
+            .options(selectinload(VoiceSession.transcriptions))
+            .where(
                 VoiceSession.id == sid,
                 VoiceSession.is_active.is_(True),
             )
@@ -576,7 +585,9 @@ class VoiceService:
 
         # Load session with transcriptions (selectin)
         session_result = await db.execute(
-            select(VoiceSession).where(
+            select(VoiceSession)
+            .options(selectinload(VoiceSession.transcriptions))
+            .where(
                 VoiceSession.id == sid,
                 VoiceSession.is_active.is_(True),
             )
@@ -828,7 +839,9 @@ class VoiceService:
 
         # Load session with parses
         session_result = await db.execute(
-            select(VoiceSession).where(
+            select(VoiceSession)
+            .options(selectinload(VoiceSession.parses))
+            .where(
                 VoiceSession.id == sid,
                 VoiceSession.is_active.is_(True),
             )

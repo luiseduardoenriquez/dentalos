@@ -1,13 +1,15 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { useAuthStore } from "@/lib/hooks/use-auth";
 import { clearAccessToken } from "@/lib/auth";
 import { apiPost } from "@/lib/api-client";
 import { useMe } from "@/lib/hooks/use-me";
 import { useUnreadCount } from "@/lib/hooks/use-notifications";
+import { useImpersonationStore } from "@/lib/hooks/use-impersonation";
 import type { UserRole } from "@/components/layout/sidebar";
 
 // ─── Full-page Skeleton ───────────────────────────────────────────────────────
@@ -83,6 +85,12 @@ function AuthLoadingSkeleton() {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { user, tenant, is_loading, is_authenticated } = useAuthStore();
+  const impersonating = useImpersonationStore((s) => s.impersonating);
+
+  // Rehydrate impersonation state from cookies on mount (survives page reload)
+  useEffect(() => {
+    useImpersonationStore.getState().init();
+  }, []);
 
   // Triggers GET /auth/me — hydrates store, redirects on 401
   useMe();
@@ -108,15 +116,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <DashboardShell
-      userRole={user.role as UserRole}
-      userName={user.name}
-      clinicName={tenant.name}
-      userAvatarUrl={user.avatar_url ?? undefined}
-      notificationCount={unreadCount ?? 0}
-      onSignOut={handleSignOut}
-    >
-      {children}
-    </DashboardShell>
+    <>
+      <ImpersonationBanner />
+      <div className={impersonating ? "pt-10" : ""}>
+        <DashboardShell
+          userRole={user.role as UserRole}
+          userName={user.name}
+          clinicName={tenant.name}
+          userAvatarUrl={user.avatar_url ?? undefined}
+          notificationCount={unreadCount ?? 0}
+          onSignOut={handleSignOut}
+        >
+          {children}
+        </DashboardShell>
+      </div>
+    </>
   );
 }

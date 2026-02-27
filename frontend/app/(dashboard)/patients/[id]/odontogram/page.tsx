@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ChevronRight, AlertCircle, Lock } from "lucide-react";
+import { ChevronRight, AlertCircle, Lock, Monitor } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/utils";
@@ -17,6 +17,19 @@ import { ConditionPanel } from "@/components/odontogram/condition-panel";
 import { HistoryPanel } from "@/components/odontogram/history-panel";
 import { ToothDetailPanel } from "@/components/odontogram/tooth-detail-panel";
 import { OdontogramToolbar } from "@/components/odontogram/odontogram-toolbar";
+import type { ViewMode } from "@/components/odontogram/odontogram-toolbar";
+
+// Lazy-loaded anatomic components — only bundled when anatomic view is active
+const ToothArchSVG = React.lazy(() =>
+  import("@/components/odontogram/anatomic/tooth-arch-svg").then((m) => ({
+    default: m.ToothArchSVG,
+  })),
+);
+const ToothDetailModal = React.lazy(() =>
+  import("@/components/odontogram/anatomic/tooth-detail-modal").then((m) => ({
+    default: m.ToothDetailModal,
+  })),
+);
 
 import { VoiceContextualPanel } from "@/components/voice/voice-contextual-panel";
 import { useVoiceStore } from "@/lib/stores/voice-store";
@@ -31,6 +44,8 @@ import {
 } from "@/lib/hooks/use-odontogram";
 import { usePatient } from "@/lib/hooks/use-patients";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { useOdontogramSettings } from "@/lib/hooks/use-odontogram-settings";
+import { usePlanLimits } from "@/lib/hooks/use-settings";
 
 import type { DentitionType, ConditionCreateValues } from "@/lib/validations/odontogram";
 
@@ -66,6 +81,19 @@ function OdontogramSkeleton() {
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Compute % of healthy teeth (all zones clear) */
+function computeHealthyPercentage(
+  teeth: { zones: { condition: unknown }[] }[],
+): number {
+  if (teeth.length === 0) return 100;
+  const healthyCount = teeth.filter((t) =>
+    t.zones.every((z) => z.condition === null || z.condition === undefined),
+  ).length;
+  return Math.round((healthyCount / teeth.length) * 100);
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OdontogramPage() {
@@ -81,6 +109,19 @@ export default function OdontogramPage() {
   const { data: odontogram, isLoading: isLoadingOdontogram } =
     useOdontogram(patientId);
   const { data: catalog } = useConditionsCatalog();
+
+  // ── Settings & Plan ─────────────────────────────────────────────────
+  const { data: odontogramSettings } = useOdontogramSettings();
+  const { data: planLimits } = usePlanLimits();
+
+  // Check if anatomic view is available for this plan
+  const canUseAnatomic = planLimits?.features?.odontogram_anatomic === true;
+
+  // Derive initial view mode from settings, gated by plan
+  const defaultViewMode: ViewMode =
+    canUseAnatomic && odontogramSettings?.default_view === "anatomic"
+      ? "anatomic"
+      : "classic";
 
   // ── Voice ─────────────────────────────────────────────────────────
   const [voiceActive, setVoiceActive] = React.useState(false);
@@ -120,29 +161,59 @@ export default function OdontogramPage() {
     number | undefined
   >(undefined);
 
+  // ── View mode (session-level local state) ──────────────────────────
+  const [viewMode, setViewMode] = React.useState<ViewMode>("classic");
+  const [showAnatomicModal, setShowAnatomicModal] = React.useState(false);
+
+  // Sync view mode from settings once loaded
+  React.useEffect(() => {
+    if (odontogramSettings && planLimits) {
+      const mode: ViewMode =
+        canUseAnatomic && odontogramSettings.default_view === "anatomic"
+          ? "anatomic"
+          : "classic";
+      setViewMode(mode);
+    }
+  }, [odontogramSettings, planLimits, canUseAnatomic]);
+
+  // ── Mobile detection (< 640px) for anatomic guard ──────────────────
+  const [isMobile, setIsMobile] = React.useState(false);
+  React.useEffect(() => {
+    function checkMobile() {
+      setIsMobile(window.innerWidth < 640);
+    }
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
   // ── Derived state ─────────────────────────────────────────────────
   const dentitionType: DentitionType =
     (odontogram?.dentition_type as DentitionType) ?? "adult";
   const isLoading = isLoadingPatient || isLoadingOdontogram;
   const isMutating = isUpdating || isSnapshotting || isTogglingDentition;
   const hasSelection = selectedTooth !== null && selectedZone !== null;
+  const isAnatomic = viewMode === "anatomic" && !isMobile;
+
+  // Find tooth data for the selected tooth (used in anatomic modal)
+  const selectedToothData = React.useMemo(() => {
+    if (!selectedTooth || !odontogram?.teeth) return null;
+    return odontogram.teeth.find((t) => t.tooth_number === selectedTooth) ?? null;
+  }, [selectedTooth, odontogram?.teeth]);
 
   // ── Callbacks ─────────────────────────────────────────────────────
 
   const handleZoneClick = React.useCallback(
     (toothNumber: number, zone: string) => {
       if (selectedTooth === toothNumber && selectedZone === zone) {
-        // Clicking the same zone deselects it
         setSelectedZone(null);
       } else {
         setSelectedTooth(toothNumber);
         setSelectedZone(zone);
       }
-      // Reset condition selection when changing zone
       setSelectedCondition(null);
       setSeverity(null);
       setNotes("");
-      // Close tooth detail if open
       setShowToothDetail(false);
     },
     [selectedTooth, selectedZone],
@@ -150,20 +221,26 @@ export default function OdontogramPage() {
 
   const handleToothClick = React.useCallback(
     (toothNumber: number) => {
-      if (selectedTooth === toothNumber) {
-        // Toggle tooth detail panel
-        setShowToothDetail((prev) => !prev);
-      } else {
+      if (isAnatomic) {
+        // In anatomic view, clicking a tooth opens the detail modal
         setSelectedTooth(toothNumber);
         setSelectedZone(null);
-        setShowToothDetail(true);
+        setShowAnatomicModal(true);
+      } else {
+        // Classic view behavior
+        if (selectedTooth === toothNumber) {
+          setShowToothDetail((prev) => !prev);
+        } else {
+          setSelectedTooth(toothNumber);
+          setSelectedZone(null);
+          setShowToothDetail(true);
+        }
       }
-      // Reset condition selection
       setSelectedCondition(null);
       setSeverity(null);
       setNotes("");
     },
-    [selectedTooth],
+    [selectedTooth, isAnatomic],
   );
 
   const handleConditionSelect = React.useCallback(
@@ -193,7 +270,6 @@ export default function OdontogramPage() {
       },
       {
         onSuccess: () => {
-          // Clear selection after successful apply
           setSelectedCondition(null);
           setSeverity(null);
           setNotes("");
@@ -210,6 +286,31 @@ export default function OdontogramPage() {
     updateCondition,
   ]);
 
+  /** Apply handler for the anatomic modal (receives all data at once) */
+  const handleAnatomicApply = React.useCallback(
+    (data: {
+      tooth_number: number;
+      zone: string;
+      condition_code: string;
+      severity: string | null;
+      notes: string | null;
+      source: "manual";
+    }) => {
+      updateCondition(
+        {
+          patientId,
+          data: data as ConditionCreateValues,
+        },
+        {
+          onSuccess: () => {
+            // Don't close modal — let the user add more conditions
+          },
+        },
+      );
+    },
+    [patientId, updateCondition],
+  );
+
   const handleDentitionChange = React.useCallback(
     (type: DentitionType) => {
       if (type === dentitionType) return;
@@ -217,7 +318,6 @@ export default function OdontogramPage() {
         patientId,
         data: { dentition_type: type },
       });
-      // Clear selection when changing dentition
       setSelectedTooth(null);
       setSelectedZone(null);
       setSelectedCondition(null);
@@ -236,12 +336,28 @@ export default function OdontogramPage() {
     setHistoryToothFilter(undefined);
     setShowHistory(true);
     setShowToothDetail(false);
+    setShowAnatomicModal(false);
   }, []);
 
   const handleOpenToothHistory = React.useCallback((toothNumber: number) => {
     setHistoryToothFilter(toothNumber);
     setShowHistory(true);
     setShowToothDetail(false);
+    setShowAnatomicModal(false);
+  }, []);
+
+  const handleViewModeChange = React.useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    // Clear selection when switching views
+    setSelectedTooth(null);
+    setSelectedZone(null);
+    setSelectedCondition(null);
+    setShowToothDetail(false);
+    setShowAnatomicModal(false);
+  }, []);
+
+  const handleAnatomicModalClose = React.useCallback(() => {
+    setShowAnatomicModal(false);
   }, []);
 
   // ── Loading State ─────────────────────────────────────────────────
@@ -307,84 +423,166 @@ export default function OdontogramPage() {
         isVoiceActive={voiceActive}
         isLoading={isMutating}
         readOnly={!canWrite}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+        canUseAnatomic={canUseAnatomic}
       />
 
-      {/* ─── Main Content ────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4 lg:flex-row">
-        {/* Tooth Grid (main area) */}
-        <Card className="flex-1 overflow-hidden">
-          <CardContent className="p-0">
-            <ToothGrid
-              teeth={odontogram?.teeth ?? []}
-              dentitionType={dentitionType}
-              selectedTooth={selectedTooth}
-              selectedZone={selectedZone}
-              onZoneClick={handleZoneClick}
-              onToothClick={handleToothClick}
-              readOnly={!canWrite}
-            />
+      {/* ─── Mobile guard for anatomic view ──────────────────────────── */}
+      {viewMode === "anatomic" && isMobile && (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <Monitor className="mx-auto h-10 w-10 text-[hsl(var(--muted-foreground))] mb-3" />
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">
+              El odontograma anatomico requiere una pantalla mas grande.
+            </p>
+            <button
+              type="button"
+              onClick={() => setViewMode("classic")}
+              className="mt-2 text-sm text-primary-600 hover:underline"
+            >
+              Cambiar a vista clasica
+            </button>
           </CardContent>
         </Card>
+      )}
 
-        {/* Sidebar: Condition Panel / Tooth Detail / History */}
-        <div className="w-full lg:w-80 shrink-0 space-y-4">
-          {/* Voice Panel (takes precedence when active) */}
-          {voiceActive && (
-            <VoiceContextualPanel
-              patient_id={patientId}
-              patient_name={patient?.full_name ?? ""}
-              onClose={handleVoiceClose}
-            />
+      {/* ─── Main Content ────────────────────────────────────────────── */}
+      {!(viewMode === "anatomic" && isMobile) && (
+        <div className={cn(
+          "flex flex-col gap-4",
+          !isAnatomic && "lg:flex-row",
+        )}>
+          {/* Main view area */}
+          {isAnatomic ? (
+            /* ── Anatomic Arch View ──────────────────────────────────── */
+            <div className="flex-1">
+              <React.Suspense fallback={<Skeleton className="h-[420px] w-full rounded-2xl" />}>
+                <ToothArchSVG
+                  teeth={odontogram?.teeth ?? []}
+                  dentitionType={dentitionType}
+                  selectedTooth={selectedTooth}
+                  onToothClick={handleToothClick}
+                  readOnly={!canWrite}
+                />
+              </React.Suspense>
+            </div>
+          ) : (
+            /* ── Classic Grid View ───────────────────────────────────── */
+            <Card className="flex-1 overflow-hidden">
+              <CardContent className="p-0">
+                <ToothGrid
+                  teeth={odontogram?.teeth ?? []}
+                  dentitionType={dentitionType}
+                  selectedTooth={selectedTooth}
+                  selectedZone={selectedZone}
+                  onZoneClick={handleZoneClick}
+                  onToothClick={handleToothClick}
+                  readOnly={!canWrite}
+                />
+              </CardContent>
+            </Card>
           )}
 
-          {/* History Panel (takes precedence when open, hidden during voice) */}
-          {showHistory && !voiceActive && (
-            <HistoryPanel
-              patientId={patientId}
-              toothNumber={historyToothFilter}
-              isOpen={showHistory}
-              onClose={() => setShowHistory(false)}
-            />
-          )}
+          {/* Sidebar: Only show in classic view or for history in anatomic */}
+          <div className={cn(
+            "shrink-0 space-y-4",
+            isAnatomic ? "w-full" : "w-full lg:w-80",
+          )}>
+            {/* Voice Panel (takes precedence when active) */}
+            {voiceActive && (
+              <VoiceContextualPanel
+                patient_id={patientId}
+                patient_name={patient?.full_name ?? ""}
+                onClose={handleVoiceClose}
+              />
+            )}
 
-          {/* Tooth Detail Panel */}
-          {showToothDetail && selectedTooth && !showHistory && !voiceActive && (
-            <ToothDetailPanel
-              patientId={patientId}
-              toothNumber={selectedTooth}
-              onClose={() => setShowToothDetail(false)}
-              onOpenHistory={handleOpenToothHistory}
-            />
-          )}
+            {/* History Panel (takes precedence when open, hidden during voice) */}
+            {showHistory && !voiceActive && (
+              <HistoryPanel
+                patientId={patientId}
+                toothNumber={historyToothFilter}
+                isOpen={showHistory}
+                onClose={() => setShowHistory(false)}
+              />
+            )}
 
-          {/* Condition Panel (always visible when not read-only, hidden during voice) */}
-          {canWrite && !showHistory && !voiceActive && (
-            <ConditionPanel
-              conditions={catalog ?? []}
-              selectedCondition={selectedCondition}
-              onConditionSelect={handleConditionSelect}
-              selectedZone={selectedZone}
-              severity={severity}
-              onSeverityChange={setSeverity}
-              notes={notes}
-              onNotesChange={setNotes}
-              onApply={handleApply}
-              isApplying={isUpdating}
-              hasSelection={hasSelection}
-            />
-          )}
+            {/* Classic-only panels */}
+            {!isAnatomic && (
+              <>
+                {/* Tooth Detail Panel */}
+                {showToothDetail && selectedTooth && !showHistory && !voiceActive && (
+                  <ToothDetailPanel
+                    patientId={patientId}
+                    toothNumber={selectedTooth}
+                    onClose={() => setShowToothDetail(false)}
+                    onOpenHistory={handleOpenToothHistory}
+                  />
+                )}
+
+                {/* Condition Panel (always visible when not read-only, hidden during voice) */}
+                {canWrite && !showHistory && !voiceActive && (
+                  <ConditionPanel
+                    conditions={catalog ?? []}
+                    selectedCondition={selectedCondition}
+                    onConditionSelect={handleConditionSelect}
+                    selectedZone={selectedZone}
+                    severity={severity}
+                    onSeverityChange={setSeverity}
+                    notes={notes}
+                    onNotesChange={setNotes}
+                    onApply={handleApply}
+                    isApplying={isUpdating}
+                    hasSelection={hasSelection}
+                  />
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* ─── Anatomic Tooth Detail Modal ─────────────────────────────── */}
+      {isAnatomic && showAnatomicModal && selectedTooth && selectedToothData && (
+        <React.Suspense fallback={null}>
+          <ToothDetailModal
+            toothNumber={selectedTooth}
+            toothData={selectedToothData}
+            conditions={catalog ?? []}
+            onApply={handleAnatomicApply}
+            onClose={handleAnatomicModalClose}
+            onOpenHistory={handleOpenToothHistory}
+            isSaving={isUpdating}
+            readOnly={!canWrite}
+          />
+        </React.Suspense>
+      )}
 
       {/* ─── Status Bar ──────────────────────────────────────────────── */}
       <Card>
         <CardContent className="py-2 px-4">
           <div className="flex flex-wrap items-center gap-4 text-xs text-[hsl(var(--muted-foreground))]">
+            {/* Anatomic mode: dental health summary */}
+            {isAnatomic && odontogram?.teeth && (
+              <>
+                <span>
+                  <span className="font-medium text-green-500">
+                    {computeHealthyPercentage(odontogram.teeth)}% sano
+                  </span>
+                </span>
+                <span className="hidden sm:inline">&mdash;</span>
+              </>
+            )}
+
             <span>
-              <span className="font-medium text-foreground">
+              <span className={cn(
+                "font-medium",
+                isAnatomic ? "text-amber-400" : "text-foreground",
+              )}>
                 {odontogram?.total_conditions ?? 0}
               </span>{" "}
-              condicion{(odontogram?.total_conditions ?? 0) !== 1 ? "es" : ""}
+              hallazgo{(odontogram?.total_conditions ?? 0) !== 1 ? "s" : ""}
             </span>
 
             {odontogram?.last_updated && (

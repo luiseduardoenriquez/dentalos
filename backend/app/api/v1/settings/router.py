@@ -9,6 +9,8 @@ from app.core.database import get_db, get_tenant_db
 from app.schemas.odontogram_settings import OdontogramSettingsResponse, OdontogramSettingsUpdate
 from app.schemas.reminder import ReminderConfigResponse, ReminderConfigUpdate
 from app.schemas.tenant import (
+    AddonToggleRequest,
+    AddonsResponse,
     PlanLimitsResponse,
     PlanUsageResponse,
     TenantSettingsResponse,
@@ -17,9 +19,11 @@ from app.schemas.tenant import (
 from app.services.odontogram_settings_service import get_odontogram_settings, update_odontogram_settings
 from app.services.reminder_service import reminder_service
 from app.services.tenant_settings_service import (
+    get_addons,
     get_plan_limits,
     get_plan_usage,
     get_tenant_settings,
+    toggle_addon,
     update_tenant_settings,
 )
 
@@ -92,6 +96,49 @@ async def get_limits(
         db=db,
     )
     return PlanLimitsResponse(**result)
+
+
+# ─── Add-on Endpoints ─────────────────────────────────────────────────────────
+
+
+@router.get("/addons", response_model=AddonsResponse)
+async def get_addons_endpoint(
+    current_user: AuthenticatedUser = Depends(require_role(["clinic_owner"])),
+    db: AsyncSession = Depends(get_db),
+) -> AddonsResponse:
+    """Get current add-on state for the tenant (clinic_owner only)."""
+    result = await get_addons(
+        tenant_id=current_user.tenant.tenant_id,
+        db=db,
+    )
+    return AddonsResponse(**result)
+
+
+@router.put("/addons", response_model=AddonsResponse)
+async def toggle_addon_endpoint(
+    body: AddonToggleRequest,
+    request: Request,
+    current_user: AuthenticatedUser = Depends(require_role(["clinic_owner"])),
+    db: AsyncSession = Depends(get_db),
+) -> AddonsResponse:
+    """Toggle an add-on feature for the tenant (clinic_owner only)."""
+    result = await toggle_addon(
+        tenant_id=current_user.tenant.tenant_id,
+        addon=body.addon,
+        enabled=body.enabled,
+        db=db,
+    )
+
+    await audit_action(
+        request=request,
+        db=db,
+        current_user=current_user,
+        action="toggle_addon",
+        resource_type="addon",
+        resource_id=body.addon,
+    )
+
+    return AddonsResponse(**result)
 
 
 # ─── Reminder Configuration Endpoints (AP-17, AP-18) ─────────────────────────

@@ -14,7 +14,7 @@ import { formatDateTime } from "@/lib/utils";
 const CONTEXT_LABELS: Record<VoiceSession["context"], string> = {
   odontogram: "Odontograma",
   evolution: "Evolucion",
-  general: "General",
+  examination: "Examen",
 };
 
 /** Maps status values to badge variants */

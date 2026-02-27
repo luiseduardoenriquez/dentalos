@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Zap, Users, User, HardDrive, UserCheck } from "lucide-react";
+import { Zap, Users, User, HardDrive, UserCheck, Mic, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -11,8 +11,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUsage, usePlanLimits } from "@/lib/hooks/use-settings";
+import { useUsage, usePlanLimits, useAddons, useToggleAddon } from "@/lib/hooks/use-settings";
+import { useAuth } from "@/lib/hooks/use-auth";
 import { useToast } from "@/lib/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 
@@ -132,15 +143,114 @@ function SubscriptionSkeleton() {
   );
 }
 
+// ─── Addon Definitions ───────────────────────────────────────────────────────
+
+interface AddonDef {
+  key: string;
+  label: string;
+  description: string;
+  price: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const ADDONS: AddonDef[] = [
+  {
+    key: "voice_dictation",
+    label: "AI Voz",
+    description: "Dictado clínico por voz con IA. Aplique hallazgos al odontograma automáticamente.",
+    price: "$10 USD / doctor / mes",
+    icon: Mic,
+  },
+  {
+    key: "radiograph_ai",
+    label: "AI Radiografía",
+    description: "Análisis de radiografías con inteligencia artificial para detección asistida.",
+    price: "$20 USD / doctor / mes",
+    icon: Image,
+  },
+];
+
+// ─── Addon Card ──────────────────────────────────────────────────────────────
+
+interface AddonCardProps {
+  addon: AddonDef;
+  enabled: boolean;
+  isPending: boolean;
+  onToggle: (key: string, enabled: boolean) => void;
+}
+
+function AddonCard({ addon, enabled, isPending, onToggle }: AddonCardProps) {
+  const Icon = addon.icon;
+
+  return (
+    <div className="flex items-start gap-4 rounded-lg border p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-100 dark:bg-primary-900/30">
+        <Icon className="h-5 w-5 text-primary-600" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-semibold text-foreground">{addon.label}</p>
+          {enabled && <Badge variant="success">Activo</Badge>}
+        </div>
+        <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+          {addon.description}
+        </p>
+        <p className="text-xs font-medium text-primary-600 mt-1">{addon.price}</p>
+      </div>
+      <Button
+        size="sm"
+        variant={enabled ? "outline" : "default"}
+        disabled={isPending}
+        onClick={() => onToggle(addon.key, !enabled)}
+        className="shrink-0"
+      >
+        {isPending ? "..." : enabled ? "Desactivar" : "Activar"}
+      </Button>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SubscriptionPage() {
   const { info } = useToast();
+  const { has_role } = useAuth();
 
   const { data: usage, isLoading: isLoadingUsage } = useUsage();
   const { data: limits, isLoading: isLoadingLimits } = usePlanLimits();
+  const { data: addonsData, isLoading: isLoadingAddons } = useAddons();
+  const { mutate: toggleAddon, isPending: isTogglingAddon } = useToggleAddon();
 
-  const isLoading = isLoadingUsage || isLoadingLimits;
+  const isLoading = isLoadingUsage || isLoadingLimits || isLoadingAddons;
+
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = React.useState<{
+    open: boolean;
+    addonKey: string;
+    addonLabel: string;
+    addonPrice: string;
+    enabling: boolean;
+  }>({ open: false, addonKey: "", addonLabel: "", addonPrice: "", enabling: false });
+
+  function handleAddonToggle(key: string, enabled: boolean) {
+    const addon = ADDONS.find((a) => a.key === key);
+    if (!addon) return;
+
+    setConfirmDialog({
+      open: true,
+      addonKey: key,
+      addonLabel: addon.label,
+      addonPrice: addon.price,
+      enabling: enabled,
+    });
+  }
+
+  function handleConfirmAddon() {
+    toggleAddon(
+      { addon: confirmDialog.addonKey, enabled: confirmDialog.enabling },
+      { onSettled: () => setConfirmDialog((prev) => ({ ...prev, open: false })) },
+    );
+  }
 
   function handleUpgrade() {
     info("Próximamente", "La actualización de plan estará disponible muy pronto.");
@@ -193,13 +303,13 @@ export default function SubscriptionPage() {
           </div>
 
           {/* Features */}
-          {limits?.features && limits.features.length > 0 && (
+          {limits?.features && Object.keys(limits.features).filter((k) => limits.features[k]).length > 0 && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))] mb-3">
                 Incluido en tu plan
               </p>
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {limits.features.map((feature) => (
+                {Object.keys(limits.features).filter((k) => limits.features[k]).map((feature) => (
                   <div key={feature} className="flex items-center gap-2 text-sm text-foreground">
                     <div className="h-1.5 w-1.5 rounded-full bg-primary-600 shrink-0" />
                     {FEATURE_LABELS[feature] ?? feature}
@@ -258,6 +368,54 @@ export default function SubscriptionPage() {
           />
         </CardContent>
       </Card>
+
+      {/* ─── Complementos (Add-ons) ───────────────────────────────────── */}
+      {has_role("clinic_owner") && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Complementos</CardTitle>
+            <CardDescription>
+              Activa funciones avanzadas de inteligencia artificial para tu clínica.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {ADDONS.map((addon) => (
+              <AddonCard
+                key={addon.key}
+                addon={addon}
+                enabled={addonsData?.addons[addon.key] === true}
+                isPending={isTogglingAddon}
+                onToggle={handleAddonToggle}
+              />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Addon confirmation dialog */}
+      <AlertDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmDialog.enabling ? "Activar" : "Desactivar"} {confirmDialog.addonLabel}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDialog.enabling
+                ? `Se activará ${confirmDialog.addonLabel} por ${confirmDialog.addonPrice}. El cargo se reflejará en tu próxima factura.`
+                : `Se desactivará ${confirmDialog.addonLabel}. Esta función dejará de estar disponible para todos los usuarios de la clínica.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isTogglingAddon}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAddon} disabled={isTogglingAddon}>
+              {isTogglingAddon ? "Procesando..." : confirmDialog.enabling ? "Activar" : "Desactivar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ─── Upgrade Prompt (when nearing limits) ─────────────────────── */}
       {usage && limits && limits.max_patients > 0 && (

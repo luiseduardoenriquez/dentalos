@@ -143,6 +143,10 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 - [x] **T-07** `PUT /api/v1/settings` -- Update tenant settings
 - [x] **T-08** `GET /api/v1/settings/usage` -- Plan usage stats
 - [x] **T-09** `GET /api/v1/settings/plan-limits` -- Plan limits check
+- [x] **T-09b** `GET /api/v1/settings/addons` -- Get tenant add-ons state
+- [x] **T-09c** `PUT /api/v1/settings/addons` -- Toggle tenant add-on (voice_dictation, radiograph_ai)
+- [x] **T-09d** Alembic migration: add `addons` JSONB column to `public.tenants`
+- [x] **T-09e** Merge `tenant.addons` into `TenantContext.features` (addons override plan features)
 - [x] **T-10** `POST /api/v1/onboarding` -- Multi-step onboarding wizard
 - [x] Integration tests: `tests/integration/test_tenants/` (T-01 through T-10, settings, onboarding)
 
@@ -243,6 +247,9 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 - [x] **FE-S-01** Clinic settings page (name, address, phone, logo, country, timezone)
 - [x] **FE-S-02** Team management page (list users, invite, edit roles, deactivate)
 - [x] **FE-S-03** Subscription plan page (current plan, usage meters, upgrade options)
+- [x] **FE-S-03b** Complementos (add-ons) section in subscription page with toggle cards
+- [x] **FE-S-03c** Fix voice upsell links: `/settings/billing` → `/settings/subscription`
+- [x] **FE-S-03d** `useAddons()` and `useToggleAddon()` hooks
 
 ---
 
@@ -271,7 +278,7 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 - [x] **I-24** ADR-005: SVG-based odontogram rendering approach
 - [x] **FE-OD-01** Classic grid odontogram (32/20 teeth, 5 crown zones + root, color-coded)
-- [-] **FE-OD-02** Anatomic arch odontogram (SVG-based, interactive zoom -- premium tier) — *Deferred — premium tier feature*
+- [x] **FE-OD-02** Anatomic arch odontogram (SVG-based, interactive zoom -- premium tier)
 - [x] **FE-OD-03** Condition selection panel (12 conditions with icons, quick-select, notes)
 - [x] **FE-OD-04** History panel (sidebar timeline of changes, filter by date/condition)
 - [-] **FE-OD-05** Comparison view (side-by-side snapshots, visual diff) — *Deferred to Sprint 11+ — backend ready*

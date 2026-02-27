@@ -213,6 +213,11 @@ class PatientResponse(BaseModel):
     # Clinical summary stub — populated by service layer
     clinical_summary: dict[str, Any] | None = None
 
+    @computed_field  # type: ignore[misc]
+    @property
+    def full_name(self) -> str:
+        return f"{self.first_name} {self.last_name}"
+
 
 class PatientListItem(BaseModel):
     """Condensed patient record for list views."""

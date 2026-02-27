@@ -41,7 +41,7 @@ interface TranscriptionReviewPanelProps {
   /** Warnings from the parse response */
   warnings: string[];
   /** Non-dental speech fragments that were filtered out */
-  filteredSpeech: string[];
+  filteredSpeech: Record<string, unknown>[];
   /** Active voice session ID */
   sessionId: string;
   /** Callback fired after findings are successfully applied */
@@ -55,8 +55,8 @@ interface TranscriptionReviewPanelProps {
 interface EditingState {
   index: number;
   tooth_number: number;
-  zone: string | null;
-  condition: string;
+  zone: string;
+  condition_code: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -75,8 +75,8 @@ function getConfidenceBadgeVariant(confidence: number) {
   return "destructive" as const;
 }
 
-/** Translates a zone string to Spanish, or returns "Diente completo" for null */
-function translateZone(zone: string | null): string {
+/** Translates a zone string to Spanish, or returns "Diente completo" for empty */
+function translateZone(zone: string): string {
   if (!zone) return "Diente completo";
   return ZONE_LABELS[zone] ?? zone;
 }
@@ -156,7 +156,7 @@ export function TranscriptionReviewPanel({
       index,
       tooth_number: finding.tooth_number,
       zone: finding.zone,
-      condition: finding.condition,
+      condition_code: finding.condition_code,
     });
   }
 
@@ -165,7 +165,7 @@ export function TranscriptionReviewPanel({
     setFindings((prev) =>
       prev.map((f, i) =>
         i === editing.index
-          ? { ...f, tooth_number: editing.tooth_number, zone: editing.zone, condition: editing.condition }
+          ? { ...f, tooth_number: editing.tooth_number, zone: editing.zone, condition_code: editing.condition_code }
           : f,
       ),
     );
@@ -236,22 +236,15 @@ export function TranscriptionReviewPanel({
             </div>
           </div>
 
-          {/* Detail list */}
-          {applyResult.details.length > 0 && (
+          {/* Errors list */}
+          {applyResult.errors.length > 0 && (
             <div className="space-y-1">
-              <p className="text-sm font-medium text-foreground">Detalle:</p>
+              <p className="text-sm font-medium text-foreground">Errores:</p>
               <ul className="space-y-1">
-                {applyResult.details.map((detail, i) => (
+                {applyResult.errors.map((err, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
-                    <Badge
-                      variant={detail.status === "applied" ? "success" : "warning"}
-                      className="text-xs"
-                    >
-                      {detail.status === "applied" ? "Aplicado" : "Omitido"}
-                    </Badge>
-                    <span className="text-[hsl(var(--muted-foreground))]">
-                      Diente {detail.tooth_number} - {detail.condition}
-                    </span>
+                    <Badge variant="destructive" className="text-xs">Error</Badge>
+                    <span className="text-[hsl(var(--muted-foreground))]">{err}</span>
                   </li>
                 ))}
               </ul>
@@ -321,7 +314,7 @@ export function TranscriptionReviewPanel({
                   <div className="flex items-center gap-1.5">
                     <span className="font-mono font-medium">{finding.tooth_number}</span>
                     <span className="text-[hsl(var(--muted-foreground))]">&middot;</span>
-                    <span className="capitalize">{finding.condition}</span>
+                    <span className="capitalize">{finding.condition_code}</span>
                     <Badge variant={getConfidenceBadgeVariant(finding.confidence)} className="ml-auto text-[10px] px-1 py-0">
                       {Math.round(finding.confidence * 100)}%
                     </Badge>
@@ -412,7 +405,7 @@ export function TranscriptionReviewPanel({
                           <select
                             value={editing.zone ?? ""}
                             onChange={(e) =>
-                              setEditing({ ...editing, zone: e.target.value || null })
+                              setEditing({ ...editing, zone: e.target.value })
                             }
                             className="rounded border border-[hsl(var(--border))] bg-transparent px-2 py-1 text-sm"
                           >
@@ -434,14 +427,14 @@ export function TranscriptionReviewPanel({
                         {isEditing ? (
                           <input
                             type="text"
-                            value={editing.condition}
+                            value={editing.condition_code}
                             onChange={(e) =>
-                              setEditing({ ...editing, condition: e.target.value })
+                              setEditing({ ...editing, condition_code: e.target.value })
                             }
                             className="w-32 rounded border border-[hsl(var(--border))] bg-transparent px-2 py-1 text-sm"
                           />
                         ) : (
-                          <span className="capitalize">{finding.condition}</span>
+                          <span className="capitalize">{finding.condition_code}</span>
                         )}
                       </td>
 
@@ -458,9 +451,9 @@ export function TranscriptionReviewPanel({
                       <td className="p-2 max-w-[200px]">
                         <span
                           className="text-xs text-[hsl(var(--muted-foreground))] italic"
-                          title={finding.source_text}
+                          title={finding.source_text ?? ""}
                         >
-                          {truncate(finding.source_text, 50)}
+                          {truncate(finding.source_text ?? "", 50)}
                         </span>
                       </td>
 
@@ -555,11 +548,14 @@ export function TranscriptionReviewPanel({
             </button>
             {showFilteredSpeech && (
               <div className="border-t border-[hsl(var(--border))] px-4 py-3 space-y-1">
-                {filteredSpeech.map((text, i) => (
-                  <p key={i} className="text-xs text-[hsl(var(--muted-foreground))] italic">
-                    &quot;{text}&quot;
-                  </p>
-                ))}
+                {filteredSpeech.map((entry, i) => {
+                  const text = (entry.text as string) ?? JSON.stringify(entry);
+                  return (
+                    <p key={i} className="text-xs text-[hsl(var(--muted-foreground))] italic">
+                      &quot;{text}&quot;
+                    </p>
+                  );
+                })}
               </div>
             )}
           </div>

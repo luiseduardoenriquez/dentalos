@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -56,6 +56,12 @@ class Tenant(UUIDPrimaryKeyMixin, TimestampMixin, PublicBase):
 
     # Settings & Features
     settings: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
+    addons: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default=text("'{}'::jsonb"),
+        comment="Per-tenant add-on subscriptions, e.g. {'voice_dictation': true}",
+    )
 
     # Lifecycle dates
     trial_ends_at: Mapped[datetime | None] = mapped_column(

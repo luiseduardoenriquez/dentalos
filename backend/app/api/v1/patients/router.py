@@ -737,13 +737,13 @@ async def manage_portal_access(
     body: PortalAccessRequest,
     request: Request,
     current_user: AuthenticatedUser = Depends(
-        require_role(["clinic_owner", "receptionist"])
+        require_role(["clinic_owner", "doctor", "receptionist"])
     ),
     db: AsyncSession = Depends(get_tenant_db),
 ) -> PortalAccessGrantResponse | PortalAccessRevokeResponse:
     """Grant or revoke portal access for a patient (P-11).
 
-    Only clinic_owner and receptionist roles can manage portal access.
+    Clinic owners, doctors, and receptionists can manage portal access.
     """
     if body.action == "grant":
         result = await portal_access_service.grant_access(

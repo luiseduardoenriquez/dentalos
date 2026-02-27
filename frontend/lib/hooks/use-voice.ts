@@ -11,7 +11,7 @@ export interface VoiceSession {
   id: string;
   patient_id: string;
   doctor_id: string;
-  context: "odontogram" | "evolution" | "general";
+  context: "odontogram" | "evolution" | "examination";
   status: "recording" | "processing" | "applied";
   created_at: string;
   expires_at: string;
@@ -19,23 +19,27 @@ export interface VoiceSession {
 
 export interface VoiceFinding {
   tooth_number: number; // FDI notation (11-48)
-  zone: string | null; // "mesial", "distal", "oclusal", "vestibular", "lingual", "cervical", null for whole tooth
-  condition: string; // e.g. "caries", "fractura", "ausente", "corona", "resina"
+  zone: string; // "mesial", "distal", "oclusal", "vestibular", "lingual", "cervical", or empty string for whole tooth
+  condition_code: string; // e.g. "caries", "fractura", "ausente", "corona", "resina"
   confidence: number; // 0.0 to 1.0
-  source_text: string; // original text snippet
+  source_text: string | null; // original text snippet (optional from backend)
 }
 
 export interface ParseResponse {
+  id: string;
+  session_id: string;
   findings: VoiceFinding[];
-  filtered_speech: string[];
+  filtered_speech: Record<string, unknown>[];
   warnings: string[];
-  corrections: Record<string, string>[];
+  corrections: Record<string, unknown>[];
+  llm_model: string;
+  status: string;
 }
 
 export interface ApplyResponse {
   applied_count: number;
   skipped_count: number;
-  details: { tooth_number: number; condition: string; status: string }[];
+  errors: string[];
 }
 
 export interface TranscriptionStatus {
@@ -81,7 +85,7 @@ export function useCreateVoiceSession() {
   const { success, error } = useToast();
 
   return useMutation({
-    mutationFn: (data: { patient_id: string; context: "odontogram" | "evolution" | "general" }) =>
+    mutationFn: (data: { patient_id: string; context: "odontogram" | "evolution" | "examination" }) =>
       apiPost<VoiceSession>("/voice/sessions", data),
     onSuccess: (session) => {
       queryClient.invalidateQueries({ queryKey: VOICE_SESSIONS_QUERY_KEY });
@@ -127,7 +131,12 @@ export function useUploadAudio() {
       formData.append("audio", audioBlob, `chunk_${chunkIndex}.webm`);
       formData.append("chunk_index", String(chunkIndex));
 
-      const { data } = await apiClient.post<{ message: string; chunk_index: number }>(
+      const { data } = await apiClient.post<{
+        transcription_id: string;
+        session_id: string;
+        s3_key: string;
+        status: string;
+      }>(
         `/voice/sessions/${sessionId}/upload`,
         formData,
         {
@@ -163,7 +172,22 @@ export function useUploadAudio() {
 export function useTranscriptionStatus(sessionId: string | null | undefined) {
   return useQuery({
     queryKey: voiceSessionStatusQueryKey(sessionId ?? ""),
-    queryFn: () => apiGet<TranscriptionStatus>(`/voice/sessions/${sessionId}/status`),
+    queryFn: async () => {
+      // Backend returns VoiceSessionResponse at GET /voice/sessions/{id}
+      // We transform it to the TranscriptionStatus shape the orchestrator expects
+      const session = await apiGet<VoiceSession & { transcriptions: TranscriptionStatus["transcriptions"] }>(
+        `/voice/sessions/${sessionId}`,
+      );
+      const transcriptions = session.transcriptions ?? [];
+      const allCompleted = transcriptions.length > 0 && transcriptions.every(
+        (t) => t.status === "completed" || t.status === "failed",
+      );
+      return {
+        session_id: session.id,
+        transcriptions,
+        all_completed: allCompleted,
+      } satisfies TranscriptionStatus;
+    },
     enabled: Boolean(sessionId),
     refetchInterval: (query) => {
       const data = query.state.data;
@@ -223,7 +247,10 @@ export function useApplyFindings() {
 
   return useMutation({
     mutationFn: ({ sessionId, findings }: { sessionId: string; findings: VoiceFinding[] }) =>
-      apiPost<ApplyResponse>(`/voice/sessions/${sessionId}/apply`, { findings }),
+      apiPost<ApplyResponse>(`/voice/sessions/${sessionId}/apply`, {
+        session_id: sessionId,
+        confirmed_findings: findings,
+      }),
     onSuccess: (data) => {
       // Invalidate odontogram cache since findings were applied
       queryClient.invalidateQueries({ queryKey: ["odontogram"] });

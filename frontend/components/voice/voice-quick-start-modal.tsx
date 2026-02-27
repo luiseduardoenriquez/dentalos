@@ -57,8 +57,8 @@ export function VoiceQuickStartModal({ open, onOpenChange }: VoiceQuickStartModa
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen && phase !== "idle" && phase !== "success") {
-        // Prevent closing while active — user must cancel explicitly
+      if (!isOpen && phase !== "idle" && phase !== "patient_select" && phase !== "success") {
+        // Prevent closing while recording/processing — user must cancel explicitly
         return;
       }
       onOpenChange(isOpen);
@@ -117,9 +117,11 @@ function ActiveSessionStep({ onClose }: { onClose: () => void }) {
     },
   });
 
-  // Auto-start recording when this step mounts
+  // Auto-start recording when this step mounts (ref guard prevents StrictMode double-call)
+  const hasStartedRef = React.useRef(false);
   React.useEffect(() => {
-    if (orchestrator.phase === "idle") {
+    if (orchestrator.phase === "idle" && !hasStartedRef.current) {
+      hasStartedRef.current = true;
       orchestrator.start_recording();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

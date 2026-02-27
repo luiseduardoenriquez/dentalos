@@ -229,6 +229,50 @@ async def process_onboarding_step(
     }
 
 
+# ─── Add-ons ──────────────────────────────────────
+
+
+async def get_addons(
+    tenant_id: str,
+    db: AsyncSession,
+) -> dict[str, Any]:
+    """Return the current add-on state for a tenant."""
+    tenant = await _get_tenant_or_raise(tenant_id, db)
+    return {"addons": tenant.addons or {}}
+
+
+async def toggle_addon(
+    tenant_id: str,
+    addon: str,
+    enabled: bool,
+    db: AsyncSession,
+) -> dict[str, Any]:
+    """Toggle an add-on feature for a tenant.
+
+    Free-plan tenants cannot activate add-ons.
+    Invalidates the tenant cache so feature_flags update immediately.
+    """
+    tenant = await _get_tenant_or_raise(tenant_id, db)
+
+    # Free plan cannot activate add-ons
+    plan = tenant.plan
+    if plan and plan.slug == "free" and enabled:
+        raise TenantError(
+            error="TENANT_addon_requires_paid_plan",
+            message="Los complementos requieren un plan de pago.",
+            status_code=403,
+        )
+
+    current_addons = dict(tenant.addons or {})
+    current_addons[addon] = enabled
+    tenant.addons = current_addons
+
+    await db.flush()
+    await invalidate_tenant_cache(tenant_id)
+
+    return {"addons": tenant.addons}
+
+
 # ─── Admin: Tenant CRUD ────────────────────────────
 
 

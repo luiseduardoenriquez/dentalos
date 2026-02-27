@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Mic, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -33,7 +34,7 @@ export function VoiceAddonUpsell({ variant = "inline", className }: VoiceAddonUp
           <span>$10 USD / doctor / mes</span>
         </div>
         <Button size="sm" className="w-full" asChild>
-          <a href="/settings/billing">Activar complemento</a>
+          <Link href="/settings/subscription">Activar complemento</Link>
         </Button>
       </div>
     );
@@ -50,12 +51,12 @@ export function VoiceAddonUpsell({ variant = "inline", className }: VoiceAddonUp
       <Mic className="h-4 w-4 shrink-0 text-primary-600" />
       <p className="text-xs text-primary-700 dark:text-primary-300">
         <span className="font-medium">Dictado por Voz</span> no esta incluido en su plan.{" "}
-        <a
-          href="/settings/billing"
+        <Link
+          href="/settings/subscription"
           className="underline hover:text-primary-900 dark:hover:text-primary-100"
         >
           Activar por $10/doctor/mes
-        </a>
+        </Link>
       </p>
     </div>
   );

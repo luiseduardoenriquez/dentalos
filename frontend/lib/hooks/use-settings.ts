@@ -6,6 +6,15 @@ import { useToast } from "@/lib/hooks/use-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export interface AddonsState {
+  addons: Record<string, boolean>;
+}
+
+export interface AddonTogglePayload {
+  addon: string;
+  enabled: boolean;
+}
+
 export interface ClinicSettings {
   name: string;
   phone: string | null;
@@ -30,7 +39,7 @@ export interface PlanLimitsSettings {
   max_doctors: number;
   max_users: number;
   max_storage_mb: number;
-  features: string[];
+  features: Record<string, boolean>;
 }
 
 // ─── Query Keys ───────────────────────────────────────────────────────────────
@@ -38,6 +47,7 @@ export interface PlanLimitsSettings {
 export const SETTINGS_QUERY_KEY = ["settings"] as const;
 export const USAGE_QUERY_KEY = ["settings", "usage"] as const;
 export const PLAN_LIMITS_QUERY_KEY = ["settings", "plan-limits"] as const;
+export const ADDONS_QUERY_KEY = ["settings", "addons"] as const;
 
 // ─── useSettings ──────────────────────────────────────────────────────────────
 
@@ -114,5 +124,57 @@ export function usePlanLimits() {
     queryKey: PLAN_LIMITS_QUERY_KEY,
     queryFn: () => apiGet<PlanLimitsSettings>("/settings/plan-limits"),
     staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+}
+
+// ─── useAddons ───────────────────────────────────────────────────────────────
+
+/**
+ * Fetches the current add-on state for the tenant.
+ *
+ * @example
+ * const { data } = useAddons();
+ * const isVoiceEnabled = data?.addons.voice_dictation ?? false;
+ */
+export function useAddons() {
+  return useQuery({
+    queryKey: ADDONS_QUERY_KEY,
+    queryFn: () => apiGet<AddonsState>("/settings/addons"),
+    staleTime: 60_000, // 1 minute
+  });
+}
+
+// ─── useToggleAddon ──────────────────────────────────────────────────────────
+
+const ME_QUERY_KEY = ["auth", "me"] as const;
+
+/**
+ * PUT /settings/addons — toggles an add-on feature.
+ * On success: invalidates addons cache + refetches /auth/me so
+ * feature_flags update across the entire app.
+ *
+ * @example
+ * const { mutate: toggleAddon, isPending } = useToggleAddon();
+ * toggleAddon({ addon: "voice_dictation", enabled: true });
+ */
+export function useToggleAddon() {
+  const queryClient = useQueryClient();
+  const { success, error } = useToast();
+
+  return useMutation({
+    mutationFn: (data: AddonTogglePayload) =>
+      apiPut<AddonsState>("/settings/addons", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADDONS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY });
+      success("Complemento actualizado", "El cambio se aplicó correctamente.");
+    },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "No se pudo actualizar el complemento. Inténtalo de nuevo.";
+      error("Error al actualizar complemento", message);
+    },
   });
 }
