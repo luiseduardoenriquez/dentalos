@@ -243,7 +243,7 @@ def _build_csv_bytes(columns: list[str], rows: list[dict]) -> bytes:
     return "\ufeff".encode("utf-8") + buf.getvalue().encode("utf-8")
 
 
-@router.get("/export")
+@router.get("/export", response_model=None)
 async def analytics_export(
     request: Request,
     report_type: str = Query(
