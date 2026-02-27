@@ -262,6 +262,7 @@ async def change_password(
         current_password=body.current_password,
         new_password=body.new_password,
         current_session_token_hash=None,
+        tenant_id=current_user.tenant.tenant_id,
         tenant_schema=current_user.tenant.schema_name,
         db=db,
     )

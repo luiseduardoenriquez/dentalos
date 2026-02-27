@@ -307,7 +307,7 @@ class AuthService:
         For multi-tenant users, returns a pre-auth token and a list of
         tenants for the client to select from.
         """
-        await check_rate_limit(f"rl:login:{ip_address}", limit=50, window_seconds=900)
+        await check_rate_limit(f"rl:login:{ip_address}", limit=15, window_seconds=900)
 
         email = email.strip().lower()
 
@@ -856,8 +856,13 @@ class AuthService:
 
             await db.commit()
 
-            # Delete the token from Redis
+            # Delete the reset token from Redis
             await cache_delete(redis_key)
+
+            # Invalidate token_version cache so auth checks fetch the new version
+            tenant_id = token_data["tenant_id"]
+            tver_key = f"dentalos:{tenant_id}:auth:tver:{user_id}"
+            await cache_delete(tver_key)
 
             logger.info("Password reset completed for user in schema %s", schema_name)
 
@@ -874,6 +879,7 @@ class AuthService:
         current_password: str,
         new_password: str,
         current_session_token_hash: str | None,
+        tenant_id: str,
         tenant_schema: str,
         db: AsyncSession,
     ) -> None:
@@ -924,6 +930,10 @@ class AuthService:
             )
 
             await db.commit()
+
+            # Invalidate token_version cache so auth checks fetch the new version
+            tver_key = f"dentalos:{tenant_id}:auth:tver:{user_id}"
+            await cache_delete(tver_key)
 
             logger.info("Password changed for user in schema %s", tenant_schema)
 

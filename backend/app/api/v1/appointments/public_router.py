@@ -12,11 +12,13 @@ import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.rate_limit import check_rate_limit
+from app.core.tenant import validate_schema_name
 from app.models.public.tenant import Tenant
 from app.schemas.public_booking import (
     BookingConfigResponse,
@@ -65,6 +67,7 @@ async def resolve_tenant_by_slug(slug: str, db: AsyncSession) -> Tenant:
 @router.get("/{slug}", response_model=BookingConfigResponse)
 async def get_booking_config(
     slug: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> BookingConfigResponse:
     """Return the public booking configuration for a clinic (AP-15).
@@ -75,6 +78,11 @@ async def get_booking_config(
     For MVP: available_dates returns the next 30 calendar days. A future
     iteration will filter by actual schedule availability.
     """
+    ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (
+        request.client.host if request.client else "unknown"
+    )
+    await check_rate_limit(f"rl:public_config:{ip}", limit=30, window_seconds=60)
+
     tenant = await resolve_tenant_by_slug(slug, db)
 
     # Build the next 30 calendar days starting from tomorrow
@@ -103,20 +111,28 @@ async def get_booking_config(
 async def create_public_booking(
     slug: str,
     body: PublicBookingRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> PublicBookingResponse:
     """Create a self-booking for a patient (AP-16).
 
     No authentication required. Flow:
-      1. Resolve tenant by slug.
-      2. Log a warning if captcha_token is absent (CAPTCHA stub for MVP).
-      3. Switch to tenant schema.
-      4. Find or create the patient by document_number.
-      5. Create the appointment.
-      6. Return booking confirmation.
+      1. Apply rate limit (5 per hour per IP).
+      2. Resolve tenant by slug.
+      3. Log a warning if captcha_token is absent (CAPTCHA stub for MVP).
+      4. Validate schema name before using it in SET search_path.
+      5. Switch to tenant schema.
+      6. Find or create the patient by document_number.
+      7. Create the appointment.
+      8. Return booking confirmation.
 
     PHI is never logged (patient names, document numbers, phone, email).
     """
+    ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (
+        request.client.host if request.client else "unknown"
+    )
+    await check_rate_limit(f"rl:public_booking:{ip}", limit=5, window_seconds=3600)
+
     tenant = await resolve_tenant_by_slug(slug, db)
 
     # CAPTCHA stub: log a warning if no token is present (MVP)
@@ -126,9 +142,20 @@ async def create_public_booking(
             tenant.slug,
         )
 
-    # Set the tenant search_path for the remainder of this operation
+    # Validate schema name before interpolating into SQL
     schema = tenant.schema_name
-    await db.execute(__import__("sqlalchemy").text(f"SET search_path TO {schema}, public"))
+    if not validate_schema_name(schema):
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "TENANT_invalid_schema",
+                "message": "Internal configuration error.",
+                "details": {},
+            },
+        )
+
+    # Set the tenant search_path for the remainder of this operation
+    await db.execute(text(f"SET search_path TO {schema}, public"))
 
     # Resolve or create patient
     from app.models.tenant.patient import Patient

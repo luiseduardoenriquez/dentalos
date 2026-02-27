@@ -7,13 +7,14 @@ in production.
 Security invariants:
   - All S3 keys are tenant-prefixed: /{tenant_id}/{...}
   - Presigned URLs expire in 15 minutes (configurable).
-  - File content type is validated before upload.
+  - File content type is validated before upload (allowlist + magic-byte check).
 """
 
 import logging
 from typing import BinaryIO
 
 import aioboto3
+import magic
 from botocore.config import Config as BotoConfig
 
 from app.core.config import settings
@@ -33,6 +34,35 @@ ALLOWED_MIME_TYPES = frozenset({
 MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25MB
 
 _PRESIGNED_URL_EXPIRY = 900  # 15 minutes
+
+# Normalize common MIME type aliases to their canonical form before comparing.
+# The python-magic library returns canonical types; clients sometimes send aliases.
+_MIME_ALIASES: dict[str, str] = {
+    "image/jpg": "image/jpeg",
+    "image/x-jpeg": "image/jpeg",
+    "image/pjpeg": "image/jpeg",
+    "image/x-png": "image/png",
+    "application/x-pdf": "application/pdf",
+}
+
+
+def verify_mime_type(data: bytes, claimed_type: str) -> bool:
+    """Verify that file content matches the claimed MIME type using magic bytes.
+
+    Args:
+        data: Raw file bytes to inspect.
+        claimed_type: MIME type asserted by the caller (e.g. from Content-Type header).
+
+    Returns:
+        True if the detected type matches (or is a known alias of) the claimed type.
+    """
+    detected = magic.from_buffer(data, mime=True)
+
+    # Normalise both sides through the alias map.
+    canonical_claimed = _MIME_ALIASES.get(claimed_type, claimed_type)
+    canonical_detected = _MIME_ALIASES.get(detected, detected)
+
+    return canonical_claimed == canonical_detected
 
 
 class StorageClient:
@@ -74,18 +104,22 @@ class StorageClient:
         if content_type not in ALLOWED_MIME_TYPES:
             raise ValueError(f"Content type '{content_type}' is not allowed.")
 
-        async with self._session.client(**self._client_kwargs()) as s3:
-            upload_kwargs = {
-                "Bucket": bucket,
-                "Key": key,
-                "ContentType": content_type,
-            }
-            if isinstance(data, bytes):
-                upload_kwargs["Body"] = data
-            else:
-                upload_kwargs["Body"] = data.read()
+        # Resolve bytes for magic-byte verification (BinaryIO must be read first).
+        raw: bytes = data if isinstance(data, bytes) else data.read()
 
-            await s3.put_object(**upload_kwargs)
+        if not verify_mime_type(raw, content_type):
+            detected = magic.from_buffer(raw, mime=True)
+            raise ValueError(
+                f"MIME type mismatch: claimed {content_type!r} but detected {detected!r}"
+            )
+
+        async with self._session.client(**self._client_kwargs()) as s3:
+            await s3.put_object(
+                Bucket=bucket,
+                Key=key,
+                ContentType=content_type,
+                Body=raw,
+            )
 
         logger.info("File uploaded: key=%s bucket=%s", key[:40], bucket)
         return key

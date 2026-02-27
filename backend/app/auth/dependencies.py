@@ -1,4 +1,5 @@
 """FastAPI authentication and authorization dependencies."""
+import contextlib
 import logging
 from collections.abc import Callable, Coroutine
 from typing import Any
@@ -6,15 +7,17 @@ from typing import Any
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.context import AuthenticatedUser
 from app.auth.permissions import get_permissions_for_role
-from app.core.cache import get_cached
+from app.core.cache import get_cached, set_cached
 from app.core.database import get_db
 from app.core.exceptions import AuthError, TenantError
 from app.core.security import decode_access_token
-from app.core.tenant import clear_current_tenant, set_current_tenant
+from app.core.tenant import TenantContext, clear_current_tenant, set_current_tenant
+from app.models.tenant.user import User
 from app.services.tenant_service import get_tenant_with_plan
 
 logger = logging.getLogger("dentalos.auth")
@@ -60,7 +63,8 @@ async def get_current_user(
     email: str | None = payload.get("email")
     name: str | None = payload.get("name")
     jti: str | None = payload.get("jti")
-    token_version: int = payload.get("tver", 0)
+    raw_tver: int | None = payload.get("tver")
+    token_version: int = raw_tver if raw_tver is not None else 0
 
     if not all([sub, tid, role, email, name, jti]):
         raise AuthError(
@@ -97,6 +101,15 @@ async def get_current_user(
     # Set tenant context for downstream dependencies
     set_current_tenant(tenant_ctx)
 
+    # Validate token_version (skip if tver claim was absent for backwards compat)
+    if raw_tver is not None:
+        await _validate_token_version(
+            token_version=token_version,
+            user_id=user_id,
+            tenant_ctx=tenant_ctx,
+            db=db,
+        )
+
     # Get permissions for role
     permissions = get_permissions_for_role(role)  # type: ignore[arg-type]
 
@@ -110,6 +123,75 @@ async def get_current_user(
         token_jti=jti,  # type: ignore[arg-type]
         token_version=token_version,
     )
+
+
+async def _validate_token_version(
+    *,
+    token_version: int,
+    user_id: str,
+    tenant_ctx: TenantContext,
+    db: AsyncSession,
+) -> None:
+    """Validate that the JWT token_version matches the current DB value.
+
+    Fast path: check Redis cache first.
+    Slow path: on cache miss, query the tenant DB and cache the result.
+    Resilient: if both Redis and DB fail, log a warning and allow the
+    request through (don't block auth on transient infrastructure errors).
+    """
+    tenant_id = tenant_ctx.tenant_id
+    cache_key = f"dentalos:{tenant_id}:auth:tver:{user_id}"
+
+    # Try Redis cache first (returns None on miss or Redis error)
+    cached_version = await get_cached(cache_key)
+    if cached_version is not None:
+        if token_version < cached_version:
+            raise AuthError(
+                error="AUTH_token_version_mismatch",
+                message="Token has been revoked. Please log in again.",
+                status_code=401,
+            )
+        return
+
+    # Cache miss: query the tenant DB
+    db_version: int | None = None
+    try:
+        await db.execute(text(f"SET search_path TO {tenant_ctx.schema_name}, public"))
+        result = await db.execute(
+            select(User.token_version).where(User.id == user_id)
+        )
+        row = result.scalar_one_or_none()
+        if row is not None:
+            db_version = row
+    except Exception:
+        logger.warning(
+            "Failed to query token_version from DB for user in tenant %s",
+            tenant_id[:8],
+        )
+    finally:
+        # Always restore search_path to public
+        with contextlib.suppress(Exception):
+            await db.execute(text("SET search_path TO public"))
+
+    if db_version is None:
+        # User not found or DB error — allow through to avoid blocking on
+        # transient failures. The user will be rejected downstream if they
+        # truly don't exist.
+        logger.warning(
+            "token_version lookup returned None for user in tenant %s — allowing request",
+            tenant_id[:8],
+        )
+        return
+
+    # Cache the DB result for 5 minutes
+    await set_cached(cache_key, db_version, ttl_seconds=300)
+
+    if token_version < db_version:
+        raise AuthError(
+            error="AUTH_token_version_mismatch",
+            message="Token has been revoked. Please log in again.",
+            status_code=401,
+        )
 
 
 def require_role(

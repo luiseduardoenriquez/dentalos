@@ -10,11 +10,13 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import DentalOSError, ResourceNotFoundError
 from app.core.storage import storage_client
+from app.core.virus_scan import scan_file
 from app.models.tenant.patient_document import PatientDocument
 
 logger = logging.getLogger("dentalos.patient_document")
@@ -155,6 +157,18 @@ class PatientDocumentService:
         }
         ext = ext_map.get(mime_type, "bin")
         s3_key = f"{tenant_id}/{patient_id}/documents/{document_type}/{doc_id}.{ext}"
+
+        # Virus scan before storing — fail-open (see virus_scan.py)
+        scan_result = await scan_file(file_data)
+        if not scan_result["clean"]:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "SYSTEM_file_infected",
+                    "message": "File failed security scan.",
+                    "details": {},
+                },
+            )
 
         # Upload to S3
         await storage_client.upload_file(

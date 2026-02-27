@@ -1,5 +1,4 @@
 import logging
-import traceback
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -88,13 +87,12 @@ def register_exception_handlers(app: FastAPI) -> None:
         logger.critical(
             "Unhandled exception (trace_id=%s): %s",
             trace_id,
-            str(exc),
+            type(exc).__name__,
             extra={
                 "trace_id": trace_id,
                 "path": request.url.path,
                 "method": request.method,
                 "exception_type": type(exc).__name__,
-                "traceback": traceback.format_exc(),
             },
             exc_info=True,
         )

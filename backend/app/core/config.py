@@ -67,12 +67,21 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
+    @property
+    def allowed_hosts_list(self) -> list[str]:
+        return [host.strip() for host in self.allowed_hosts.split(",") if host.strip()]
+
     # ─── File Storage (S3 / MinIO) ────────────────────
     s3_endpoint_url: str = "http://localhost:9000"
     s3_access_key: str = "dentalos_minio"
     s3_secret_key: str = "dentalos_minio_password"  # noqa: S105
     s3_bucket_name: str = "dentalos-dev"
     s3_region: str = "us-east-1"
+
+    # ─── ClamAV Virus Scanning ────────────────────────
+    # Set to the Unix socket path to enable scanning (e.g. /var/run/clamav/clamd.ctl).
+    # Leave empty to disable (fail-open — see virus_scan.py).
+    clamav_socket: str = ""
 
     # ─── Email (SendGrid) ──────────────────────────────
     sendgrid_api_key: str = ""

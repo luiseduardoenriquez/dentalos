@@ -2,6 +2,10 @@
 import logging
 import time
 
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+
 from app.core.exceptions import RateLimitError
 from app.core.redis import redis_client
 
@@ -38,6 +42,41 @@ async def check_rate_limit(key: str, limit: int, window_seconds: int) -> None:
     except Exception:
         # Redis down — allow the request (graceful degradation)
         logger.warning("Rate limit check failed (Redis unavailable), allowing request")
+
+
+class GlobalRateLimitMiddleware(BaseHTTPMiddleware):
+    """Global rate limit: 200 requests per minute per IP."""
+
+    def __init__(self, app: object, requests_per_minute: int = 200) -> None:
+        super().__init__(app)
+        self.requests_per_minute = requests_per_minute
+
+    async def dispatch(self, request: Request, call_next: object) -> Response:
+        # Get client IP; check X-Forwarded-For for requests behind a proxy
+        ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (
+            request.client.host if request.client else "unknown"
+        )
+        key = f"dentalos:global:rl:{ip}"
+
+        try:
+            current = await redis_client.incr(key)
+            if current == 1:
+                await redis_client.expire(key, 60)
+            if current > self.requests_per_minute:
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "error": "SYSTEM_rate_limit",
+                        "message": "Too many requests. Please try again later.",
+                        "details": {},
+                    },
+                    headers={"Retry-After": "60"},
+                )
+        except Exception:
+            # Graceful degradation: if Redis is down, allow the request
+            pass
+
+        return await call_next(request)
 
 
 async def check_rate_limit_tenant(

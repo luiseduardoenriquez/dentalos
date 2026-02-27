@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.v1.router import api_v1_router
 from app.core.config import settings
@@ -13,6 +14,7 @@ from app.core.logging_config import setup_logging
 from app.core.middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
 from app.core.pdf import shutdown_pdf_engine
 from app.core.queue import close_rabbitmq, connect_rabbitmq
+from app.core.rate_limit import GlobalRateLimitMiddleware
 from app.core.redis import redis_client
 
 logger = logging.getLogger("dentalos")
@@ -70,3 +72,11 @@ app.add_middleware(
 
 register_exception_handlers(app)
 app.include_router(api_v1_router)
+
+# Outermost middleware layers (added last = run first on inbound requests)
+# TrustedHostMiddleware rejects requests with unexpected Host headers in production
+if not settings.debug:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts_list)
+
+# GlobalRateLimitMiddleware is the absolute outermost layer
+app.add_middleware(GlobalRateLimitMiddleware)
