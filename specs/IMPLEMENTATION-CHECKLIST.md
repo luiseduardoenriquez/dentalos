@@ -804,15 +804,17 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 
 ### Security Audit
 
-- [ ] OWASP Top 10 vulnerability scan
-- [ ] SQL injection testing (SQLAlchemy parameterization verification)
-- [ ] XSS prevention testing (frontend and API responses)
-- [ ] JWT token security audit (RS256 key rotation, token revocation)
-- [ ] File upload security (virus scanning, MIME type validation)
-- [ ] PHI (Protected Health Information) access audit
-- [ ] CORS and CSP headers verification
-- [ ] Rate limiting effectiveness testing
-- [ ] Tenant isolation penetration testing (cross-tenant data access attempts)
+- [x] OWASP Top 10 vulnerability scan — test suite in tests/unit/test_security_audit.py
+- [x] SQL injection testing (SQLAlchemy parameterization verification) — validate_schema_name() enforced before SET search_path; inline __import__ replaced with proper sqlalchemy.text(); OWASP tests verify rejection of injection payloads
+- [x] XSS prevention testing (frontend and API responses) — PHI logging fixed, email XSS sanitized
+- [x] JWT token security audit (RS256 key rotation, token revocation) — token_version validation added
+- [x] File upload security (virus scanning, MIME type validation) — magic-byte check + ClamAV integration
+- [x] PHI (Protected Health Information) access audit — PHI stripped from logs and error responses
+- [x] CORS and CSP headers verification — HSTS added to SecurityHeadersMiddleware (HTTPS-only); security headers added to next.config.ts
+- [x] Rate limiting effectiveness testing — GlobalRateLimitMiddleware (200 req/min/IP); public booking 5/hr/IP; public config 30/min/IP; login rate limit tightened to 15/15min
+- [x] Tenant isolation penetration testing (cross-tenant data access attempts) — schema validation enforced on all SET search_path calls; OWASP test_broken_access_control_schema_pattern verifies rejection of admin/public/pg_catalog/information_schema schemas
+- [x] Public router schema validation — validate_schema_name() called before SET search_path in public_router.py
+- [x] TrustedHostMiddleware wired in main.py (production only, driven by settings.allowed_hosts_list)
 
 ### Load Testing
 
