@@ -21,6 +21,7 @@ from app.core.cache import get_cached, set_cached
 from app.core.exceptions import AuthError, BusinessValidationError
 from app.models.audit import AuditLog
 from app.models.tenant.appointment import Appointment
+from app.models.tenant.clinical_record import ClinicalRecord
 from app.models.tenant.invoice import Invoice, InvoiceItem
 from app.models.tenant.patient import Patient
 from app.models.tenant.payment import Payment
@@ -1202,6 +1203,387 @@ class AnalyticsService:
             next_cursor=next_cursor,
             has_more=has_more,
         )
+
+    # ─── AN-06: Export ───────────────────────────────────────────────────
+
+    async def export_analytics_data(
+        self,
+        db: AsyncSession,
+        tenant_id: str,
+        tenant_schema: str,
+        current_user: AuthenticatedUser,
+        report_type: str,
+        period: str,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """Query the dataset for the requested report type and return rows + count.
+
+        Role scoping rules:
+          - doctor: always sees own data only (appointments by doctor_id,
+            revenue by invoice creator, clinical records by doctor_id).
+            Patient export is clinic-wide for doctors (demographic data only).
+          - clinic_owner / others: full clinic data.
+          - revenue export: restricted to clinic_owner only.
+
+        PHI safeguards:
+          - patients report: patient_id replaced with sequential anonymous number.
+          - clinical report: record_id anonymized; content field never included,
+            only a boolean has_notes flag.
+          - diagnoses/procedures represented as joined arrays, not free text.
+
+        Returns:
+            (rows, total_count) — rows is a list of flat dicts suitable for CSV.
+        """
+        _VALID_TYPES = {"patients", "appointments", "revenue", "clinical"}
+        if report_type not in _VALID_TYPES:
+            raise BusinessValidationError(
+                "Tipo de reporte no soportado.",
+                field_errors={
+                    "report_type": [
+                        f"'{report_type}' no es valido. Opciones: {', '.join(sorted(_VALID_TYPES))}."
+                    ]
+                },
+            )
+
+        # Revenue is restricted to clinic_owner
+        if report_type == "revenue" and current_user.role not in (
+            "clinic_owner",
+            "superadmin",
+        ):
+            raise AuthError(
+                error="AUTH_insufficient_role",
+                message="El reporte de ingresos solo esta disponible para el propietario de la clinica.",
+                status_code=403,
+            )
+
+        d_from, d_to = self.resolve_date_range(period, date_from, date_to)
+        doctor_scope = self.get_doctor_scope(current_user)
+
+        if report_type == "patients":
+            return await self._export_patients(db, d_from, d_to)
+        elif report_type == "appointments":
+            return await self._export_appointments(db, d_from, d_to, doctor_scope)
+        elif report_type == "revenue":
+            return await self._export_revenue(db, d_from, d_to)
+        else:  # clinical
+            return await self._export_clinical(db, d_from, d_to, doctor_scope)
+
+    async def _export_patients(
+        self,
+        db: AsyncSession,
+        d_from: date,
+        d_to: date,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """patients report: demographic data with anonymized patient_id.
+
+        Columns: patient_id (sequential), full_name, date_of_birth, gender,
+                 phone, email, document_type, document_number, city,
+                 created_at, total_visits, last_visit_date
+        """
+        # Subquery: visit counts and last visit per patient
+        visit_sq = (
+            select(
+                Appointment.patient_id,
+                func.count(Appointment.id).label("total_visits"),
+                func.max(cast(Appointment.start_time, Date)).label("last_visit_date"),
+            )
+            .where(
+                Appointment.is_active.is_(True),
+                Appointment.status == "completed",
+            )
+            .group_by(Appointment.patient_id)
+            .subquery()
+        )
+
+        stmt = (
+            select(
+                Patient.id,
+                Patient.first_name,
+                Patient.last_name,
+                Patient.birthdate,
+                Patient.gender,
+                Patient.phone,
+                Patient.email,
+                Patient.document_type,
+                Patient.document_number,
+                Patient.city,
+                Patient.created_at,
+                func.coalesce(visit_sq.c.total_visits, 0).label("total_visits"),
+                visit_sq.c.last_visit_date,
+            )
+            .outerjoin(visit_sq, Patient.id == visit_sq.c.patient_id)
+            .where(
+                Patient.is_active.is_(True),
+                cast(Patient.created_at, Date) >= d_from,
+                cast(Patient.created_at, Date) <= d_to,
+            )
+            .order_by(Patient.created_at)
+        )
+
+        result = await db.execute(stmt)
+        db_rows = result.all()
+
+        rows: list[dict[str, Any]] = []
+        for seq_num, row in enumerate(db_rows, start=1):
+            rows.append(
+                {
+                    "patient_id": seq_num,
+                    "full_name": f"{row.first_name} {row.last_name}",
+                    "date_of_birth": row.birthdate.isoformat() if row.birthdate else "",
+                    "gender": row.gender or "",
+                    "phone": row.phone or "",
+                    "email": row.email or "",
+                    "document_type": row.document_type,
+                    "document_number": row.document_number,
+                    "city": row.city or "",
+                    "created_at": row.created_at.date().isoformat() if row.created_at else "",
+                    "total_visits": row.total_visits,
+                    "last_visit_date": (
+                        row.last_visit_date.isoformat() if row.last_visit_date else ""
+                    ),
+                }
+            )
+
+        return rows, len(rows)
+
+    async def _export_appointments(
+        self,
+        db: AsyncSession,
+        d_from: date,
+        d_to: date,
+        doctor_scope: UUID | None,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """appointments report: scheduling data without clinical notes.
+
+        Columns: appointment_id, patient_name, doctor_name, appointment_type,
+                 scheduled_at, status, duration_scheduled_min
+        """
+        from sqlalchemy.orm import aliased
+
+        DoctorAlias = aliased(User, name="doc")
+
+        filters = [
+            Appointment.is_active.is_(True),
+            cast(Appointment.start_time, Date) >= d_from,
+            cast(Appointment.start_time, Date) <= d_to,
+        ]
+        if doctor_scope is not None:
+            filters.append(Appointment.doctor_id == doctor_scope)
+
+        stmt = (
+            select(
+                Appointment.id,
+                Patient.first_name.label("patient_first_name"),
+                Patient.last_name.label("patient_last_name"),
+                DoctorAlias.name.label("doctor_name"),
+                Appointment.type,
+                Appointment.start_time,
+                Appointment.status,
+                Appointment.duration_minutes,
+            )
+            .join(Patient, Appointment.patient_id == Patient.id)
+            .join(DoctorAlias, Appointment.doctor_id == DoctorAlias.id)
+            .where(*filters)
+            .order_by(Appointment.start_time)
+        )
+
+        result = await db.execute(stmt)
+        db_rows = result.all()
+
+        rows: list[dict[str, Any]] = []
+        for row in db_rows:
+            rows.append(
+                {
+                    "appointment_id": str(row.id),
+                    "patient_name": f"{row.patient_first_name} {row.patient_last_name}",
+                    "doctor_name": row.doctor_name,
+                    "appointment_type": row.type,
+                    "scheduled_at": (
+                        row.start_time.isoformat() if row.start_time else ""
+                    ),
+                    "status": row.status,
+                    "duration_scheduled_min": row.duration_minutes,
+                }
+            )
+
+        return rows, len(rows)
+
+    async def _export_revenue(
+        self,
+        db: AsyncSession,
+        d_from: date,
+        d_to: date,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """revenue report: invoice-level financial data (clinic_owner only).
+
+        Columns: invoice_id, patient_name, doctor_name, issue_date,
+                 total_amount, status, payment_method
+
+        payment_method: comma-separated list from all payments on the invoice.
+        total_amount: Invoice.total in cents (COP).
+        """
+        from sqlalchemy.orm import aliased
+
+        DoctorAlias = aliased(User, name="doc")
+
+        # Subquery: aggregate payment methods per invoice
+        method_sq = (
+            select(
+                Payment.invoice_id,
+                func.string_agg(
+                    func.distinct(Payment.payment_method), literal_column("', '")
+                ).label("methods"),
+            )
+            .group_by(Payment.invoice_id)
+            .subquery()
+        )
+
+        stmt = (
+            select(
+                Invoice.id,
+                Patient.first_name.label("patient_first_name"),
+                Patient.last_name.label("patient_last_name"),
+                DoctorAlias.name.label("doctor_name"),
+                cast(Invoice.created_at, Date).label("issue_date"),
+                Invoice.total,
+                Invoice.status,
+                method_sq.c.methods,
+            )
+            .join(Patient, Invoice.patient_id == Patient.id)
+            .join(DoctorAlias, Invoice.created_by == DoctorAlias.id)
+            .outerjoin(method_sq, Invoice.id == method_sq.c.invoice_id)
+            .where(
+                Invoice.is_active.is_(True),
+                cast(Invoice.created_at, Date) >= d_from,
+                cast(Invoice.created_at, Date) <= d_to,
+            )
+            .order_by(Invoice.created_at)
+        )
+
+        result = await db.execute(stmt)
+        db_rows = result.all()
+
+        rows: list[dict[str, Any]] = []
+        for row in db_rows:
+            rows.append(
+                {
+                    "invoice_id": str(row.id),
+                    "patient_name": f"{row.patient_first_name} {row.patient_last_name}",
+                    "doctor_name": row.doctor_name,
+                    "issue_date": (
+                        row.issue_date.isoformat() if row.issue_date else ""
+                    ),
+                    "total_amount": row.total,  # cents (COP)
+                    "status": row.status,
+                    "payment_method": row.methods or "",
+                }
+            )
+
+        return rows, len(rows)
+
+    async def _export_clinical(
+        self,
+        db: AsyncSession,
+        d_from: date,
+        d_to: date,
+        doctor_scope: UUID | None,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """clinical report: record metadata only — no free-text content.
+
+        Columns: record_id (sequential anon), doctor_name, record_date,
+                 diagnoses_cie10, procedures_cups, has_notes
+
+        diagnoses_cie10 / procedures_cups: extracted from content JSONB as
+        pipe-separated strings.  has_notes: boolean (True if content->notes
+        is non-empty).  The raw content field is never returned.
+        """
+        from sqlalchemy.orm import aliased
+
+        DoctorAlias = aliased(User, name="doc")
+
+        filters = [
+            ClinicalRecord.is_active.is_(True),
+            cast(ClinicalRecord.created_at, Date) >= d_from,
+            cast(ClinicalRecord.created_at, Date) <= d_to,
+        ]
+        if doctor_scope is not None:
+            filters.append(ClinicalRecord.doctor_id == doctor_scope)
+
+        # Extract diagnoses and procedures safely from JSONB content.
+        # content->>'diagnoses' and content->>'procedures' are expected to be
+        # JSON arrays; coalesce to empty array if absent.
+        diagnoses_expr = func.coalesce(
+            ClinicalRecord.content["diagnoses"].as_string(),
+            "[]",
+        ).label("diagnoses_raw")
+        procedures_expr = func.coalesce(
+            ClinicalRecord.content["procedures"].as_string(),
+            "[]",
+        ).label("procedures_raw")
+        has_notes_expr = (
+            ClinicalRecord.content["notes"].as_string().isnot(None)
+            & (func.length(func.coalesce(ClinicalRecord.content["notes"].as_string(), "")) > 0)
+        ).label("has_notes")
+
+        stmt = (
+            select(
+                ClinicalRecord.id,
+                DoctorAlias.name.label("doctor_name"),
+                cast(ClinicalRecord.created_at, Date).label("record_date"),
+                diagnoses_expr,
+                procedures_expr,
+                has_notes_expr,
+            )
+            .join(DoctorAlias, ClinicalRecord.doctor_id == DoctorAlias.id)
+            .where(*filters)
+            .order_by(ClinicalRecord.created_at)
+        )
+
+        result = await db.execute(stmt)
+        db_rows = result.all()
+
+        rows: list[dict[str, Any]] = []
+        for seq_num, row in enumerate(db_rows, start=1):
+            # Parse the raw JSON arrays returned as strings into pipe-joined codes.
+            try:
+                import json as _json
+
+                diag_list = _json.loads(row.diagnoses_raw) if row.diagnoses_raw else []
+                proc_list = _json.loads(row.procedures_raw) if row.procedures_raw else []
+
+                # Each element may be a dict with a "code" key or a plain string.
+                def _extract_codes(items: list) -> str:
+                    codes = []
+                    for item in items:
+                        if isinstance(item, dict):
+                            code = item.get("code") or item.get("cups_code") or item.get("cie10_code", "")
+                        else:
+                            code = str(item)
+                        if code:
+                            codes.append(code)
+                    return " | ".join(codes)
+
+                diagnoses_str = _extract_codes(diag_list)
+                procedures_str = _extract_codes(proc_list)
+            except Exception:
+                diagnoses_str = ""
+                procedures_str = ""
+
+            rows.append(
+                {
+                    "record_id": seq_num,
+                    "doctor_name": row.doctor_name,
+                    "record_date": (
+                        row.record_date.isoformat() if row.record_date else ""
+                    ),
+                    "diagnoses_cie10": diagnoses_str,
+                    "procedures_cups": procedures_str,
+                    "has_notes": bool(row.has_notes),
+                }
+            )
+
+        return rows, len(rows)
 
     @staticmethod
     def _mask_phi(changes: dict) -> dict:

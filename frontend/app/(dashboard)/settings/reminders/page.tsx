@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Bell } from "lucide-react";
+import { Plus, Trash2, Bell, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,19 +13,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiGet, apiPut } from "@/lib/api-client";
 import { useToast } from "@/lib/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/empty-state";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,14 +26,12 @@ type ReminderChannel = "sms" | "email" | "whatsapp";
 
 interface ReminderRule {
   hours_before: number;
-  channel: ReminderChannel;
-  message_template: string;
+  channels: ReminderChannel[];
 }
 
 interface RemindersConfig {
-  rules: ReminderRule[];
+  reminders: ReminderRule[];
   default_channels: ReminderChannel[];
-  /** Maximum number of reminder rules allowed by the current plan */
   max_reminders_allowed: number;
 }
 
@@ -60,11 +51,9 @@ const CHANNEL_LABELS: Record<ReminderChannel, string> = {
   whatsapp: "WhatsApp",
 };
 
-const DEFAULT_RULE: ReminderRule = {
+const DEFAULT_REMINDER: ReminderRule = {
   hours_before: 24,
-  channel: "whatsapp",
-  message_template:
-    "Hola {{nombre}}, te recordamos tu cita en {{clinica}} el {{fecha}} a las {{hora}}. Para cancelar responde CANCELAR.",
+  channels: ["whatsapp"],
 };
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
@@ -114,7 +103,6 @@ function RemindersSkeleton() {
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
           </div>
-          <Skeleton className="h-20 w-full" />
         </div>
       ))}
     </div>
@@ -126,12 +114,20 @@ function RemindersSkeleton() {
 interface ReminderRuleCardProps {
   rule: ReminderRule;
   index: number;
-  onUpdate: (index: number, field: keyof ReminderRule, value: unknown) => void;
+  onUpdateHours: (index: number, hours: number) => void;
+  onToggleChannel: (index: number, channel: ReminderChannel, checked: boolean) => void;
   onRemove: (index: number) => void;
   canRemove: boolean;
 }
 
-function ReminderRuleCard({ rule, index, onUpdate, onRemove, canRemove }: ReminderRuleCardProps) {
+function ReminderRuleCard({
+  rule,
+  index,
+  onUpdateHours,
+  onToggleChannel,
+  onRemove,
+  canRemove,
+}: ReminderRuleCardProps) {
   return (
     <div className="rounded-lg border border-[hsl(var(--border))] p-4 space-y-4">
       {/* ── Rule header ───────────────────────────────────────────────────── */}
@@ -151,83 +147,54 @@ function ReminderRuleCard({ rule, index, onUpdate, onRemove, canRemove }: Remind
         )}
       </div>
 
-      {/* ── Hours before + channel ────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label htmlFor={`hours_before_${index}`}>
-            Horas de anticipación <span className="text-destructive-600">*</span>
-          </Label>
-          <Input
-            id={`hours_before_${index}`}
-            type="number"
-            min={1}
-            max={168}
-            value={rule.hours_before}
-            onChange={(e) => onUpdate(index, "hours_before", Number(e.target.value))}
-            aria-label="Horas antes de la cita"
-          />
-          <p className="text-xs text-[hsl(var(--muted-foreground))]">
-            Mínimo 1 h — máximo 168 h (7 días)
-          </p>
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor={`channel_${index}`}>
-            Canal <span className="text-destructive-600">*</span>
-          </Label>
-          <Select
-            value={rule.channel}
-            onValueChange={(val) => onUpdate(index, "channel", val as ReminderChannel)}
-          >
-            <SelectTrigger id={`channel_${index}`} aria-label="Canal de envío">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CHANNEL_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* ── Message template ──────────────────────────────────────────────── */}
+      {/* ── Hours before ──────────────────────────────────────────────────── */}
       <div className="space-y-1">
-        <Label htmlFor={`message_template_${index}`}>
-          Plantilla del mensaje <span className="text-destructive-600">*</span>
+        <Label htmlFor={`hours_before_${index}`}>
+          Horas de anticipación <span className="text-destructive-600">*</span>
         </Label>
-        <textarea
-          id={`message_template_${index}`}
-          rows={3}
-          value={rule.message_template}
-          onChange={(e) => onUpdate(index, "message_template", e.target.value)}
-          className={cn(
-            "flex w-full rounded-md border border-[hsl(var(--border))] bg-transparent px-3 py-2 text-sm",
-            "placeholder:text-[hsl(var(--muted-foreground))]",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2",
-            "disabled:cursor-not-allowed disabled:opacity-50",
-            "resize-none",
-          )}
-          placeholder="Mensaje a enviar al paciente..."
-          aria-label="Texto del recordatorio"
+        <Input
+          id={`hours_before_${index}`}
+          type="number"
+          min={1}
+          max={168}
+          value={rule.hours_before}
+          onChange={(e) => onUpdateHours(index, Number(e.target.value))}
+          className="max-w-[200px]"
+          aria-label="Horas antes de la cita"
         />
         <p className="text-xs text-[hsl(var(--muted-foreground))]">
-          Variables disponibles:{" "}
-          <code className="text-xs font-mono bg-[hsl(var(--muted))] px-1 rounded">
-            {"{{nombre}}"}
-          </code>{" "}
-          <code className="text-xs font-mono bg-[hsl(var(--muted))] px-1 rounded">
-            {"{{clinica}}"}
-          </code>{" "}
-          <code className="text-xs font-mono bg-[hsl(var(--muted))] px-1 rounded">
-            {"{{fecha}}"}
-          </code>{" "}
-          <code className="text-xs font-mono bg-[hsl(var(--muted))] px-1 rounded">
-            {"{{hora}}"}
-          </code>
+          Mínimo 1 h — máximo 168 h (7 días)
         </p>
+      </div>
+
+      {/* ── Channels (multi-select checkboxes) ────────────────────────────── */}
+      <div className="space-y-2">
+        <Label>
+          Canales <span className="text-destructive-600">*</span>
+        </Label>
+        <fieldset className="space-y-2" aria-label={`Canales para recordatorio ${index + 1}`}>
+          {CHANNEL_OPTIONS.map((opt) => {
+            const isChecked = rule.channels.includes(opt.value);
+            return (
+              <div key={opt.value} className="flex items-center gap-3">
+                <Checkbox
+                  id={`reminder_${index}_channel_${opt.value}`}
+                  checked={isChecked}
+                  onCheckedChange={(checked) =>
+                    onToggleChannel(index, opt.value, Boolean(checked))
+                  }
+                  aria-label={`Canal ${CHANNEL_LABELS[opt.value]}`}
+                />
+                <Label
+                  htmlFor={`reminder_${index}_channel_${opt.value}`}
+                  className="cursor-pointer font-normal"
+                >
+                  {opt.label}
+                </Label>
+              </div>
+            );
+          })}
+        </fieldset>
       </div>
     </div>
   );
@@ -236,42 +203,58 @@ function ReminderRuleCard({ rule, index, onUpdate, onRemove, canRemove }: Remind
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RemindersSettingsPage() {
-  const { data: remindersConfig, isLoading } = useRemindersConfig();
+  const { data: remindersConfig, isLoading, isError } = useRemindersConfig();
   const { mutate: updateReminders, isPending } = useUpdateRemindersConfig();
 
   // Local state for the form — initialized from server data
-  const [rules, setRules] = React.useState<ReminderRule[]>([]);
+  const [reminders, setReminders] = React.useState<ReminderRule[]>([]);
   const [defaultChannels, setDefaultChannels] = React.useState<ReminderChannel[]>([]);
   const [maxAllowed, setMaxAllowed] = React.useState<number>(3);
 
   // Sync server data into local state when it loads
   React.useEffect(() => {
     if (!remindersConfig) return;
-    setRules(remindersConfig.rules);
-    setDefaultChannels(remindersConfig.default_channels);
-    setMaxAllowed(remindersConfig.max_reminders_allowed);
+    setReminders(remindersConfig.reminders ?? []);
+    setDefaultChannels(remindersConfig.default_channels ?? []);
+    setMaxAllowed(remindersConfig.max_reminders_allowed ?? 3);
   }, [remindersConfig]);
 
-  // ─── Rule handlers ────────────────────────────────────────────────────────
+  // ─── Reminder handlers ──────────────────────────────────────────────────────
 
-  function handleUpdateRule(index: number, field: keyof ReminderRule, value: unknown) {
-    setRules((prev) =>
-      prev.map((rule, i) => (i === index ? { ...rule, [field]: value } : rule)),
+  function handleUpdateHours(index: number, hours: number) {
+    setReminders((prev) =>
+      prev.map((r, i) => (i === index ? { ...r, hours_before: hours } : r)),
     );
   }
 
-  function handleAddRule() {
-    if (rules.length >= maxAllowed) return;
-    setRules((prev) => [...prev, { ...DEFAULT_RULE }]);
+  function handleToggleReminderChannel(
+    index: number,
+    channel: ReminderChannel,
+    checked: boolean,
+  ) {
+    setReminders((prev) =>
+      prev.map((r, i) => {
+        if (i !== index) return r;
+        const channels = checked
+          ? [...r.channels, channel]
+          : r.channels.filter((c) => c !== channel);
+        return { ...r, channels };
+      }),
+    );
   }
 
-  function handleRemoveRule(index: number) {
-    setRules((prev) => prev.filter((_, i) => i !== index));
+  function handleAddReminder() {
+    if (reminders.length >= maxAllowed) return;
+    setReminders((prev) => [...prev, { ...DEFAULT_REMINDER, channels: [...DEFAULT_REMINDER.channels] }]);
+  }
+
+  function handleRemoveReminder(index: number) {
+    setReminders((prev) => prev.filter((_, i) => i !== index));
   }
 
   // ─── Default channel handlers ─────────────────────────────────────────────
 
-  function handleToggleChannel(channel: ReminderChannel, checked: boolean) {
+  function handleToggleDefaultChannel(channel: ReminderChannel, checked: boolean) {
     setDefaultChannels((prev) =>
       checked ? [...prev, channel] : prev.filter((c) => c !== channel),
     );
@@ -281,7 +264,7 @@ export default function RemindersSettingsPage() {
 
   function handleSave() {
     updateReminders({
-      rules,
+      reminders,
       default_channels: defaultChannels,
       max_reminders_allowed: maxAllowed,
     });
@@ -289,10 +272,20 @@ export default function RemindersSettingsPage() {
 
   // ─── Derived state ────────────────────────────────────────────────────────
 
-  const canAddMore = rules.length < maxAllowed;
+  const canAddMore = reminders.length < maxAllowed;
 
   if (isLoading) {
     return <RemindersSkeleton />;
+  }
+
+  if (isError) {
+    return (
+      <EmptyState
+        icon={AlertCircle}
+        title="Error al cargar recordatorios"
+        description="No se pudo cargar la configuración de recordatorios. Intenta de nuevo."
+      />
+    );
   }
 
   return (
@@ -325,7 +318,7 @@ export default function RemindersSettingsPage() {
                     id={`default_channel_${opt.value}`}
                     checked={isChecked}
                     onCheckedChange={(checked) =>
-                      handleToggleChannel(opt.value, Boolean(checked))
+                      handleToggleDefaultChannel(opt.value, Boolean(checked))
                     }
                     aria-label={`Canal ${CHANNEL_LABELS[opt.value]}`}
                   />
@@ -350,7 +343,7 @@ export default function RemindersSettingsPage() {
               <CardTitle className="text-base">
                 Reglas de recordatorio
                 <span className="ml-2 text-sm font-normal text-[hsl(var(--muted-foreground))]">
-                  ({rules.length} / {maxAllowed})
+                  ({reminders.length} / {maxAllowed})
                 </span>
               </CardTitle>
               <CardDescription>
@@ -361,7 +354,7 @@ export default function RemindersSettingsPage() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={handleAddRule}
+              onClick={handleAddReminder}
               disabled={!canAddMore}
               aria-label="Agregar regla de recordatorio"
             >
@@ -371,7 +364,7 @@ export default function RemindersSettingsPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {rules.length === 0 ? (
+          {reminders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
               <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[hsl(var(--muted))]">
                 <Bell className="h-5 w-5 text-[hsl(var(--muted-foreground))]" />
@@ -383,7 +376,7 @@ export default function RemindersSettingsPage() {
                 </p>
               </div>
               {canAddMore && (
-                <Button type="button" variant="outline" size="sm" onClick={handleAddRule}>
+                <Button type="button" variant="outline" size="sm" onClick={handleAddReminder}>
                   <Plus className="mr-1 h-4 w-4" />
                   Agregar primera regla
                 </Button>
@@ -391,15 +384,16 @@ export default function RemindersSettingsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {rules.map((rule, idx) => (
+              {reminders.map((rule, idx) => (
                 <React.Fragment key={idx}>
                   {idx > 0 && <Separator />}
                   <ReminderRuleCard
                     rule={rule}
                     index={idx}
-                    onUpdate={handleUpdateRule}
-                    onRemove={handleRemoveRule}
-                    canRemove={rules.length > 1}
+                    onUpdateHours={handleUpdateHours}
+                    onToggleChannel={handleToggleReminderChannel}
+                    onRemove={handleRemoveReminder}
+                    canRemove={reminders.length > 1}
                   />
                 </React.Fragment>
               ))}

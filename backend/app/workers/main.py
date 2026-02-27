@@ -40,6 +40,16 @@ async def main(worker_name: str | None = None) -> None:
 
         workers.append(notification_worker)
 
+    if worker_name is None or worker_name == "compliance":
+        from app.workers.compliance_worker import compliance_worker
+
+        workers.append(compliance_worker)
+
+    if worker_name is None or worker_name == "import":
+        from app.workers.import_worker import import_worker
+
+        workers.append(import_worker)
+
     if not workers:
         logger.error("No workers matched name: %s", worker_name)
         sys.exit(1)

@@ -121,10 +121,10 @@ function buildColumns(
       ),
     },
     {
-      key: "builtin",
+      key: "is_builtin",
       header: "",
       cell: (row) =>
-        row.builtin ? (
+        row.is_builtin ? (
           <Badge variant="secondary" className="text-[10px]">
             Estándar
           </Badge>
@@ -144,7 +144,7 @@ function buildColumns(
       key: "actions",
       header: "",
       cell: (row) =>
-        !row.builtin ? (
+        !row.is_builtin ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

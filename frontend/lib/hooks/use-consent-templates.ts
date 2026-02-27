@@ -20,9 +20,17 @@ export interface ConsentTemplateResponse {
   content: string; // HTML
   signature_positions: SignaturePosition[] | null;
   version: number;
-  builtin: boolean;
+  is_builtin: boolean;
   is_active: boolean;
   created_at: string;
+  updated_at: string;
+}
+
+interface ConsentTemplateListResponse {
+  items: ConsentTemplateResponse[];
+  total: number;
+  page: number;
+  page_size: number;
 }
 
 export interface ConsentTemplateCreate {
@@ -51,7 +59,10 @@ export const consentTemplateQueryKey = (templateId: string) =>
 export function useConsentTemplates() {
   return useQuery({
     queryKey: CONSENT_TEMPLATES_QUERY_KEY,
-    queryFn: () => apiGet<ConsentTemplateResponse[]>("/consent-templates"),
+    queryFn: async () => {
+      const response = await apiGet<ConsentTemplateListResponse>("/consent-templates");
+      return response.items;
+    },
     staleTime: 5 * 60_000, // 5 minutes — templates change rarely
   });
 }

@@ -236,7 +236,7 @@ export default function NewConsentPage() {
                         {templates_by_category[category]?.map((template) => (
                           <SelectItem key={template.id} value={template.id}>
                             {template.name}
-                            {template.builtin && (
+                            {template.is_builtin && (
                               <span className="ml-2 text-xs text-[hsl(var(--muted-foreground))]">
                                 (estándar)
                               </span>

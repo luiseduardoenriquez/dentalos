@@ -6,15 +6,18 @@ Endpoint map:
   GET /analytics/appointments  — AN-03: Appointment utilization & peaks
   GET /analytics/revenue       — AN-04: Revenue trends & breakdowns
   GET /analytics/clinical      — AN-05: Clinical analytics (stub)
-  GET /analytics/export        — AN-06: Export (stub, 501)
+  GET /analytics/export        — AN-06: CSV export (sync <=1000 rows, 202 >1000)
   GET /analytics/audit-trail   — AN-07: Audit trail (clinic_owner only)
 """
 
+import csv
+import io
+import logging
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.context import AuthenticatedUser
@@ -29,6 +32,9 @@ from app.schemas.analytics import (
     RevenueAnalyticsResponse,
 )
 from app.services.analytics_service import analytics_service
+from app.services.audit_service import write_audit_log
+
+logger = logging.getLogger("dentalos.analytics")
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -172,17 +178,181 @@ async def clinical_analytics(
     }
 
 
-# ─── AN-06: Export (stub, 501) ────────────────────────────────────────────────
+# ─── AN-06: Export ───────────────────────────────────────────────────────────
+
+# Threshold above which export is deferred asynchronously.
+_EXPORT_SYNC_LIMIT = 1_000
+
+# Column definitions per report type — order matters for CSV header row.
+_REPORT_COLUMNS: dict[str, list[str]] = {
+    "patients": [
+        "patient_id",
+        "full_name",
+        "date_of_birth",
+        "gender",
+        "phone",
+        "email",
+        "document_type",
+        "document_number",
+        "city",
+        "created_at",
+        "total_visits",
+        "last_visit_date",
+    ],
+    "appointments": [
+        "appointment_id",
+        "patient_name",
+        "doctor_name",
+        "appointment_type",
+        "scheduled_at",
+        "status",
+        "duration_scheduled_min",
+    ],
+    "revenue": [
+        "invoice_id",
+        "patient_name",
+        "doctor_name",
+        "issue_date",
+        "total_amount",
+        "status",
+        "payment_method",
+    ],
+    "clinical": [
+        "record_id",
+        "doctor_name",
+        "record_date",
+        "diagnoses_cie10",
+        "procedures_cups",
+        "has_notes",
+    ],
+}
+
+
+def _build_csv_bytes(columns: list[str], rows: list[dict]) -> bytes:
+    """Render rows to a UTF-8 BOM CSV byte string (Excel-compatible)."""
+    buf = io.StringIO()
+    writer = csv.DictWriter(
+        buf,
+        fieldnames=columns,
+        extrasaction="ignore",
+        lineterminator="\r\n",
+    )
+    writer.writeheader()
+    writer.writerows(rows)
+    # Prepend UTF-8 BOM so Excel auto-detects encoding.
+    return "\ufeff".encode("utf-8") + buf.getvalue().encode("utf-8")
 
 
 @router.get("/export")
 async def analytics_export(
+    request: Request,
+    report_type: str = Query(
+        ...,
+        pattern=r"^(patients|appointments|revenue|clinical)$",
+        description="Tipo de reporte a exportar.",
+    ),
+    period: str = Query(
+        default="month",
+        pattern=r"^(today|week|month|quarter|year|custom)$",
+        description="Periodo de analisis.",
+    ),
+    date_from: date | None = Query(
+        default=None,
+        description="Fecha de inicio (requerida cuando period='custom').",
+    ),
+    date_to: date | None = Query(
+        default=None,
+        description="Fecha de fin (requerida cuando period='custom').",
+    ),
+    format: str = Query(
+        default="csv",
+        pattern=r"^csv$",
+        description="Formato de exportacion (solo 'csv' en MVP).",
+    ),
     current_user: AuthenticatedUser = Depends(require_permission("analytics:read")),
-) -> JSONResponse:
-    """Analytics export (not yet implemented)."""
-    return JSONResponse(
-        status_code=501,
-        content={"status": "not_implemented"},
+    db: AsyncSession = Depends(get_tenant_db),
+) -> StreamingResponse | JSONResponse:
+    """Export analytics data as CSV.
+
+    - Datasets <= 1000 rows: returns synchronous StreamingResponse (200).
+    - Datasets > 1000 rows: returns 202 with a deferral message
+      (async export not yet implemented).
+
+    Response headers:
+      Content-Disposition: attachment; filename="..."
+      X-Row-Count: <number of rows>
+      X-Export-Mode: sync | async
+    """
+    rows, row_count = await analytics_service.export_analytics_data(
+        db=db,
+        tenant_id=current_user.tenant.tenant_id,
+        tenant_schema=current_user.tenant.schema_name,
+        current_user=current_user,
+        report_type=report_type,
+        period=period,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+    # Write audit log — always, regardless of sync/async path.
+    try:
+        await write_audit_log(
+            db=db,
+            tenant_schema=current_user.tenant.schema_name,
+            user_id=current_user.user_id,
+            action="export",
+            resource_type=f"analytics_{report_type}",
+            resource_id=None,
+            changes={
+                "report_type": report_type,
+                "period": period,
+                "date_from": date_from.isoformat() if date_from else None,
+                "date_to": date_to.isoformat() if date_to else None,
+                "row_count": row_count,
+                "export_mode": "sync" if row_count <= _EXPORT_SYNC_LIMIT else "async",
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except Exception:
+        logger.warning(
+            "Failed to write audit log for analytics export: report_type=%s user=%s",
+            report_type,
+            current_user.user_id,
+        )
+
+    # Async path — dataset too large for synchronous delivery.
+    if row_count > _EXPORT_SYNC_LIMIT:
+        return JSONResponse(
+            status_code=202,
+            content={
+                "message": (
+                    "El reporte contiene mas de 1000 filas. "
+                    "La exportacion asincrona estara disponible en una proxima version."
+                ),
+                "row_count": row_count,
+                "report_type": report_type,
+            },
+            headers={
+                "X-Row-Count": str(row_count),
+                "X-Export-Mode": "async",
+            },
+        )
+
+    # Sync path — build CSV and stream.
+    columns = _REPORT_COLUMNS[report_type]
+    csv_bytes = _build_csv_bytes(columns, rows)
+
+    filename = f"dentalos_{report_type}_{date.today().isoformat()}.csv"
+
+    return StreamingResponse(
+        content=iter([csv_bytes]),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Row-Count": str(row_count),
+            "X-Export-Mode": "sync",
+        },
     )
 
 
