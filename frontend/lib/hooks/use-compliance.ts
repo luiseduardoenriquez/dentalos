@@ -158,15 +158,18 @@ export function useGenerateRIPS() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["compliance", "rips"] });
       toast({
+        type: "success",
+        duration: 5000,
         title: "RIPS en generación",
         description: "El lote RIPS se está generando. Actualiza la página para ver el progreso.",
       });
     },
     onError: () => {
       toast({
+        type: "error",
+        duration: 5000,
         title: "Error",
         description: "No se pudo iniciar la generación de RIPS.",
-        variant: "destructive",
       });
     },
   });
@@ -182,15 +185,18 @@ export function useValidateRIPS() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["compliance", "rips"] });
       toast({
+        type: "success",
+        duration: 5000,
         title: "Validación iniciada",
         description: "El lote RIPS se está validando.",
       });
     },
     onError: () => {
       toast({
+        type: "error",
+        duration: 5000,
         title: "Error",
         description: "No se pudo iniciar la validación.",
-        variant: "destructive",
       });
     },
   });
@@ -208,15 +214,18 @@ export function useCreateEInvoice() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["compliance", "einvoice"] });
       toast({
+        type: "success",
+        duration: 5000,
         title: "Factura electrónica enviada",
         description: "La factura se está procesando ante la DIAN.",
       });
     },
     onError: () => {
       toast({
+        type: "error",
+        duration: 5000,
         title: "Error",
         description: "No se pudo enviar la factura electrónica.",
-        variant: "destructive",
       });
     },
   });

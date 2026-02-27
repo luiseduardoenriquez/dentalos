@@ -137,18 +137,16 @@ export function middleware(request: NextRequest): NextResponse {
     return NextResponse.redirect(portalLoginUrl);
   }
 
-  // Case 3: Authenticated user visiting a public auth route (login, register, etc.)
+  // Case 3: Marketing routes — always accessible, no redirects
+  const MARKETING_ROUTES = ["/", "/pricing", "/blog"];
+  const isMarketingRoute = MARKETING_ROUTES.some(
+    (r) => pathname === r || pathname.startsWith(`${r}/`),
+  );
+  if (isMarketingRoute) return NextResponse.next();
+
+  // Case 4: Authenticated user visiting a public auth route (login, register, etc.)
   if (hasSessionCookie && isPublicRoute) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  // Case 4: Root redirect — "/" goes to dashboard if logged in, login if not
-  if (pathname === "/") {
-    if (hasSessionCookie) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    } else {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
   }
 
   return NextResponse.next();

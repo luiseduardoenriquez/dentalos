@@ -197,15 +197,18 @@ export function useCreateInventoryItem() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });
       toast({
+        type: "success",
+        duration: 5000,
         title: "Artículo creado",
         description: "El artículo fue agregado al inventario exitosamente.",
       });
     },
     onError: () => {
       toast({
+        type: "error",
+        duration: 5000,
         title: "Error al crear artículo",
         description: "No se pudo agregar el artículo. Intenta de nuevo.",
-        variant: "destructive",
       });
     },
   });
@@ -224,15 +227,18 @@ export function useUpdateInventoryItem(itemId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });
       toast({
+        type: "success",
+        duration: 5000,
         title: "Artículo actualizado",
         description: "Los cambios fueron guardados exitosamente.",
       });
     },
     onError: () => {
       toast({
+        type: "error",
+        duration: 5000,
         title: "Error al actualizar",
         description: "No se pudieron guardar los cambios. Intenta de nuevo.",
-        variant: "destructive",
       });
     },
   });
@@ -278,15 +284,18 @@ export function useCreateSterilization() {
         queryKey: ["inventory", "sterilization"],
       });
       toast({
+        type: "success",
+        duration: 5000,
         title: "Registro creado",
         description: "El registro de esterilización fue guardado.",
       });
     },
     onError: () => {
       toast({
+        type: "error",
+        duration: 5000,
         title: "Error al guardar",
         description: "No se pudo crear el registro de esterilización.",
-        variant: "destructive",
       });
     },
   });

@@ -878,11 +878,11 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 
 ### Marketing Site
 
-- [ ] Landing page (value proposition, features, pricing)
-- [ ] Pricing page with plan comparison
-- [ ] Self-service registration flow from marketing site
-- [ ] SEO optimization for "software dental Colombia" keywords
-- [ ] Blog/content section for dental industry content
+- [x] Landing page (value proposition, features, pricing)
+- [x] Pricing page with plan comparison
+- [x] Self-service registration flow from marketing site
+- [x] SEO optimization for "software dental Colombia" keywords
+- [x] Blog/content section for dental industry content
 
 ### Colombia Launch
 

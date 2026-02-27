@@ -25,7 +25,7 @@ Sentry.init({
     if (event.request) {
       delete event.request.data;
       // Scrub query strings for tenant schemas
-      if (event.request.query_string) {
+      if (typeof event.request.query_string === "string") {
         event.request.query_string = event.request.query_string.replace(
           /tn_[a-z0-9_]+/g,
           "[TENANT]",
