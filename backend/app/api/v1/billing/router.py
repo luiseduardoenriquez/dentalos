@@ -31,7 +31,7 @@ router = APIRouter(prefix="/services", tags=["service-catalog"])
 # ─── B-14: List services ──────────────────────────────────────────────────────
 
 
-@router.get("/", response_model=ServiceCatalogListResponse)
+@router.get("", response_model=ServiceCatalogListResponse)
 async def list_services(
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),

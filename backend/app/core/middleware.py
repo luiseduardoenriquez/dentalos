@@ -6,6 +6,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
+from app.core.config import settings
 from app.core.metrics import (
     http_request_duration_seconds,
     http_requests_in_progress,
@@ -28,22 +29,32 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = (
             "camera=(), microphone=(), geolocation=(), payment=()"
         )
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: blob:; "
-            "font-src 'self'; "
-            "connect-src 'self'; "
-            "frame-ancestors 'none'; "
-            "base-uri 'self'; "
-            "form-action 'self'"
-        )
-        # Only send HSTS when the connection was served over HTTPS
-        if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
-            response.headers["Strict-Transport-Security"] = (
-                "max-age=31536000; includeSubDomains; preload"
+        # Skip CSP on API responses — the frontend's Next.js config handles CSP for
+        # the browser.  Backend CSP on JSON responses is redundant and causes conflicts
+        # (duplicate headers) when proxied through Next.js rewrites.
+        is_api = request.url.path.startswith("/api/")
+        if not is_api:
+            if settings.debug:
+                connect_src = "connect-src 'self' https: http://localhost:*"
+            else:
+                connect_src = "connect-src 'self'"
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: blob:; "
+                "font-src 'self'; "
+                f"{connect_src}; "
+                "frame-ancestors 'none'; "
+                "base-uri 'self'; "
+                "form-action 'self'"
             )
+        # Skip HSTS in debug mode to avoid protocol confusion through proxies (ngrok)
+        if not settings.debug:
+            if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
+                response.headers["Strict-Transport-Security"] = (
+                    "max-age=31536000; includeSubDomains; preload"
+                )
         if "server" in response.headers:
             del response.headers["server"]
         return response

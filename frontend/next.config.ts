@@ -11,9 +11,11 @@ const isDev = process.env.NODE_ENV === "development";
 const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
-  env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
-  },
+  // env: {
+  //   // When empty string, api-client uses relative URLs → requests go through Next.js rewrites proxy
+  //   // This enables external access (ngrok) without CORS issues
+  //   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "",
+  // },
   images: {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 3600,
@@ -29,6 +31,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    // Proxy API calls through Next.js so external devices (ngrok) can reach the backend
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${process.env.BACKEND_URL || "http://localhost:8000"}/api/:path*`,
+      },
+    ];
+  },
   async headers() {
     return [
       {
@@ -41,10 +52,10 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(self), geolocation=()",
           },
-          {
+          ...(isDev ? [] : [{
             key: "Strict-Transport-Security",
             value: "max-age=31536000; includeSubDomains; preload",
-          },
+          }]),
           {
             key: "Content-Security-Policy",
             // unsafe-eval and unsafe-inline are required for Next.js runtime

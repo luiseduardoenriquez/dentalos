@@ -29,7 +29,7 @@ router = APIRouter(prefix="/evolution-templates", tags=["evolution-templates"])
 # ─── CR-15: List evolution templates ─────────────────────────────────────────
 
 
-@router.get("/", response_model=EvolutionTemplateListResponse)
+@router.get("", response_model=EvolutionTemplateListResponse)
 async def list_evolution_templates(
     procedure_type: str | None = Query(default=None),
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -54,7 +54,7 @@ async def list_evolution_templates(
 # ─── CR-16: Create evolution template ────────────────────────────────────────
 
 
-@router.post("/", response_model=EvolutionTemplateResponse, status_code=201)
+@router.post("", response_model=EvolutionTemplateResponse, status_code=201)
 async def create_evolution_template(
     body: EvolutionTemplateCreate,
     request: Request,

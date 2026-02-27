@@ -96,7 +96,7 @@ async def search_patients(
 # ─── P-02: List ──────────────────────────────────────────────────────────────
 
 
-@router.get("/", response_model=PatientListResponse)
+@router.get("", response_model=PatientListResponse)
 async def list_patients(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -446,7 +446,7 @@ async def get_patient(
 # ─── P-04: Create ────────────────────────────────────────────────────────────
 
 
-@router.post("/", response_model=PatientResponse, status_code=201)
+@router.post("", response_model=PatientResponse, status_code=201)
 async def create_patient(
     body: PatientCreate,
     request: Request,

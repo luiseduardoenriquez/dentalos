@@ -104,7 +104,7 @@ async def update_own_profile(
 # ─── Team Management Endpoints (clinic_owner only) ───────────────────────
 
 
-@router.get("/", response_model=UserListResponse)
+@router.get("", response_model=UserListResponse)
 async def list_team_members(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),

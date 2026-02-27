@@ -48,7 +48,7 @@ router = APIRouter(prefix="/patients/{patient_id}/odontogram", tags=["odontogram
 # ─── OD-01: Get full odontogram state ────────────────────────────────────────
 
 
-@router.get("/", response_model=OdontogramResponse)
+@router.get("", response_model=OdontogramResponse)
 async def get_odontogram(
     patient_id: str,
     current_user: AuthenticatedUser = Depends(get_current_user),

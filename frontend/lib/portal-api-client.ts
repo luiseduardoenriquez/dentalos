@@ -11,6 +11,7 @@ import axios, {
   type AxiosRequestConfig,
   type InternalAxiosRequestConfig,
 } from "axios";
+import { getApiBaseUrl } from "./api-base-url";
 
 // ─── Portal Token Storage (in-memory) ───────────────────────────────────────
 
@@ -40,9 +41,7 @@ export function clearPortalAccessToken(): void {
 
 // ─── Axios Instance ─────────────────────────────────────────────────────────
 
-const API_BASE_URL =
-  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_URL) ||
-  "http://localhost:8000";
+const API_BASE_URL = getApiBaseUrl();
 
 export const portalApiClient: AxiosInstance = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,

@@ -53,6 +53,7 @@ app = FastAPI(
     docs_url="/docs" if settings.debug else None,
     redoc_url="/redoc" if settings.debug else None,
     lifespan=lifespan,
+    redirect_slashes=False,  # Prevent 307s that leak internal URLs through proxies
 )
 
 # Middleware stack (order matters: outermost runs first on request, last on response)
@@ -63,6 +64,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
+    allow_origin_regex=r"https://.*\.ngrok-free\.app" if settings.debug else None,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=[

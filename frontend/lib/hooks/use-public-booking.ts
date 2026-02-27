@@ -3,11 +3,11 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import axios from "axios";
 import { useToast } from "@/lib/hooks/use-toast";
+import { getApiBaseUrl } from "@/lib/api-base-url";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const API_BASE_URL =
-  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_URL) || "http://localhost:8000";
+const API_BASE_URL = getApiBaseUrl();
 
 /**
  * Axios instance for unauthenticated public booking requests.

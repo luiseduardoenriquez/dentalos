@@ -17,6 +17,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 import { clearAccessToken, getAccessToken, setAccessToken } from "./auth";
+import { getApiBaseUrl } from "./api-base-url";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,8 +35,7 @@ interface ApiError {
 
 // ─── Axios Instance ───────────────────────────────────────────────────────────
 
-const API_BASE_URL =
-  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_URL) || "http://localhost:8000";
+const API_BASE_URL = getApiBaseUrl();
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,
