@@ -133,6 +133,8 @@ class Settings(BaseSettings):
     ollama_timeout_seconds: int = 120
     openai_api_key: str = ""
     anthropic_api_key: str = ""
+    anthropic_model: str = "claude-haiku-4-5-20251001"
+    voice_max_audio_bytes: int = 10 * 1024 * 1024  # 10 MB
 
 
 settings = Settings()

@@ -537,6 +537,235 @@ class TestParseDentalTextInvalidProvider:
             await parse_dental_text("texto", "prompt")
 
 
+# ── test_anthropic_empty_content ──────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestAnthropicEmptyContent:
+    """M4 fix: various degenerate Anthropic response shapes must return []
+    without raising IndexError or KeyError."""
+
+    async def _call_with_body(self, monkeypatch, response_body: dict) -> list:
+        """Helper: configure Anthropic provider and mock POST to return body."""
+        monkeypatch.setattr(nlp_module.settings, "voice_nlp_provider", "anthropic")
+        monkeypatch.setattr(nlp_module.settings, "anthropic_api_key", "sk-ant-test")
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = response_body
+        mock_response.raise_for_status = MagicMock()
+
+        mock_post = AsyncMock(return_value=mock_response)
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.post = mock_post
+
+        with patch("app.services.voice_nlp.httpx.AsyncClient", return_value=mock_client):
+            return await parse_dental_text("texto", "prompt")
+
+    async def test_empty_content_list_returns_empty(self, monkeypatch):
+        """An Anthropic response with content=[] must return [] without
+        raising IndexError."""
+        response_body = {"content": []}
+        result = await self._call_with_body(monkeypatch, response_body)
+        assert result == []
+
+    async def test_missing_content_key_returns_empty(self, monkeypatch):
+        """An Anthropic response with no 'content' key must return [] without
+        raising KeyError."""
+        response_body = {"id": "msg_abc", "type": "message"}
+        result = await self._call_with_body(monkeypatch, response_body)
+        assert result == []
+
+    async def test_empty_text_in_content_item_returns_empty(self, monkeypatch):
+        """An Anthropic response where content[0].text == '' must return []
+        without crashing."""
+        response_body = {"content": [{"type": "text", "text": ""}]}
+        result = await self._call_with_body(monkeypatch, response_body)
+        assert result == []
+
+    async def test_none_text_in_content_item_returns_empty(self, monkeypatch):
+        """An Anthropic response where content[0].text is None must return []
+        without raising AttributeError."""
+        response_body = {"content": [{"type": "text", "text": None}]}
+        result = await self._call_with_body(monkeypatch, response_body)
+        assert result == []
+
+
+# ── test_anthropic_uses_config_model ──────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestAnthropicUsesConfigModel:
+    """M6 fix: the model field in the Anthropic POST payload must come from
+    settings.anthropic_model, not a hardcoded string."""
+
+    async def test_payload_model_matches_settings(self, monkeypatch):
+        """When settings.anthropic_model is set to a custom value, the POST
+        body's 'model' field must reflect that value exactly."""
+        monkeypatch.setattr(nlp_module.settings, "voice_nlp_provider", "anthropic")
+        monkeypatch.setattr(nlp_module.settings, "anthropic_api_key", "sk-ant-test")
+        monkeypatch.setattr(nlp_module.settings, "anthropic_model", "test-model-123")
+
+        captured_payload: dict = {}
+
+        async def capture_post(url, json=None, headers=None, **kwargs):
+            captured_payload.update(json or {})
+            mock_resp = MagicMock()
+            mock_resp.json.return_value = _anthropic_response(
+                '[{"tooth_number": 11, "zone": "incisal", "condition_code": "fractura", "confidence": 0.9}]'
+            )
+            mock_resp.raise_for_status = MagicMock()
+            return mock_resp
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.post = capture_post
+
+        with patch("app.services.voice_nlp.httpx.AsyncClient", return_value=mock_client):
+            await parse_dental_text("texto", "prompt")
+
+        assert captured_payload.get("model") == "test-model-123"
+
+    async def test_different_model_values_propagate(self, monkeypatch):
+        """Changing settings.anthropic_model to a different string produces a
+        different 'model' field in the request — not a stale cached value."""
+        monkeypatch.setattr(nlp_module.settings, "voice_nlp_provider", "anthropic")
+        monkeypatch.setattr(nlp_module.settings, "anthropic_api_key", "sk-ant-test")
+        monkeypatch.setattr(nlp_module.settings, "anthropic_model", "claude-opus-4-0")
+
+        captured_payload: dict = {}
+
+        async def capture_post(url, json=None, headers=None, **kwargs):
+            captured_payload.update(json or {})
+            mock_resp = MagicMock()
+            mock_resp.json.return_value = _anthropic_response("[]")
+            mock_resp.raise_for_status = MagicMock()
+            return mock_resp
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.post = capture_post
+
+        with patch("app.services.voice_nlp.httpx.AsyncClient", return_value=mock_client):
+            await parse_dental_text("texto", "prompt")
+
+        assert captured_payload.get("model") == "claude-opus-4-0"
+
+
+# ── test_get_model_identifier_uses_config ─────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestGetModelIdentifierUsesConfig:
+    """get_model_identifier() for the 'anthropic' provider must read
+    settings.anthropic_model at call-time instead of returning a hardcoded
+    model ID."""
+
+    def test_returns_settings_anthropic_model_value(self, monkeypatch):
+        """get_model_identifier() returns exactly the value of
+        settings.anthropic_model when provider is 'anthropic'."""
+        monkeypatch.setattr(nlp_module.settings, "voice_nlp_provider", "anthropic")
+        monkeypatch.setattr(nlp_module.settings, "anthropic_model", "test-model-123")
+
+        result = get_model_identifier()
+
+        assert result == "test-model-123"
+
+    def test_reflects_changed_model_without_restart(self, monkeypatch):
+        """Changing settings.anthropic_model within the same process causes
+        get_model_identifier() to return the new value (no caching)."""
+        monkeypatch.setattr(nlp_module.settings, "voice_nlp_provider", "anthropic")
+        monkeypatch.setattr(nlp_module.settings, "anthropic_model", "model-v1")
+
+        result_v1 = get_model_identifier()
+
+        monkeypatch.setattr(nlp_module.settings, "anthropic_model", "model-v2")
+        result_v2 = get_model_identifier()
+
+        assert result_v1 == "model-v1"
+        assert result_v2 == "model-v2"
+
+    def test_local_provider_not_affected_by_anthropic_model(self, monkeypatch):
+        """When provider is 'local', get_model_identifier() returns the Ollama
+        prefix regardless of what settings.anthropic_model is set to."""
+        monkeypatch.setattr(nlp_module.settings, "voice_nlp_provider", "local")
+        monkeypatch.setattr(nlp_module.settings, "ollama_model", "llama3:8b")
+        monkeypatch.setattr(nlp_module.settings, "anthropic_model", "should-not-appear")
+
+        result = get_model_identifier()
+
+        assert result == "ollama/llama3:8b"
+        assert "should-not-appear" not in result
+
+
+# ── test_extract_json_array_edge_cases ────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestExtractJsonArrayEdgeCases:
+    def test_single_element_array(self):
+        """A JSON array with exactly one element is parsed correctly."""
+        single = [{"tooth_number": 11, "zone": "incisal", "condition_code": "fractura", "confidence": 0.9}]
+        result = _extract_json_array(json.dumps(single))
+        assert result == single
+        assert len(result) == 1
+
+    def test_single_element_with_whitespace_padding(self):
+        """A single-element array with surrounding whitespace is trimmed and
+        parsed without error."""
+        single = [{"tooth_number": 48, "zone": "distal", "condition_code": "impactacion", "confidence": 0.75}]
+        raw = "\n\n  " + json.dumps(single) + "  \n"
+        result = _extract_json_array(raw)
+        assert result == single
+
+    def test_single_element_in_fenced_block(self):
+        """A single-element array inside a ```json fence is extracted."""
+        single = [{"tooth_number": 21, "zone": "vestibular", "condition_code": "fractura", "confidence": 0.88}]
+        content = "```json\n" + json.dumps(single) + "\n```"
+        result = _extract_json_array(content)
+        assert result == single
+
+    def test_nested_array_in_findings_value(self):
+        """An object where the 'findings' key maps to a nested list of lists
+        returns the outer list (not recursively unwrapped)."""
+        # The wrapper unwrap logic returns whatever is under 'findings'
+        inner_list = [{"tooth_number": 36, "zone": "oclusal", "condition_code": "caries", "confidence": 0.95}]
+        payload = {"findings": inner_list}
+        result = _extract_json_array(json.dumps(payload))
+        assert result == inner_list
+
+    def test_nested_object_within_array_element(self):
+        """Array elements that themselves contain nested dicts are returned
+        intact (no flattening)."""
+        complex_finding = [
+            {
+                "tooth_number": 36,
+                "zone": "oclusal",
+                "condition_code": "caries",
+                "confidence": 0.95,
+                "metadata": {"severity": "moderate", "notes": ["note1", "note2"]},
+            }
+        ]
+        result = _extract_json_array(json.dumps(complex_finding))
+        assert result == complex_finding
+        assert result[0]["metadata"]["notes"] == ["note1", "note2"]
+
+    def test_array_of_two_elements_with_wrapper_key(self):
+        """A 'results' wrapper containing exactly two items unwraps to a
+        two-element list."""
+        two_findings = [
+            {"tooth_number": 11, "zone": "incisal", "condition_code": "fractura", "confidence": 0.9},
+            {"tooth_number": 21, "zone": "vestibular", "condition_code": "abrasion", "confidence": 0.7},
+        ]
+        payload = {"results": two_findings}
+        result = _extract_json_array(json.dumps(payload))
+        assert result == two_findings
+        assert len(result) == 2
+
+
 # ── module-level import of json (needed in test closures above) ───────────────
 # The retry test closures reference json.dumps through a local alias to avoid
 # shadowing the module-level `json` import.

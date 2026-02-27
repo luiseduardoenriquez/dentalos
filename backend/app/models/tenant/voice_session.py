@@ -54,7 +54,7 @@ class VoiceSession(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
             name="chk_voice_sessions_context",
         ),
         CheckConstraint(
-            "status IN ('active', 'applied', 'expired')",
+            "status IN ('active', 'applied', 'expired', 'feedback_received')",
             name="chk_voice_sessions_status",
         ),
         Index("idx_voice_sessions_doctor", "doctor_id"),
@@ -187,7 +187,7 @@ class VoiceParse(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
     __tablename__ = "voice_parses"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('success', 'partial')",
+            "status IN ('success', 'partial', 'feedback', 'failed')",
             name="chk_voice_parses_status",
         ),
         Index("idx_voice_parses_session", "session_id"),

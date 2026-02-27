@@ -294,3 +294,247 @@ class TestTranscribeSyncConcatenatesSegments:
         call_kwargs = mock_model.transcribe.call_args.kwargs
         assert call_kwargs.get("language") == "es"
         assert call_kwargs.get("vad_filter") is True
+
+
+# ── test_transcribe_audio_empty_input ─────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestTranscribeAudioEmptyInput:
+    async def test_local_provider_empty_bytes_does_not_crash(self, monkeypatch):
+        """transcribe_audio with provider='local' and empty bytes must not
+        raise; it returns the executor result (even if it is an empty string)."""
+        monkeypatch.setattr(stt_module.settings, "voice_stt_provider", "local")
+
+        async def fake_run_in_executor(executor, func, *args):
+            # Simulate faster-whisper returning no segments for silent audio
+            return ""
+
+        mock_loop = MagicMock()
+        mock_loop.run_in_executor = fake_run_in_executor
+
+        with patch("asyncio.get_running_loop", return_value=mock_loop):
+            result = await transcribe_audio(b"")
+
+        assert result == ""
+
+    async def test_openai_provider_empty_bytes_does_not_crash(self, monkeypatch):
+        """transcribe_audio with provider='openai' and empty bytes must not
+        raise; it wraps the bytes in BytesIO and returns the API response."""
+        monkeypatch.setattr(stt_module.settings, "voice_stt_provider", "openai")
+        monkeypatch.setattr(stt_module.settings, "openai_api_key", "sk-test")
+
+        async def fake_create(**kwargs):
+            return ""
+
+        mock_transcriptions = MagicMock()
+        mock_transcriptions.create = fake_create
+        mock_audio = MagicMock()
+        mock_audio.transcriptions = mock_transcriptions
+        mock_client = MagicMock()
+        mock_client.audio = mock_audio
+        mock_async_openai = MagicMock(return_value=mock_client)
+
+        fake_openai = MagicMock()
+        fake_openai.AsyncOpenAI = mock_async_openai
+
+        with patch.dict("sys.modules", {"openai": fake_openai}):
+            result = await transcribe_audio(b"")
+
+        # Should return empty string (stripped result of "")
+        assert result == ""
+
+
+# ── test_transcribe_sync_audio_stream ─────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestTranscribeSyncAudioStream:
+    def test_wraps_audio_bytes_in_bytesio(self, monkeypatch):
+        """_transcribe_sync must pass a BytesIO-wrapped version of the raw
+        audio_bytes to model.transcribe, not the raw bytes directly."""
+        captured_call_args: list = []
+
+        mock_model = MagicMock()
+
+        def capture_transcribe(audio_stream, **kwargs):
+            captured_call_args.append(audio_stream)
+            return (iter([]), MagicMock())
+
+        mock_model.transcribe = capture_transcribe
+        monkeypatch.setattr(stt_module, "_whisper_model", mock_model)
+
+        raw = b"binary-audio-data-xyz"
+        _transcribe_sync(raw)
+
+        assert len(captured_call_args) == 1
+        stream = captured_call_args[0]
+        # Must be a BytesIO (or compatible file-like object), not raw bytes
+        assert isinstance(stream, io.BytesIO)
+        # The stream must contain the original bytes
+        assert stream.read() == raw
+
+    def test_bytesio_is_seeked_to_start(self, monkeypatch):
+        """The BytesIO passed to transcribe must be seeked to position 0 so
+        faster-whisper can read from the beginning."""
+        captured_streams: list = []
+
+        mock_model = MagicMock()
+
+        def capture_transcribe(audio_stream, **kwargs):
+            captured_streams.append(audio_stream)
+            return (iter([]), MagicMock())
+
+        mock_model.transcribe = capture_transcribe
+        monkeypatch.setattr(stt_module, "_whisper_model", mock_model)
+
+        _transcribe_sync(b"some-audio")
+
+        stream = captured_streams[0]
+        # After transcribe receives it, tell() should be at 0 (just opened)
+        # OR the content must match the original bytes when read from current pos
+        stream.seek(0)
+        assert stream.read() == b"some-audio"
+
+
+# ── test_transcribe_audio_openai_strips_result ────────────────────────────────
+
+
+@pytest.mark.unit
+class TestTranscribeAudioOpenAIStripsResult:
+    async def test_strips_leading_trailing_whitespace(self, monkeypatch):
+        """The text returned by the OpenAI transcription endpoint must have
+        leading and trailing whitespace stripped before being returned."""
+        monkeypatch.setattr(stt_module.settings, "voice_stt_provider", "openai")
+        monkeypatch.setattr(stt_module.settings, "openai_api_key", "sk-test")
+
+        raw_api_response = "  \n diente 16 caries proximal \n  "
+
+        async def fake_create(**kwargs):
+            return raw_api_response
+
+        mock_transcriptions = MagicMock()
+        mock_transcriptions.create = fake_create
+        mock_audio = MagicMock()
+        mock_audio.transcriptions = mock_transcriptions
+        mock_client = MagicMock()
+        mock_client.audio = mock_audio
+        mock_async_openai = MagicMock(return_value=mock_client)
+
+        fake_openai = MagicMock()
+        fake_openai.AsyncOpenAI = mock_async_openai
+
+        with patch.dict("sys.modules", {"openai": fake_openai}):
+            result = await transcribe_audio(b"audio-bytes")
+
+        assert result == "diente 16 caries proximal"
+
+    async def test_strips_tab_characters(self, monkeypatch):
+        """Tab characters at the boundaries of the API response must also be
+        stripped."""
+        monkeypatch.setattr(stt_module.settings, "voice_stt_provider", "openai")
+        monkeypatch.setattr(stt_module.settings, "openai_api_key", "sk-test")
+
+        raw_api_response = "\t\tperiodontitis moderada\t"
+
+        async def fake_create(**kwargs):
+            return raw_api_response
+
+        mock_transcriptions = MagicMock()
+        mock_transcriptions.create = fake_create
+        mock_audio = MagicMock()
+        mock_audio.transcriptions = mock_transcriptions
+        mock_client = MagicMock()
+        mock_client.audio = mock_audio
+        mock_async_openai = MagicMock(return_value=mock_client)
+
+        fake_openai = MagicMock()
+        fake_openai.AsyncOpenAI = mock_async_openai
+
+        with patch.dict("sys.modules", {"openai": fake_openai}):
+            result = await transcribe_audio(b"audio")
+
+        assert result == "periodontitis moderada"
+
+    async def test_already_stripped_result_unchanged(self, monkeypatch):
+        """A result with no surrounding whitespace is returned as-is."""
+        monkeypatch.setattr(stt_module.settings, "voice_stt_provider", "openai")
+        monkeypatch.setattr(stt_module.settings, "openai_api_key", "sk-test")
+
+        clean_response = "absceso periapical diente 46"
+
+        async def fake_create(**kwargs):
+            return clean_response
+
+        mock_transcriptions = MagicMock()
+        mock_transcriptions.create = fake_create
+        mock_audio = MagicMock()
+        mock_audio.transcriptions = mock_transcriptions
+        mock_client = MagicMock()
+        mock_client.audio = mock_audio
+        mock_async_openai = MagicMock(return_value=mock_client)
+
+        fake_openai = MagicMock()
+        fake_openai.AsyncOpenAI = mock_async_openai
+
+        with patch.dict("sys.modules", {"openai": fake_openai}):
+            result = await transcribe_audio(b"audio")
+
+        assert result == clean_response
+
+
+# ── test_local_provider_logs_char_count ───────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestLocalProviderLogsCharCount:
+    async def test_char_count_logged(self, monkeypatch):
+        """transcribe_audio (local provider) must emit a log record
+        containing the character count of the transcribed text."""
+        monkeypatch.setattr(stt_module.settings, "voice_stt_provider", "local")
+
+        transcribed_text = "diente 26 amalgama oclusal"  # 26 chars
+
+        async def fake_run_in_executor(executor, func, *args):
+            return transcribed_text
+
+        mock_loop = MagicMock()
+        mock_loop.run_in_executor = fake_run_in_executor
+
+        with patch("asyncio.get_running_loop", return_value=mock_loop):
+            with patch.object(stt_module.logger, "info") as mock_info:
+                await transcribe_audio(b"audio")
+
+        # logger.info("Local STT completed: %d chars", len(text))
+        all_info_calls = " ".join(str(c) for c in mock_info.call_args_list)
+        char_count = str(len(transcribed_text))
+        assert char_count in all_info_calls, (
+            f"Expected an info log containing the char count ({char_count}). "
+            f"Info calls: {mock_info.call_args_list}"
+        )
+
+    async def test_char_count_matches_actual_result_length(self, monkeypatch):
+        """The character count logged must match len(text)."""
+        monkeypatch.setattr(stt_module.settings, "voice_stt_provider", "local")
+
+        transcribed_text = "texto con exactamente cuarenta y seis caracteres ok"
+        expected_count = len(transcribed_text)
+
+        logged_messages: list[str] = []
+
+        async def fake_run_in_executor(executor, func, *args):
+            return transcribed_text
+
+        mock_loop = MagicMock()
+        mock_loop.run_in_executor = fake_run_in_executor
+
+        def capture_info(msg, *args, **kwargs):
+            logged_messages.append(str(msg) % args if args else str(msg))
+
+        with patch("asyncio.get_running_loop", return_value=mock_loop):
+            with patch.object(stt_module.logger, "info", side_effect=capture_info):
+                result = await transcribe_audio(b"audio")
+
+        assert result == transcribed_text
+        combined = " ".join(logged_messages)
+        assert str(expected_count) in combined

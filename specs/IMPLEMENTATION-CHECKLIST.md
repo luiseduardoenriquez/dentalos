@@ -497,10 +497,11 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 - [x] **V-05** `POST /api/v1/voice/sessions/{session_id}/feedback` -- Submit correction feedback (tooth number errors, condition mismatches) for quality tracking
   - [x] OpenAI Whisper API integration (external dependency, requires API key) -- MVP: stub in voice_worker.py
   - [x] Anthropic Claude API integration for dental NLP parsing (external dependency, requires API key) -- MVP: stub in voice_service._parse_dental_text()
-  - [x] LLM prompt: extract tooth numbers (FDI), conditions (caries, fractura, corona, etc.), procedures from free-form Spanish dental dictation
+  - [x] LLM prompt: extract tooth numbers (FDI), conditions (caries, fracture, crown, etc. — English codes), procedures from free-form Spanish dental dictation
   - [x] Review-before-apply mode: parsed results shown as diff before commit to odontogram
   - [x] Accuracy tracking: log correction rate per session for quality monitoring
   - [x] Feature gate: AI Voice add-on plan check before allowing voice sessions
+  - [x] **V-HARDEN** Voice pipeline hardening: 4 critical bugs (CHECK constraints, failed transcriptions stuck pending, silent NLP failures), 8 high-severity (condition code mismatch, findings validation, input validation, audio size limit, worker null checks, session expiry), 6 medium (zone list, Anthropic guards, config consolidation, dead code). 134 tests passing.
 
 ### Frontend: Agenda Screens (FE-AG-01 through FE-AG-06)
 

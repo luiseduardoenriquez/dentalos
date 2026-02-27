@@ -26,7 +26,8 @@ SAMPLE_TEXT = (
     "Se observa corona en el 46 y resina en el 24 cara mesial."
 )
 
-EXPECTED_CONDITIONS = {"caries", "fractura", "corona", "resina"}
+# H1: Expected condition codes are now in English to match VALID_CONDITION_CODES
+EXPECTED_CONDITIONS = {"caries", "fracture", "crown", "restoration"}
 EXPECTED_TEETH = {36, 11, 46, 24}
 
 

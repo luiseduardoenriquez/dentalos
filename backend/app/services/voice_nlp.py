@@ -196,8 +196,9 @@ async def _parse_with_anthropic(
         "content-type": "application/json",
     }
 
+    # M6: Use configurable model from settings
     payload = {
-        "model": "claude-haiku-4-5-20251001",
+        "model": settings.anthropic_model,
         "max_tokens": 2048,
         "system": prompt,
         "messages": [{"role": "user", "content": text}],
@@ -209,7 +210,18 @@ async def _parse_with_anthropic(
             response.raise_for_status()
 
         data = response.json()
-        content = data["content"][0]["text"]
+
+        # M4: Guard against empty content list
+        content_blocks = data.get("content", [])
+        if not content_blocks:
+            logger.warning("Anthropic returned empty content list")
+            return []
+
+        content = content_blocks[0].get("text", "")
+        if not content:
+            logger.warning("Anthropic returned empty text in first content block")
+            return []
+
         findings = _extract_json_array(content)
 
         logger.info("Anthropic NLP completed: findings=%d", len(findings))
@@ -233,5 +245,5 @@ def get_model_identifier() -> str:
     if provider == "local":
         return f"ollama/{settings.ollama_model}"
     if provider == "anthropic":
-        return "claude-haiku-4-5-20251001"
+        return settings.anthropic_model
     return f"unknown/{provider}"

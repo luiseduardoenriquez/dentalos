@@ -28,12 +28,14 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.error_codes import VoiceErrors
 from app.core.exceptions import (
     DentalOSError,
     ResourceNotFoundError,
     VoiceError,
 )
+from app.core.odontogram_constants import ALL_ZONES, VALID_CONDITION_CODES, VALID_FDI_ALL
 from app.core.queue import publish_message
 from app.models.tenant.patient import Patient
 from app.models.tenant.voice_session import VoiceParse, VoiceSession, VoiceTranscription
@@ -56,30 +58,62 @@ _ALLOWED_AUDIO_TYPES = frozenset({
 })
 
 # ── LLM Prompt for Dental NLP ──────────────────────────────────────────────
+# H1: Condition codes MUST match VALID_CONDITION_CODES from odontogram_constants.
+# M1: All 9 zones from ALL_ZONES are listed.
+# M2: Multiple conditions per tooth explicitly instructed.
 
 DENTAL_NLP_PROMPT = """You are a dental NLP parser for DentalOS. Your task is to extract
 structured findings from Spanish dental dictation text.
 
 For each finding, extract:
 - tooth_number: FDI notation (11-48 for permanent, 51-85 for deciduous)
-- zone: one of "mesial", "distal", "oclusal", "vestibular", "lingual", "incisal", "full"
-- condition_code: one of "caries", "fractura", "corona", "resina", "amalgama", "ausente",
-  "endodoncia", "implante", "sellante", "protesis_fija", "protesis_removible", "movilidad"
+- zone: one of "mesial", "distal", "vestibular", "lingual", "palatino",
+  "oclusal", "incisal", "root", "full"
+- condition_code: one of the English codes listed below
 - confidence: float 0.0-1.0 indicating parsing confidence
+
+CONDITION CODES (use these exact English strings):
+  caries         — Caries dental
+  fracture       — Fractura
+  crown          — Corona protésica
+  restoration    — Restauración (resina, amalgama, composite, calza)
+  absent         — Ausente / exodoncia previa
+  endodontic     — Endodoncia / tratamiento de conducto
+  implant        — Implante dental
+  sealant        — Sellante
+  prosthesis     — Prótesis fija o removible (puente, placa)
+  extraction     — Extracción indicada (pendiente)
+  fluorosis      — Fluorosis
+  temporary      — Restauración temporal
+
+SPANISH → ENGLISH MAPPING:
+  caries → caries | fractura → fracture | corona → crown
+  resina, amalgama, composite, calza → restoration
+  ausente, exodoncia → absent | endodoncia → endodontic
+  implante → implant | sellante → sealant
+  prótesis fija, prótesis removible, puente, placa → prosthesis
+  extracción indicada → extraction | fluorosis → fluorosis
+  restauración temporal, provisional → temporary
 
 Return a JSON array of findings. Example:
 [
   {"tooth_number": 36, "zone": "oclusal", "condition_code": "caries", "confidence": 0.95},
-  {"tooth_number": 11, "zone": "incisal", "condition_code": "fractura", "confidence": 0.90}
+  {"tooth_number": 11, "zone": "incisal", "condition_code": "fracture", "confidence": 0.90}
 ]
 
 Important rules:
 - FDI notation only (not universal numbering)
-- Map Spanish dental terms to condition codes (e.g., "calza" -> "resina", "puente" -> "protesis_fija")
+- Use the English condition codes above — NEVER use Spanish terms as codes
 - If tooth number is ambiguous, set confidence < 0.7
 - If zone is not mentioned, default to "full"
 - Ignore filler words and non-dental content
 - Return empty array if no dental findings detected
+- A single tooth can have MULTIPLE findings (e.g., caries + restoration on the same tooth).
+  Return separate objects for each finding. Example:
+  [
+    {"tooth_number": 36, "zone": "oclusal", "condition_code": "caries", "confidence": 0.90},
+    {"tooth_number": 36, "zone": "mesial", "condition_code": "restoration", "confidence": 0.85}
+  ]
 """
 
 
@@ -133,6 +167,67 @@ def _parse_to_dict(p: VoiceParse) -> dict[str, Any]:
     }
 
 
+# ── Findings Validation (H2) ────────────────────────────────────────────────
+
+
+def _validate_findings(
+    raw_findings: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Validate and clean LLM-extracted findings.
+
+    Returns (valid_findings, warnings) where invalid entries are dropped
+    and warnings explain what was filtered.
+    """
+    valid: list[dict[str, Any]] = []
+    warnings: list[str] = []
+
+    for i, f in enumerate(raw_findings):
+        if not isinstance(f, dict):
+            warnings.append(f"Finding #{i}: not a dict, skipped")
+            continue
+
+        # Validate tooth_number
+        tooth = f.get("tooth_number")
+        try:
+            tooth = int(tooth)
+        except (TypeError, ValueError):
+            warnings.append(f"Finding #{i}: invalid tooth_number '{tooth}', skipped")
+            continue
+
+        if tooth not in VALID_FDI_ALL:
+            warnings.append(f"Finding #{i}: tooth {tooth} not in FDI range, skipped")
+            continue
+
+        # Validate zone
+        zone = f.get("zone", "full")
+        if not isinstance(zone, str) or zone not in ALL_ZONES:
+            warnings.append(f"Finding #{i}: invalid zone '{zone}', defaulting to 'full'")
+            zone = "full"
+
+        # Validate condition_code
+        code = f.get("condition_code")
+        if not isinstance(code, str) or code not in VALID_CONDITION_CODES:
+            warnings.append(f"Finding #{i}: invalid condition_code '{code}', skipped")
+            continue
+
+        # Clamp confidence to 0.0-1.0
+        confidence = f.get("confidence", 0.5)
+        try:
+            confidence = float(confidence)
+        except (TypeError, ValueError):
+            confidence = 0.5
+        confidence = max(0.0, min(1.0, confidence))
+
+        valid.append({
+            "tooth_number": tooth,
+            "zone": zone,
+            "condition_code": code,
+            "confidence": confidence,
+        })
+
+    return valid, warnings
+
+
 # ── Voice Service ────────────────────────────────────────────────────────────
 
 
@@ -175,8 +270,8 @@ class VoiceService:
             ResourceNotFoundError                  -- patient not found.
         """
         # Check voice add-on (MVP: always enabled for testing)
-        settings = await self.get_voice_settings(db=db)
-        if not settings["voice_enabled"]:
+        voice_settings = await self.get_voice_settings(db=db)
+        if not voice_settings["voice_enabled"]:
             raise VoiceError(
                 error=VoiceErrors.ADDON_REQUIRED,
                 message=(
@@ -189,7 +284,7 @@ class VoiceService:
         # Rate limit: count sessions created by this doctor in the last hour
         did = uuid.UUID(doctor_id)
         one_hour_ago = datetime.now(UTC) - timedelta(hours=1)
-        max_sessions = settings["max_sessions_per_hour"]
+        max_sessions = voice_settings["max_sessions_per_hour"]
 
         rate_result = await db.execute(
             select(func.count(VoiceSession.id)).where(
@@ -263,6 +358,7 @@ class VoiceService:
         Validates:
           - Session exists and is active (not expired).
           - Content type is in the allowed set.
+          - Audio size does not exceed limit (H4).
 
         Stores the audio in S3 under a tenant-isolated key, creates a
         VoiceTranscription record, and publishes a ``voice.transcribe``
@@ -273,8 +369,21 @@ class VoiceService:
         Raises:
             VoiceError(SESSION_NOT_FOUND)   -- session not found.
             VoiceError(SESSION_EXPIRED)     -- session TTL elapsed.
-            VoiceError(UPLOAD_FAILED)       -- S3 upload failure.
+            VoiceError(UPLOAD_FAILED)       -- S3 upload failure or size exceeded.
         """
+        # H4: Enforce audio size limit
+        max_audio_bytes = settings.voice_max_audio_bytes
+        if len(audio_data) > max_audio_bytes:
+            raise VoiceError(
+                error=VoiceErrors.UPLOAD_FAILED,
+                message=(
+                    f"Archivo de audio demasiado grande ({len(audio_data)} bytes). "
+                    f"Maximo permitido: {max_audio_bytes} bytes "
+                    f"({max_audio_bytes // (1024 * 1024)} MB)."
+                ),
+                status_code=422,
+            )
+
         sid = uuid.UUID(session_id)
 
         # Load session
@@ -355,7 +464,7 @@ class VoiceService:
                 s3_key[:30],
                 str(e),
             )
-        except Exception:
+        except Exception as exc:
             logger.exception(
                 "S3 upload failed: session=%s key=%s",
                 session_id[:8],
@@ -365,7 +474,7 @@ class VoiceService:
                 error=VoiceErrors.UPLOAD_FAILED,
                 message="Error al subir el archivo de audio. Intente de nuevo.",
                 status_code=502,
-            )
+            ) from exc
 
         # Create transcription record
         transcription = VoiceTranscription(
@@ -454,15 +563,13 @@ class VoiceService:
         Concatenates text from all completed transcription chunks, then
         runs the NLP pipeline to extract structured dental findings.
 
-        For MVP: returns stub findings from ``_parse_dental_text()``.
-        Production: calls Claude Haiku with a dental terminology prompt.
-
         Creates a VoiceParse record with the extracted findings.
 
         Returns the parse dict.
 
         Raises:
             VoiceError(SESSION_NOT_FOUND) -- session not found.
+            VoiceError(SESSION_EXPIRED)   -- session expired.
             VoiceError(PARSE_FAILED)      -- no transcription text available.
         """
         sid = uuid.UUID(session_id)
@@ -490,6 +597,16 @@ class VoiceService:
                 status_code=410,
             )
 
+        # H7: Check session expiry
+        if session.expires_at < datetime.now(UTC):
+            session.status = "expired"
+            await db.flush()
+            raise VoiceError(
+                error=VoiceErrors.SESSION_EXPIRED,
+                message="La sesion de voz ha expirado.",
+                status_code=410,
+            )
+
         # Collect completed transcription texts
         completed_texts: list[str] = []
         for t in session.transcriptions:
@@ -512,10 +629,10 @@ class VoiceService:
         # Run NLP parse via provider
         from app.services.voice_nlp import get_model_identifier
 
-        findings = await self._parse_dental_text(concatenated_text)
-
-        # Determine parse status
-        parse_status = "success" if findings else "partial"
+        parse_result = await self._parse_dental_text(concatenated_text)
+        findings = parse_result["findings"]
+        parse_warnings = parse_result["warnings"]
+        parse_status = parse_result["status"]
 
         # Create VoiceParse record
         parse = VoiceParse(
@@ -524,7 +641,7 @@ class VoiceService:
             findings=findings,
             corrections=[],
             filtered_speech=[],
-            warnings=[],
+            warnings=parse_warnings,
             llm_model=get_model_identifier(),
             status=parse_status,
         )
@@ -532,10 +649,11 @@ class VoiceService:
         await db.flush()
 
         logger.info(
-            "Voice parse completed: session=%s findings=%d model=%s",
+            "Voice parse completed: session=%s findings=%d model=%s status=%s",
             session_id[:8],
             len(findings),
             parse.llm_model,
+            parse_status,
         )
 
         return _parse_to_dict(parse)
@@ -561,6 +679,7 @@ class VoiceService:
 
         Raises:
             VoiceError(SESSION_NOT_FOUND)  -- session not found.
+            VoiceError(SESSION_EXPIRED)    -- session expired.
             VoiceError(APPLY_FAILED)       -- odontogram update failure.
         """
         sid = uuid.UUID(session_id)
@@ -581,6 +700,16 @@ class VoiceService:
                 status_code=404,
             )
 
+        # H7: Check session expiry
+        if session.expires_at < datetime.now(UTC):
+            session.status = "expired"
+            await db.flush()
+            raise VoiceError(
+                error=VoiceErrors.SESSION_EXPIRED,
+                message="La sesion de voz ha expirado.",
+                status_code=410,
+            )
+
         if not confirmed_findings:
             return {
                 "applied_count": 0,
@@ -590,20 +719,35 @@ class VoiceService:
 
         patient_id = str(session.patient_id)
 
-        # Build update dicts for odontogram bulk_update
-        updates = [
-            {
+        # H3: Validate each confirmed finding has required keys
+        required_keys = {"tooth_number", "zone", "condition_code"}
+        updates: list[dict[str, Any]] = []
+        errors: list[str] = []
+
+        for i, f in enumerate(confirmed_findings):
+            if not isinstance(f, dict):
+                errors.append(f"Finding #{i}: not a dict, skipped")
+                continue
+            missing = required_keys - f.keys()
+            if missing:
+                errors.append(f"Finding #{i}: missing keys {missing}, skipped")
+                continue
+            updates.append({
                 "tooth_number": f["tooth_number"],
                 "zone": f["zone"],
                 "condition_code": f["condition_code"],
                 "source": "voice",
+            })
+
+        if not updates:
+            return {
+                "applied_count": 0,
+                "skipped_count": len(confirmed_findings),
+                "errors": errors,
             }
-            for f in confirmed_findings
-        ]
 
         applied_count = 0
-        skipped_count = 0
-        errors: list[str] = []
+        skipped_count = len(confirmed_findings) - len(updates)
 
         try:
             from app.services.odontogram_service import odontogram_service
@@ -617,7 +761,6 @@ class VoiceService:
                 session_notes=f"Voice session {session_id[:8]}",
             )
             applied_count = result["processed"]
-            skipped_count = 0
 
         except DentalOSError as e:
             # Business validation errors from odontogram (e.g. invalid tooth)
@@ -672,8 +815,8 @@ class VoiceService:
     ) -> dict[str, Any]:
         """Record doctor corrections on parsed voice findings.
 
-        Stores feedback as JSONB on the session row for quality tracking.
-        Computes correction_rate = corrections / total_findings.
+        Stores feedback as a VoiceParse with status='feedback' and
+        updates the session status to 'feedback_received'.
 
         Returns:
             {session_id, feedback_recorded, correction_count, correction_rate}
@@ -717,35 +860,22 @@ class VoiceService:
             correction_count / total_findings if total_findings > 0 else None
         )
 
-        # Store feedback on the session (JSONB column)
-        # MVP: store in session metadata since we don't have a dedicated column yet
-        feedback_data = {
-            "corrections": findings_corrections,
-            "notes": notes,
-            "correction_count": correction_count,
-            "correction_rate": correction_rate,
-            "submitted_at": datetime.now(UTC).isoformat(),
-        }
+        # C1+C2: Store feedback as a VoiceParse record with status='feedback'
+        # (CHECK constraint now allows 'feedback')
+        feedback_parse = VoiceParse(
+            session_id=sid,
+            input_text=notes or "",
+            findings=[],
+            corrections=findings_corrections,
+            filtered_speech=[],
+            warnings=[],
+            llm_model="feedback",
+            status="feedback",
+        )
+        db.add(feedback_parse)
 
-        # Update session status to reflect feedback received
+        # C1: Update session status (CHECK constraint now allows 'feedback_received')
         session.status = "feedback_received"
-        # Store feedback in the session's existing JSONB metadata or create new
-        if hasattr(session, "metadata") and session.metadata:
-            session.metadata["feedback"] = feedback_data
-        else:
-            # Fallback: store as a new parse record with feedback type
-            feedback_parse = VoiceParse(
-                session_id=sid,
-                input_text="",
-                findings=[],
-                corrections=findings_corrections,
-                filtered_speech=[],
-                warnings=[],
-                llm_model="feedback",
-                status="feedback",
-            )
-            db.add(feedback_parse)
-
         await db.flush()
 
         logger.info(
@@ -812,23 +942,51 @@ class VoiceService:
 
     # ── Private Helpers ──────────────────────────────────────────────────
 
-    async def _transcribe_audio(self, s3_key: str) -> str:
-        """Download audio from S3 and transcribe via the configured STT provider."""
-        from app.core.storage import storage_client
-        from app.services.voice_stt import transcribe_audio
+    async def _parse_dental_text(self, text: str) -> dict[str, Any]:
+        """Parse dental dictation text into structured findings via NLP provider.
 
-        audio_bytes = await storage_client.download_file(key=s3_key)
-        return await transcribe_audio(audio_bytes)
-
-    async def _parse_dental_text(self, text: str) -> list[dict[str, Any]]:
-        """Parse dental dictation text into structured findings via NLP provider."""
+        Returns a dict with keys: findings, warnings, status.
+        C4: On NLP failure, returns status='failed' with a warning instead
+        of silently returning empty.
+        H2: Validates findings against odontogram constants.
+        """
         from app.services.voice_nlp import parse_dental_text
 
         try:
-            return await parse_dental_text(text, DENTAL_NLP_PROMPT)
+            raw_findings = await parse_dental_text(text, DENTAL_NLP_PROMPT)
         except Exception:
-            logger.exception("NLP parse failed, returning empty findings")
-            return []
+            logger.exception("NLP parse failed")
+            return {
+                "findings": [],
+                "warnings": ["NLP parse failed: el servicio de análisis no respondió"],
+                "status": "failed",
+            }
+
+        # H2: Validate findings
+        valid_findings, validation_warnings = _validate_findings(raw_findings)
+
+        if not raw_findings:
+            # NLP returned nothing
+            return {
+                "findings": [],
+                "warnings": validation_warnings,
+                "status": "partial",
+            }
+
+        if not valid_findings and raw_findings:
+            # NLP returned data but all was invalid
+            return {
+                "findings": [],
+                "warnings": validation_warnings,
+                "status": "partial",
+            }
+
+        status = "success" if valid_findings else "partial"
+        return {
+            "findings": valid_findings,
+            "warnings": validation_warnings,
+            "status": status,
+        }
 
 
 # Module-level singleton for dependency injection
