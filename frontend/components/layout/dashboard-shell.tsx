@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Sidebar, type UserRole } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { NotificationDrawer } from "@/components/notifications/notification-drawer";
+import { PatientSearchDialog } from "@/components/patients/patient-search-dialog";
 import { GlobalVoiceFab } from "@/components/voice/global-voice-fab";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -50,6 +51,19 @@ export function DashboardShell({
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [notificationDrawerOpen, setNotificationDrawerOpen] = React.useState(false);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+
+  // ─── ⌘K / Ctrl+K global shortcut ──────────────────────────────────────────
+  React.useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   function handleToggleCollapse() {
     setSidebarCollapsed((prev) => !prev);
@@ -84,7 +98,7 @@ export function DashboardShell({
           notificationCount={notificationCount}
           onMenuToggle={handleMenuToggle}
           onSignOut={onSignOut}
-          onSearchClick={onSearchClick}
+          onSearchClick={onSearchClick ?? (() => setSearchOpen(true))}
           onNotificationClick={() => setNotificationDrawerOpen(true)}
         />
 
@@ -95,6 +109,9 @@ export function DashboardShell({
           </div>
         </main>
       </div>
+
+      {/* Patient search dialog (⌘K) */}
+      <PatientSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
 
       {/* Notification drawer */}
       <NotificationDrawer

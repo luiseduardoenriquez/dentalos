@@ -176,15 +176,16 @@ export default function OdontogramPage() {
     }
   }, [odontogramSettings, planLimits, canUseAnatomic]);
 
-  // ── Mobile detection (< 640px) for anatomic guard ──────────────────
+  // ── Mobile detection (< 768px) for anatomic guard ──────────────────
   const [isMobile, setIsMobile] = React.useState(false);
   React.useEffect(() => {
-    function checkMobile() {
-      setIsMobile(window.innerWidth < 640);
+    const mql = window.matchMedia("(max-width: 767px)");
+    setIsMobile(mql.matches);
+    function onChange(e: MediaQueryListEvent) {
+      setIsMobile(e.matches);
     }
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
   }, []);
 
   // ── Derived state ─────────────────────────────────────────────────

@@ -4,7 +4,22 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Lock, Grid3X3, Bell, ChevronRight, Plug } from "lucide-react";
+import {
+  Lock,
+  Grid3X3,
+  Bell,
+  ChevronRight,
+  Plug,
+  CreditCard,
+  Mic,
+  UserCog,
+  CalendarCog,
+  Clock,
+  FileText,
+  Scale,
+  ScrollText,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +39,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
 import { useSettings, useUpdateSettings } from "@/lib/hooks/use-settings";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { cn } from "@/lib/utils";
@@ -111,6 +125,161 @@ function SettingsSkeleton() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── Settings Link Cards ─────────────────────────────────────────────────────
+
+interface SettingsLink {
+  href: string;
+  icon: LucideIcon;
+  label: string;
+  description: string;
+  ownerOnly?: boolean;
+}
+
+interface SettingsLinkGroup {
+  title: string;
+  links: SettingsLink[];
+}
+
+const SETTINGS_GROUPS: SettingsLinkGroup[] = [
+  {
+    title: "Plan y funcionalidades",
+    links: [
+      {
+        href: "/settings/subscription",
+        icon: CreditCard,
+        label: "Plan y uso",
+        description: "Plan actual, uso y complementos de IA",
+        ownerOnly: true,
+      },
+      {
+        href: "/settings/voice",
+        icon: Mic,
+        label: "IA Voz",
+        description: "Configuración del dictado por voz",
+        ownerOnly: true,
+      },
+    ],
+  },
+  {
+    title: "Equipo y agenda",
+    links: [
+      {
+        href: "/settings/team",
+        icon: UserCog,
+        label: "Equipo",
+        description: "Gestión de usuarios y roles del equipo",
+        ownerOnly: true,
+      },
+      {
+        href: "/settings/schedule",
+        icon: CalendarCog,
+        label: "Agenda",
+        description: "Horarios de atención y configuración de citas",
+      },
+      {
+        href: "/settings/reminders",
+        icon: Clock,
+        label: "Recordatorios",
+        description: "Recordatorios automáticos para pacientes",
+      },
+    ],
+  },
+  {
+    title: "Clínica",
+    links: [
+      {
+        href: "/settings/odontogram",
+        icon: Grid3X3,
+        label: "Odontograma",
+        description: "Modo de vista, zoom predeterminado y colores de condiciones",
+      },
+      {
+        href: "/settings/consent-templates",
+        icon: FileText,
+        label: "Consentimientos",
+        description: "Plantillas de consentimiento informado",
+      },
+      {
+        href: "/settings/compliance",
+        icon: Scale,
+        label: "Cumplimiento",
+        description: "Resolución 1888, RIPS y normativa",
+        ownerOnly: true,
+      },
+    ],
+  },
+  {
+    title: "Sistema",
+    links: [
+      {
+        href: "/settings/notificaciones",
+        icon: Bell,
+        label: "Notificaciones",
+        description: "Preferencias de canales por tipo de notificación",
+      },
+      {
+        href: "/settings/integraciones",
+        icon: Plug,
+        label: "Integraciones",
+        description: "WhatsApp, Google Calendar, Mercado Pago y más",
+      },
+      {
+        href: "/settings/audit-log",
+        icon: ScrollText,
+        label: "Auditoría",
+        description: "Registro de actividad y cambios",
+        ownerOnly: true,
+      },
+    ],
+  },
+];
+
+const linkCardClasses = cn(
+  "flex items-center gap-4 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4",
+  "hover:bg-[hsl(var(--muted))]/50 hover:border-primary-300 dark:hover:border-primary-700",
+  "transition-colors duration-150 group",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600",
+);
+
+function SettingsLinkGrid({ isOwner }: { isOwner: boolean }) {
+  return (
+    <div className="space-y-6">
+      {SETTINGS_GROUPS.map((group) => {
+        const visibleLinks = group.links.filter(
+          (link) => !link.ownerOnly || isOwner,
+        );
+        if (visibleLinks.length === 0) return null;
+
+        return (
+          <div key={group.title} className="space-y-3">
+            <h2 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide">
+              {group.title}
+            </h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {visibleLinks.map((link) => (
+                <Link key={link.href} href={link.href} className={linkCardClasses}>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary-100 dark:bg-primary-900/30">
+                    <link.icon className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground leading-none">
+                      {link.label}
+                    </p>
+                    <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))] truncate">
+                      {link.description}
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))] group-hover:text-foreground transition-colors" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -328,84 +497,7 @@ export default function ClinicSettingsPage() {
       </form>
 
       {/* ─── Other settings sections ─────────────────────────────────────── */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide">
-          Otras configuraciones
-        </h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {/* Odontogram settings link card */}
-          <Link
-            href="/settings/odontogram"
-            className={cn(
-              "flex items-center gap-4 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4",
-              "hover:bg-[hsl(var(--muted))]/50 hover:border-primary-300 dark:hover:border-primary-700",
-              "transition-colors duration-150 group",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600",
-            )}
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary-100 dark:bg-primary-900/30">
-              <Grid3X3 className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground leading-none">
-                Odontograma
-              </p>
-              <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))] truncate">
-                Modo de vista, zoom predeterminado y colores de condiciones
-              </p>
-            </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))] group-hover:text-foreground transition-colors" />
-          </Link>
-
-          {/* Notification preferences link card */}
-          <Link
-            href="/settings/notificaciones"
-            className={cn(
-              "flex items-center gap-4 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4",
-              "hover:bg-[hsl(var(--muted))]/50 hover:border-primary-300 dark:hover:border-primary-700",
-              "transition-colors duration-150 group",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600",
-            )}
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary-100 dark:bg-primary-900/30">
-              <Bell className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground leading-none">
-                Notificaciones
-              </p>
-              <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))] truncate">
-                Preferencias de canales por tipo de notificación
-              </p>
-            </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))] group-hover:text-foreground transition-colors" />
-          </Link>
-
-          {/* Integrations settings link card */}
-          <Link
-            href="/settings/integraciones"
-            className={cn(
-              "flex items-center gap-4 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4",
-              "hover:bg-[hsl(var(--muted))]/50 hover:border-primary-300 dark:hover:border-primary-700",
-              "transition-colors duration-150 group",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600",
-            )}
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary-100 dark:bg-primary-900/30">
-              <Plug className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground leading-none">
-                Integraciones
-              </p>
-              <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))] truncate">
-                WhatsApp, Google Calendar, Mercado Pago y más
-              </p>
-            </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))] group-hover:text-foreground transition-colors" />
-          </Link>
-        </div>
-      </div>
+      <SettingsLinkGrid isOwner={isOwner} />
     </div>
   );
 }

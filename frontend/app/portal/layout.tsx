@@ -61,7 +61,7 @@ function PortalNavbar({
         <div className="flex items-center gap-3">
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="md:hidden p-2 rounded-md hover:bg-slate-100 dark:hover:bg-zinc-800"
+            className="md:hidden p-2 rounded-md hover:bg-slate-100 dark:hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-primary-300 focus-visible:ring-offset-2"
             aria-label="Abrir menú"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,7 +98,7 @@ function PortalNavbar({
             className="absolute inset-0 bg-black/50"
             onClick={() => setMenuOpen(false)}
           />
-          <nav className="absolute left-0 top-0 h-full w-64 bg-[hsl(var(--background))] border-r border-[hsl(var(--border))] p-4 space-y-1">
+          <nav className="absolute left-0 top-0 h-full w-64 bg-[hsl(var(--background))] border-r border-[hsl(var(--border))] p-4 space-y-1 overflow-y-auto">
             <div className="mb-4 pb-4 border-b border-[hsl(var(--border))]">
               <p className="text-sm font-semibold">{patientName}</p>
             </div>

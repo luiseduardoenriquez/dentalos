@@ -839,7 +839,7 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 - [x] Critical bug fixes (P0: data loss, security, crashes) — metrics endpoint auth gating, middleware route gaps, portal booking slot validation, treatment plan signature flow, async boto3 health check
 - [x] High-priority bug fixes (P1: workflow blockers) — dashboard link fix, portal error boundary move, portal error handling with retry, anthropic dependency
 - [x] UX improvements from clinical staff feedback — portal Link navigation, dark mode global-error, calendar AM/PM Spanish format, useStartAppointment body fix, not-found redirect logic
-- [ ] Mobile/tablet usability fixes
+- [x] Mobile/tablet usability fixes
 
 ### Additional Infrastructure
 

@@ -245,7 +245,7 @@ function WeekView({ weekStart, slots, onAppointmentClick, onSlotClick }: WeekVie
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex-1 overflow-auto min-w-[640px]">
       {/* Day headers */}
       <div className="sticky top-0 z-10 flex border-b border-[hsl(var(--border))] bg-[hsl(var(--background))]">
         {/* Gutter space matching time label width */}
@@ -516,6 +516,24 @@ function CalendarSkeleton() {
  *   onCreateClick={() => setCreateModalOpen(true)}
  * />
  */
+// ─── Mobile Detection Hook ────────────────────────────────────────────────────
+
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const mql = window.matchMedia("(max-width: 767px)");
+    setIsMobile(mql.matches);
+    function onChange(e: MediaQueryListEvent) {
+      setIsMobile(e.matches);
+    }
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  return isMobile;
+}
+
 export function Calendar({
   initialDate,
   doctor_id,
@@ -524,10 +542,18 @@ export function Calendar({
   onCreateClick,
   className,
 }: CalendarProps) {
+  const isMobile = useIsMobile();
   const [view, setView] = React.useState<CalendarView>("day");
   const [currentDate, setCurrentDate] = React.useState<Date>(
     initialDate ?? new Date(),
   );
+
+  // Auto-switch to day view on mobile (week view is unusable on phones)
+  React.useEffect(() => {
+    if (isMobile && view === "week") {
+      setView("day");
+    }
+  }, [isMobile, view]);
 
   const { from, to } = getDateRange(view, currentDate);
 
@@ -557,12 +583,35 @@ export function Calendar({
 
   const headerLabel = formatHeaderLabel(view, currentDate);
 
+  // ── Touch swipe navigation ──────────────────────────────────────
+  const touchStartX = React.useRef<number | null>(null);
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const delta = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(delta) < 50) return; // ignore small swipes
+    if (delta > 0) {
+      handlePrev();
+    } else {
+      handleNext();
+    }
+  }
+
   if (isLoading) {
     return <CalendarSkeleton />;
   }
 
   return (
-    <div className={cn("flex flex-col h-full gap-0", className)}>
+    <div
+      className={cn("flex flex-col h-full gap-0", className)}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* ─── Toolbar ────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[hsl(var(--border))]">
         {/* Navigation */}
@@ -607,12 +656,14 @@ export function Calendar({
                   Día
                 </span>
               </SelectItem>
-              <SelectItem value="week">
-                <span className="flex items-center gap-1.5">
-                  <CalendarDays className="h-3.5 w-3.5" />
-                  Semana
-                </span>
-              </SelectItem>
+              {!isMobile && (
+                <SelectItem value="week">
+                  <span className="flex items-center gap-1.5">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    Semana
+                  </span>
+                </SelectItem>
+              )}
               <SelectItem value="month">
                 <span className="flex items-center gap-1.5">
                   <CalendarDays className="h-3.5 w-3.5" />
