@@ -85,10 +85,10 @@ class PortalDataService:
             .outerjoin(User, Appointment.doctor_id == User.id)
             .where(
                 Appointment.patient_id == pid,
-                Appointment.scheduled_at > datetime.now(UTC),
+                Appointment.start_time > datetime.now(UTC),
                 Appointment.status.in_(["confirmed", "pending"]),
             )
-            .order_by(Appointment.scheduled_at.asc())
+            .order_by(Appointment.start_time.asc())
             .limit(1)
         )
         row = appt_result.first()
@@ -96,22 +96,22 @@ class PortalDataService:
             appt, doctor = row
             next_appt = {
                 "id": str(appt.id),
-                "scheduled_at": appt.scheduled_at,
+                "scheduled_at": appt.start_time,
                 "duration_minutes": appt.duration_minutes,
                 "status": appt.status,
-                "appointment_type": appt.appointment_type if hasattr(appt, "appointment_type") else None,
+                "appointment_type": appt.type if hasattr(appt, "type") else None,
                 "doctor_name": doctor.name if doctor else "Sin asignar",
                 "doctor_specialty": None,
-                "notes_for_patient": appt.notes if hasattr(appt, "notes") else None,
+                "notes_for_patient": appt.completion_notes if hasattr(appt, "completion_notes") else None,
             }
 
         # Get outstanding balance from invoices
         balance_result = await db.execute(
             select(
-                func.coalesce(func.sum(Invoice.total_amount - Invoice.paid_amount), 0)
+                func.coalesce(func.sum(Invoice.balance), 0)
             ).where(
                 Invoice.patient_id == pid,
-                Invoice.status.in_(["pending", "partial"]),
+                Invoice.status.in_(["sent", "partial", "overdue"]),
             )
         )
         outstanding = balance_result.scalar_one()
@@ -155,10 +155,10 @@ class PortalDataService:
         conditions = [Appointment.patient_id == pid]
 
         if view == "upcoming":
-            conditions.append(Appointment.scheduled_at > datetime.now(UTC))
+            conditions.append(Appointment.start_time > datetime.now(UTC))
             conditions.append(Appointment.status.in_(["confirmed", "pending"]))
         elif view == "past":
-            conditions.append(Appointment.scheduled_at <= datetime.now(UTC))
+            conditions.append(Appointment.start_time <= datetime.now(UTC))
 
         if status:
             conditions.append(Appointment.status == status)
@@ -167,9 +167,9 @@ class PortalDataService:
             cursor_dt, cursor_id = _decode_cursor(cursor)
             conditions.append(
                 or_(
-                    Appointment.scheduled_at < cursor_dt,
+                    Appointment.start_time < cursor_dt,
                     and_(
-                        Appointment.scheduled_at == cursor_dt,
+                        Appointment.start_time == cursor_dt,
                         Appointment.id < cursor_id,
                     ),
                 )
@@ -180,7 +180,7 @@ class PortalDataService:
                 select(Appointment, User)
                 .outerjoin(User, Appointment.doctor_id == User.id)
                 .where(*conditions)
-                .order_by(Appointment.scheduled_at.desc(), Appointment.id.desc())
+                .order_by(Appointment.start_time.desc(), Appointment.id.desc())
                 .limit(limit + 1)
             )
         ).all()
@@ -191,16 +191,16 @@ class PortalDataService:
         next_cursor = None
         if has_more and items:
             last_appt = items[-1][0]
-            next_cursor = _encode_cursor(last_appt.scheduled_at, last_appt.id)
+            next_cursor = _encode_cursor(last_appt.start_time, last_appt.id)
 
         data = []
         for appt, doctor in items:
             data.append({
                 "id": str(appt.id),
-                "scheduled_at": appt.scheduled_at,
+                "scheduled_at": appt.start_time,
                 "duration_minutes": appt.duration_minutes,
                 "status": appt.status,
-                "appointment_type": appt.appointment_type if hasattr(appt, "appointment_type") else None,
+                "appointment_type": appt.type if hasattr(appt, "type") else None,
                 "doctor_name": doctor.name if doctor else "Sin asignar",
                 "doctor_specialty": None,
                 "notes_for_patient": appt.notes if hasattr(appt, "notes") else None,
