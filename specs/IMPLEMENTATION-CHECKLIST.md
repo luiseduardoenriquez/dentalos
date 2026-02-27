@@ -761,6 +761,18 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 - [x] **AD-06** `GET /api/v1/admin/health` -- System health dashboard
 - [x] **AD-07** `POST .../admin/tenants/{tenant_id}/impersonate` -- Tenant impersonation
 
+### Frontend: Admin Panel (FE-AD-01 through FE-AD-07)
+
+- [x] **FE-AD-00** Admin layout, auth guard, sidebar, admin API client, admin auth hooks
+- [x] **FE-AD-01** Admin login page (email + password + TOTP, rate limit warning)
+- [x] **FE-AD-02** Admin dashboard (platform metrics, system health summary, top tenants)
+- [x] **FE-AD-03** Tenants list page (search, filter by plan/status, pagination, metrics per tenant)
+- [x] **FE-AD-04** Tenant detail page (overview, users, usage, impersonate modal AD-07)
+- [x] **FE-AD-05** Plans management page (plan cards, edit modal with limits/features/pricing)
+- [x] **FE-AD-06** Feature flags page (flag list, edit modal with scope/plan/tenant targeting)
+- [x] **FE-AD-07** System health page (component cards: DB, Redis, RabbitMQ, Storage, App)
+- [x] **FE-AD-08** Platform analytics page (MRR trends, churn, signups, distributions)
+
 ### Email Templates
 
 - [x] **E-16** Daily clinic summary email
