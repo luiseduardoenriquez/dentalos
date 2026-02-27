@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useCreateAppointment } from "@/lib/hooks/use-appointments";
 import { useSearchPatients, type PatientSearchResult } from "@/lib/hooks/use-patients";
+import { useUsers } from "@/lib/hooks/use-users";
 import {
   appointmentCreateSchema,
   type AppointmentCreateForm,
@@ -113,6 +114,16 @@ function AppointmentCreateModal({
   const { mutate: createAppointment, isPending } = useCreateAppointment();
   const { data: searchResults = [], isLoading: isSearching } =
     useSearchPatients(patientQuery);
+
+  // Fetch doctors from the tenant's users when none are passed via props
+  const { data: usersData } = useUsers({ page: 1, page_size: 100 });
+  const resolvedDoctors = React.useMemo(() => {
+    if (doctors.length > 0) return doctors;
+    if (!usersData?.items) return [];
+    return usersData.items
+      .filter((u) => (u.role === "doctor" || u.role === "clinic_owner") && u.is_active)
+      .map((u) => ({ id: u.id, full_name: u.name }));
+  }, [doctors, usersData]);
 
   // ─── Form ─────────────────────────────────────────────────────────────────
   const {
@@ -257,7 +268,7 @@ function AppointmentCreateModal({
   }
 
   function get_doctor_name(doctorId: string): string {
-    return doctors.find((d) => d.id === doctorId)?.full_name ?? doctorId;
+    return resolvedDoctors.find((d) => d.id === doctorId)?.full_name ?? doctorId;
   }
 
   // ─── Step validation before advancing ────────────────────────────────────
@@ -267,7 +278,7 @@ function AppointmentCreateModal({
   }
 
   function can_advance_step_2(): boolean {
-    if (!watchedDoctorId && doctors.length > 0) return false;
+    if (!watchedDoctorId && resolvedDoctors.length > 0) return false;
     if (!watchedScheduledAt) return false;
     const d = new Date(watchedScheduledAt);
     return !isNaN(d.getTime()) && d > new Date();
@@ -522,8 +533,8 @@ function AppointmentCreateModal({
             {step === 2 && (
               <div className="space-y-5">
 
-                {/* Doctor select — shown only when doctors are provided */}
-                {doctors.length > 0 && (
+                {/* Doctor select — shown only when doctors are available */}
+                {resolvedDoctors.length > 0 && (
                   <div className="space-y-2">
                     <Label
                       htmlFor="doctor_id"
@@ -545,7 +556,7 @@ function AppointmentCreateModal({
                             <SelectValue placeholder="Selecciona un doctor" />
                           </SelectTrigger>
                           <SelectContent>
-                            {doctors.map((d) => (
+                            {resolvedDoctors.map((d) => (
                               <SelectItem key={d.id} value={d.id}>
                                 {d.full_name}
                               </SelectItem>
@@ -637,7 +648,7 @@ function AppointmentCreateModal({
                       </span>
                     </div>
 
-                    {doctors.length > 0 && watchedDoctorId && (
+                    {resolvedDoctors.length > 0 && watchedDoctorId && (
                       <div className="flex items-center justify-between gap-4">
                         <span className="text-[hsl(var(--muted-foreground))]">Doctor</span>
                         <span className="font-medium text-right">

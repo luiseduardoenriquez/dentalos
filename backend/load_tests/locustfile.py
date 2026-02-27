@@ -41,6 +41,7 @@ from load_tests.scenarios.appointment_scenario import (  # noqa: F401
     ConflictBookingUser,
     NormalAppointmentUser,
     setup_conflict_test,
+    signal_conflict_ready,
 )
 from load_tests.scenarios.billing_scenario import OwnerUser  # noqa: F401
 from load_tests.scenarios.health_scenario import MonitorUser  # noqa: F401
@@ -79,6 +80,13 @@ def on_test_start(environment, **kwargs):
             num_vus, doctor_id[:8],
         )
         setup_conflict_test(num_vus, doctor_id, patient_ids)
+
+
+@events.spawning_complete.add_listener
+def on_spawning_complete(user_count, **kwargs):
+    """Signal conflict VUs to fire once all users have spawned."""
+    logger.info("All %d VUs spawned — signaling conflict test to fire", user_count)
+    signal_conflict_ready()
 
 
 # ─── Threshold Validation on Test Stop ──────────────────

@@ -240,8 +240,12 @@ export function useSearchPatients(query: string, debounceMs = 300) {
 
   return useQuery({
     queryKey: patientSearchQueryKey(debouncedQuery),
-    queryFn: () =>
-      apiGet<PatientSearchResult[]>(`/patients/search${buildQueryString({ q: debouncedQuery })}`),
+    queryFn: async () => {
+      const res = await apiGet<{ data: PatientSearchResult[]; count: number }>(
+        `/patients/search${buildQueryString({ q: debouncedQuery })}`,
+      );
+      return res.data;
+    },
     enabled: isQueryValid,
     staleTime: 30_000,
     placeholderData: [],

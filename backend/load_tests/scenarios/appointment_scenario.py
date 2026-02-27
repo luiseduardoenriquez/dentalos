@@ -4,6 +4,7 @@ Normal mode: books appointments across future slots, spread across doctors.
 Conflict mode: 100 VUs all target same doctor+timeslot (expects 1x 201, rest 409).
 """
 
+import logging
 import threading
 
 from locust import between, constant, tag, task
@@ -17,6 +18,8 @@ from load_tests.utils.data_pool import (
     random_time_slot,
 )
 from load_tests.utils.token_pool import token_pool
+
+logger = logging.getLogger("dentalos.loadtest.conflict")
 
 
 class NormalAppointmentUser(DentalOSUser):
@@ -56,16 +59,18 @@ class NormalAppointmentUser(DentalOSUser):
 # ─── Conflict Booking Test ──────────────────────────────
 
 # Shared state for conflict test synchronization
-_conflict_barrier: threading.Barrier | None = None
 _conflict_slot: dict | None = None
+_conflict_num_vus: int = 0
+_conflict_completed: int = 0
 _conflict_results: dict = {"created": 0, "conflict": 0, "error": 0}
 _conflict_lock = threading.Lock()
+_conflict_ready = threading.Event()
 
 
 def setup_conflict_test(num_vus: int, doctor_id: str, patient_ids: list[str]) -> None:
     """Initialize shared state for the conflict test. Called from locustfile."""
-    global _conflict_barrier, _conflict_slot
-    _conflict_barrier = threading.Barrier(num_vus, timeout=30)
+    global _conflict_slot, _conflict_num_vus
+    _conflict_num_vus = num_vus
     _conflict_slot = {
         "doctor_id": doctor_id,
         "date": random_future_date(days_ahead_min=1, days_ahead_max=1),
@@ -74,6 +79,13 @@ def setup_conflict_test(num_vus: int, doctor_id: str, patient_ids: list[str]) ->
         "type": "consultation",
         "notes": "Conflict load test",
     }
+    # Signal will be set after a short delay in on_test_start to let VUs spawn
+    _conflict_ready.clear()
+
+
+def signal_conflict_ready() -> None:
+    """Signal all VUs to fire simultaneously. Called after spawn completes."""
+    _conflict_ready.set()
 
 
 class ConflictBookingUser(DentalOSUser):
@@ -88,22 +100,25 @@ class ConflictBookingUser(DentalOSUser):
     def on_start(self) -> None:
         self.creds = token_pool.get_staff()
         self._setup_headers(self.creds)
+        self._has_fired = False
 
     @tag("appointments", "conflict")
     @task
     def conflict_booking(self) -> None:
         """All VUs attempt to book the same slot simultaneously."""
-        global _conflict_results
+        global _conflict_completed
+
+        # Each VU fires exactly once
+        if self._has_fired:
+            return
 
         if not _conflict_slot or not self.creds.patient_ids:
             return
 
-        # Wait for all VUs to be ready
-        if _conflict_barrier:
-            try:
-                _conflict_barrier.wait()
-            except threading.BrokenBarrierError:
-                return
+        # Wait until all VUs have spawned (signal from locustfile)
+        _conflict_ready.wait(timeout=60)
+
+        self._has_fired = True
 
         payload = {
             **_conflict_slot,
@@ -132,8 +147,19 @@ class ConflictBookingUser(DentalOSUser):
                 else:
                     response.failure(f"Unexpected status: {response.status_code}")
 
-        # Stop after one attempt — conflict test is a single-shot
-        self.environment.runner.quit()
+        # Track completions — last VU to finish stops the test
+        with _conflict_lock:
+            _conflict_completed += 1
+            done = _conflict_completed
+
+        if done >= _conflict_num_vus:
+            logger.info(
+                "Conflict test complete: created=%d, conflict=%d, error=%d",
+                _conflict_results["created"],
+                _conflict_results["conflict"],
+                _conflict_results["error"],
+            )
+            self.environment.runner.quit()
 
 
 def get_conflict_results() -> dict:
