@@ -178,6 +178,7 @@ def setup_sentry() -> None:
         import sentry_sdk
         from sentry_sdk.integrations.fastapi import FastApiIntegration
         from sentry_sdk.integrations.logging import LoggingIntegration
+        from sentry_sdk.integrations.redis import RedisIntegration
         from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
         sentry_sdk.init(
@@ -189,6 +190,7 @@ def setup_sentry() -> None:
             integrations=[
                 FastApiIntegration(transaction_style="endpoint"),
                 SqlalchemyIntegration(),
+                RedisIntegration(),
                 LoggingIntegration(
                     level=logging.WARNING,
                     event_level=logging.ERROR,

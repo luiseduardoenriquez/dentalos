@@ -11,7 +11,11 @@ from app.core.config import settings
 from app.core.database import engine
 from app.core.exception_handlers import register_exception_handlers
 from app.core.logging_config import setup_logging
-from app.core.middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
+from app.core.middleware import (
+    MetricsMiddleware,
+    RequestLoggingMiddleware,
+    SecurityHeadersMiddleware,
+)
 from app.core.pdf import shutdown_pdf_engine
 from app.core.queue import close_rabbitmq, connect_rabbitmq
 from app.core.rate_limit import GlobalRateLimitMiddleware
@@ -54,6 +58,7 @@ app = FastAPI(
 # Middleware stack (order matters: outermost runs first on request, last on response)
 # Added in reverse order: last add_middleware = outermost
 app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(MetricsMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,

@@ -72,19 +72,19 @@ function endOfMonth(date: Date): Date {
 }
 
 function getDayRange(date: Date): { from: string; to: string } {
-  return { from: toISODate(date), to: toISODate(date) };
+  return { from: toISODate(date), to: toISODate(date) + "T23:59:59" };
 }
 
 function getWeekRange(date: Date): { from: string; to: string } {
   const mon = startOfWeek(date);
   const sun = addDays(mon, 6);
-  return { from: toISODate(mon), to: toISODate(sun) };
+  return { from: toISODate(mon), to: toISODate(sun) + "T23:59:59" };
 }
 
 function getMonthRange(date: Date): { from: string; to: string } {
   return {
     from: toISODate(startOfMonth(date)),
-    to: toISODate(endOfMonth(date)),
+    to: toISODate(endOfMonth(date)) + "T23:59:59",
   };
 }
 
@@ -94,10 +94,16 @@ function getDateRange(view: CalendarView, date: Date): { from: string; to: strin
   return getMonthRange(date);
 }
 
-function getNavigationDelta(view: CalendarView): number {
-  if (view === "day") return 1;
-  if (view === "week") return 7;
-  return 30; // month — approximate
+function addMonths(date: Date, months: number): Date {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + months);
+  return d;
+}
+
+function navigateDate(view: CalendarView, date: Date, direction: 1 | -1): Date {
+  if (view === "day") return addDays(date, direction);
+  if (view === "week") return addDays(date, direction * 7);
+  return addMonths(date, direction);
 }
 
 function formatHeaderLabel(view: CalendarView, date: Date): string {
@@ -538,13 +544,11 @@ export function Calendar({
   }, [calendar_data]);
 
   function handlePrev() {
-    const delta = getNavigationDelta(view);
-    setCurrentDate((d) => addDays(d, -delta));
+    setCurrentDate((d) => navigateDate(view, d, -1));
   }
 
   function handleNext() {
-    const delta = getNavigationDelta(view);
-    setCurrentDate((d) => addDays(d, delta));
+    setCurrentDate((d) => navigateDate(view, d, 1));
   }
 
   function handleToday() {

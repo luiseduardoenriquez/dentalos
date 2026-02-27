@@ -94,6 +94,11 @@ class Settings(BaseSettings):
     sentry_traces_sample_rate: float = 0.0
     sentry_environment: str = "development"
 
+    # ─── Monitoring ────────────────────────────────────
+    prometheus_enabled: bool = True
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+
     # ─── MATIAS / DIAN E-Invoicing ────────────────────
     matias_client_id: str = ""
     matias_secret: str = ""

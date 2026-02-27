@@ -280,7 +280,7 @@ export function useConfirmAppointment() {
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiPost<Appointment>(`/appointments/${id}/confirm`),
+      apiPost<Appointment>(`/appointments/${id}/confirm`, {}),
     onSuccess: (appointment) => {
       queryClient.invalidateQueries({ queryKey: appointmentKey(appointment.id) });
       queryClient.invalidateQueries({ queryKey: APPOINTMENTS_KEY });
@@ -344,7 +344,7 @@ export function useCompleteAppointment() {
 
   return useMutation({
     mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
-      apiPost<Appointment>(`/appointments/${id}/complete`, { notes }),
+      apiPost<Appointment>(`/appointments/${id}/complete`, { completion_notes: notes }),
     onSuccess: (appointment) => {
       queryClient.invalidateQueries({ queryKey: appointmentKey(appointment.id) });
       queryClient.invalidateQueries({ queryKey: APPOINTMENTS_KEY });
@@ -376,7 +376,7 @@ export function useNoShow() {
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiPost<Appointment>(`/appointments/${id}/no-show`),
+      apiPost<Appointment>(`/appointments/${id}/no-show`, {}),
     onSuccess: (appointment) => {
       queryClient.invalidateQueries({ queryKey: appointmentKey(appointment.id) });
       queryClient.invalidateQueries({ queryKey: APPOINTMENTS_KEY });

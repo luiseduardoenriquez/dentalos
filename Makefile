@@ -9,6 +9,7 @@
         test test-unit test-integration test-cov \
         lint format typecheck quality \
         load-seed load-test load-test-ui load-test-conflict load-test-pool \
+        monitoring monitoring-stop \
         clean
 
 # ─── Help ─────────────────────────────────────────────
@@ -139,6 +140,16 @@ load-test-pool: ## Run DB connection pool stress test
 	cd backend && LOCUST_SHAPE=pool_stress uv run locust -f load_tests/locustfile.py PoolStressUser \
 		--headless -t 5m \
 		--html load_tests/reports/pool_stress_$$(date +%Y%m%d_%H%M%S).html
+
+# ─── Monitoring ──────────────────────────────────
+monitoring: ## Start monitoring stack (Prometheus + Grafana)
+	docker compose --profile monitoring up -d
+	@echo "Monitoring started:"
+	@echo "  Prometheus:    http://localhost:9090"
+	@echo "  Grafana:       http://localhost:3001  (admin/dentalos)"
+
+monitoring-stop: ## Stop monitoring stack
+	docker compose --profile monitoring down
 
 # ─── Cleanup ─────────────────────────────────────────
 clean: ## Remove generated files, caches, volumes

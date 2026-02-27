@@ -861,13 +861,13 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 
 ### Monitoring and Alerting
 
-- [ ] Sentry error tracking (backend + frontend)
-- [ ] Uptime monitoring (health check endpoints)
-- [ ] Database performance monitoring
-- [ ] Queue depth alerting (RabbitMQ)
-- [ ] Disk space and resource utilization alerts
-- [ ] Custom business metrics dashboard (tenant count, active users, appointments/day)
-- [ ] On-call rotation and incident response runbook
+- [x] Sentry error tracking (backend + frontend)
+- [x] Uptime monitoring (health check endpoints)
+- [x] Database performance monitoring
+- [x] Queue depth alerting (RabbitMQ)
+- [x] Disk space and resource utilization alerts
+- [x] Custom business metrics dashboard (tenant count, active users, appointments/day)
+- [x] On-call rotation and incident response runbook
 
 ### Documentation
 

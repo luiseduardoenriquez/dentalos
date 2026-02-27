@@ -7,7 +7,7 @@ LOGGING_CONFIG: dict[str, Any] = {
     "formatters": {
         "json": {
             "class": "pythonjsonlogger.jsonlogger.JsonFormatter",
-            "format": "%(asctime)s %(name)s %(levelname)s %(message)s",
+            "format": "%(asctime)s %(name)s %(levelname)s %(message)s %(tenant_id)s %(user_id)s",
             "datefmt": "%Y-%m-%dT%H:%M:%S%z",
         },
     },

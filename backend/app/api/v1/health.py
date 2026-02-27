@@ -1,20 +1,25 @@
 import logging
+import platform
 import time
 
 import aio_pika
 import boto3
 from botocore.exceptions import ClientError
 from fastapi import APIRouter
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from prometheus_client import generate_latest
 from sqlalchemy import text
 
 from app.core.config import settings
 from app.core.database import engine
+from app.core.metrics import REGISTRY, update_db_pool_stats
 from app.core.redis import redis_client
 
 logger = logging.getLogger("dentalos.health")
 
 router = APIRouter(tags=["health"])
+
+_start_time = time.time()
 
 
 @router.get("/health")
@@ -64,6 +69,15 @@ async def health_check() -> JSONResponse:
         logger.warning("Health check: minio unreachable")
         checks["minio"] = {"status": "degraded"}
 
+    # Collect DB pool stats for both health response and Prometheus
+    pool = engine.pool
+    pool_status = pool.status()
+    pool_size = pool.size()
+    pool_checked_in = pool.checkedin()
+    pool_checked_out = pool.checkedout()
+    pool_overflow = pool.overflow()
+    update_db_pool_stats(pool_checked_in, pool_checked_out, pool_overflow)
+
     duration_ms = round((time.time() - start) * 1000)
     is_healthy = checks["postgres"]["status"] == "healthy"
 
@@ -71,8 +85,33 @@ async def health_check() -> JSONResponse:
         content={
             "status": "healthy" if is_healthy else "degraded",
             "version": settings.app_version,
+            "environment": settings.environment,
+            "hostname": platform.node(),
+            "uptime_seconds": round(time.time() - _start_time),
             "services": checks,
+            "pool": {
+                "size": pool_size,
+                "checked_in": pool_checked_in,
+                "checked_out": pool_checked_out,
+                "overflow": pool_overflow,
+                "status": pool_status,
+            },
             "duration_ms": duration_ms,
         },
         status_code=200 if is_healthy else 503,
+    )
+
+
+@router.get("/metrics", include_in_schema=False)
+async def prometheus_metrics() -> PlainTextResponse:
+    """Prometheus metrics endpoint for scraping. No auth required (internal)."""
+    # Update DB pool stats on each scrape
+    pool_checked_in = engine.pool.checkedin()
+    pool_checked_out = engine.pool.checkedout()
+    pool_overflow = engine.pool.overflow()
+    update_db_pool_stats(pool_checked_in, pool_checked_out, pool_overflow)
+
+    return PlainTextResponse(
+        content=generate_latest(REGISTRY),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
     )
