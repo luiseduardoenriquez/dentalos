@@ -29,20 +29,7 @@ def upgrade() -> None:
         sa.Column('unit', sa.String(10), nullable=False, server_default='units'),
         sa.Column('lot_number', sa.String(100), nullable=True),
         sa.Column('expiry_date', sa.Date(), nullable=True),
-        sa.Column(
-            'expiry_status',
-            sa.String(10),
-            sa.Computed(
-                "CASE "
-                "WHEN expiry_date IS NULL THEN 'ok' "
-                "WHEN expiry_date < CURRENT_DATE THEN 'expired' "
-                "WHEN expiry_date < CURRENT_DATE + INTERVAL '30 days' THEN 'critical' "
-                "WHEN expiry_date < CURRENT_DATE + INTERVAL '90 days' THEN 'warning' "
-                "ELSE 'ok' END",
-                persisted=True,
-            ),
-            nullable=True,
-        ),
+        sa.Column('expiry_status', sa.String(10), nullable=True, server_default='ok'),
         sa.Column('manufacturer', sa.String(200), nullable=True),
         sa.Column('supplier', sa.String(200), nullable=True),
         sa.Column('cost_per_unit', sa.Integer(), nullable=True),

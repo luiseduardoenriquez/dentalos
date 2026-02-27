@@ -8,6 +8,7 @@
         backend frontend worker \
         test test-unit test-integration test-cov \
         lint format typecheck quality \
+        load-seed load-test load-test-ui load-test-conflict load-test-pool \
         clean
 
 # ─── Help ─────────────────────────────────────────────
@@ -115,6 +116,29 @@ typecheck: ## Run mypy type checker on backend
 	cd backend && uv run mypy app/
 
 quality: lint typecheck ## Run all quality checks (lint + typecheck)
+
+# ─── Load Testing ───────────────────────────────────
+load-seed: ## Seed load test data (10 tenants, 2500 patients)
+	cd backend && uv run python -m load_tests.seed_load
+
+load-test: ## Run 500-user load test for 30 min (headless)
+	cd backend && uv run locust -f load_tests/locustfile.py \
+		--headless -u 500 -r 25 -t 30m \
+		--html load_tests/reports/report_$$(date +%Y%m%d_%H%M%S).html \
+		--csv load_tests/reports/stats
+
+load-test-ui: ## Run load test with web UI (localhost:8089)
+	cd backend && uv run locust -f load_tests/locustfile.py
+
+load-test-conflict: ## Run 100-concurrent appointment booking test
+	cd backend && uv run locust -f load_tests/locustfile.py ConflictBookingUser \
+		--headless -u 100 -r 100 -t 30s \
+		--html load_tests/reports/conflict_$$(date +%Y%m%d_%H%M%S).html
+
+load-test-pool: ## Run DB connection pool stress test
+	cd backend && uv run locust -f load_tests/locustfile.py PoolStressUser \
+		--headless -t 5m \
+		--html load_tests/reports/pool_stress_$$(date +%Y%m%d_%H%M%S).html
 
 # ─── Cleanup ─────────────────────────────────────────
 clean: ## Remove generated files, caches, volumes

@@ -52,6 +52,10 @@ docker-compose.override.yml
 # ─── JWT Keys ────────────────────────────────────────
 backend/keys/*.pem
 
+# ─── Load Testing ──────────────────────────────────────
+backend/load_tests/fixtures/seed_manifest.json
+backend/load_tests/reports/
+
 # ─── Misc ─────────────────────────────────────────────
 *.log
 *.bak

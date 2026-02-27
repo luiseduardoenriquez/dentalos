@@ -51,6 +51,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "compliance:read", "compliance:write",
         # Messages
         "messages:read", "messages:write",
+        # Notifications
+        "notifications:read", "notifications:write",
     }),
     "doctor": frozenset({
         "patients:read", "patients:write",
@@ -72,6 +74,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "photos:read", "photos:write",
         "analytics:read",
         "messages:read", "messages:write",
+        # Notifications
+        "notifications:read", "notifications:write",
         "inventory:read",
     }),
     "assistant": frozenset({
@@ -91,6 +95,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "signatures:read",
         "photos:read", "photos:write",
         "messages:read", "messages:write",
+        # Notifications
+        "notifications:read", "notifications:write",
         "inventory:read", "inventory:write",
     }),
     "receptionist": frozenset({
@@ -101,6 +107,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "billing:read", "billing:write",
         "quotations:read", "quotations:write",
         "messages:read", "messages:write",
+        # Notifications
+        "notifications:read", "notifications:write",
         "inventory:read",
     }),
     "patient": frozenset({
@@ -118,6 +126,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "signatures:read", "signatures:write",
         "photos:read",
         "messages:read", "messages:write",
+        # Notifications
+        "notifications:read", "notifications:write",
     }),
 }
 

@@ -818,12 +818,12 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 
 ### Load Testing
 
-- [ ] Load test: 500 concurrent users target
-- [ ] Load test: 100 concurrent appointment bookings
-- [ ] Load test: Odontogram bulk updates under load
-- [ ] Load test: Full-text search (patients, CIE-10, CUPS) under load
-- [ ] Database connection pool stress testing
-- [ ] RabbitMQ queue depth under sustained load
+- [x] Load test: 500 concurrent users target — Locust suite with 5 weighted scenarios (auth/patient/odontogram/appointment/billing) + health monitor; `make load-test` runs 500 VUs for 30min with p95 threshold validation
+- [x] Load test: 100 concurrent appointment bookings — ConflictBookingUser with threading.Barrier sync; `make load-test-conflict` verifies 1x 201 + 99x 409 + zero 500s
+- [x] Load test: Odontogram bulk updates under load — DoctorUser scenario (25% weight): 80% cached reads, 10% bulk writes (8 conditions), 10% single writes with post-write cache verification
+- [x] Load test: Full-text search (patients, CIE-10, CUPS) under load — ClinicalStaffUser scenario (40% weight): 50% search with 30 Colombian name prefixes, p95 threshold 150ms
+- [x] Database connection pool stress testing — PoolStressShape (10→25→35→50→10 VUs, 60s each) with zero wait_time; asserts 503 on pool saturation, not 500; `make load-test-pool`
+- [x] RabbitMQ queue depth under sustained load — MonitorUser polls RabbitMQ management API every 30s, fires custom Locust events for queue depth reporting, threshold < 500 messages
 
 ### Bug Fixes from Beta Feedback
 
