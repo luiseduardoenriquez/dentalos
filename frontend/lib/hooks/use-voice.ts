@@ -213,8 +213,14 @@ export function useParseTranscription() {
   const { success, error } = useToast();
 
   return useMutation({
-    mutationFn: (sessionId: string) =>
-      apiPost<ParseResponse>(`/voice/sessions/${sessionId}/parse`),
+    mutationFn: async (sessionId: string) => {
+      const { data } = await apiClient.post<ParseResponse>(
+        `/voice/sessions/${sessionId}/parse`,
+        null,
+        { timeout: 120_000 }, // 120s — NLP parse with local Ollama can take 30-60s
+      );
+      return data;
+    },
     onSuccess: (data) => {
       const count = data.findings.length;
       success(

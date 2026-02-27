@@ -74,24 +74,10 @@ class VoiceWorker(BaseWorker):
         try:
             from sqlalchemy import select
 
-            from app.core.database import AsyncSessionLocal
+            from app.core.database import get_tenant_session
             from app.core.storage import storage_client
-            from app.core.tenant import validate_schema_name
             from app.models.tenant.voice_session import VoiceTranscription
             from app.services.voice_stt import transcribe_audio
-
-            # Extract tenant schema for search_path
-            tenant_id = message.tenant_id
-            schema_name = f"tn_{tenant_id}" if not tenant_id.startswith("tn_") else tenant_id
-
-            # H6: Validate schema name before proceeding
-            if not validate_schema_name(schema_name):
-                logger.error(
-                    "Invalid schema name '%s' for tenant '%s' — skipping transcription",
-                    schema_name,
-                    tenant_id,
-                )
-                return
 
             # Download audio from S3 and transcribe
             audio_bytes = await storage_client.download_file(key=s3_key)
@@ -100,12 +86,7 @@ class VoiceWorker(BaseWorker):
             # M3: Convert transcription_id to UUID for proper comparison
             tid = uuid_mod.UUID(transcription_id)
 
-            async with AsyncSessionLocal() as db:
-                # Set tenant search_path
-                from sqlalchemy import text as sa_text
-
-                await db.execute(sa_text(f"SET search_path TO {schema_name}, public"))
-
+            async with get_tenant_session(message.tenant_id) as db:
                 result = await db.execute(
                     select(VoiceTranscription).where(
                         VoiceTranscription.id == tid
@@ -124,8 +105,6 @@ class VoiceWorker(BaseWorker):
                 transcription.text = text
                 # H8: Don't estimate duration from compressed bytes — set None
                 transcription.duration_seconds = None
-
-                await db.commit()
 
             logger.info(
                 "Voice transcription completed: id=%s tenant=%s",
@@ -149,35 +128,23 @@ class VoiceWorker(BaseWorker):
         try:
             from sqlalchemy import select
 
-            from app.core.database import AsyncSessionLocal
-            from app.core.tenant import validate_schema_name
+            from app.core.database import get_tenant_session
             from app.models.tenant.voice_session import VoiceTranscription
-
-            tenant_id = message.tenant_id
-            schema_name = f"tn_{tenant_id}" if not tenant_id.startswith("tn_") else tenant_id
-
-            if not validate_schema_name(schema_name):
-                return
 
             tid = uuid_mod.UUID(transcription_id)
 
-            async with AsyncSessionLocal() as db:
-                from sqlalchemy import text as sa_text
-
-                await db.execute(sa_text(f"SET search_path TO {schema_name}, public"))
-
+            async with get_tenant_session(message.tenant_id) as db:
                 result = await db.execute(
                     select(VoiceTranscription).where(VoiceTranscription.id == tid)
                 )
                 transcription = result.scalar_one_or_none()
                 if transcription is not None:
                     transcription.status = "failed"
-                    await db.commit()
 
-                logger.info(
-                    "Marked transcription as failed: id=%s",
-                    str(transcription_id)[:8],
-                )
+            logger.info(
+                "Marked transcription as failed: id=%s",
+                str(transcription_id)[:8],
+            )
         except Exception:
             logger.exception(
                 "Could not mark transcription as failed: id=%s",

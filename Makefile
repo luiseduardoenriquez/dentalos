@@ -88,7 +88,7 @@ frontend: ## Start Next.js dev server (port 3000)
 	cd frontend && npm run dev
 
 worker: ## Start RabbitMQ background worker
-	cd backend && uv run python -m app.worker.main
+	cd backend && uv run python -m app.workers.main
 
 # ─── Testing ─────────────────────────────────────────
 test: ## Run all backend tests

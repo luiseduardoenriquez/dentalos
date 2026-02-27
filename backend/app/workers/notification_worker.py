@@ -486,3 +486,7 @@ class NotificationWorker(BaseWorker):
             data=message.payload,
             message=message,
         )
+
+
+# Module-level instance for CLI entry point
+notification_worker = NotificationWorker()

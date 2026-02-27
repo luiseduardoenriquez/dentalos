@@ -29,6 +29,13 @@ ALLOWED_MIME_TYPES = frozenset({
     "application/dicom",
     "text/plain",
     "application/xml",
+    # Audio types for voice dictation pipeline
+    "audio/webm",
+    "audio/ogg",
+    "audio/wav",
+    "audio/mpeg",
+    "audio/mp4",
+    "video/webm",  # webm containers detected as video by python-magic
 })
 
 MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25MB
@@ -43,6 +50,9 @@ _MIME_ALIASES: dict[str, str] = {
     "image/pjpeg": "image/jpeg",
     "image/x-png": "image/png",
     "application/x-pdf": "application/pdf",
+    "video/webm": "audio/webm",  # webm audio detected as video container
+    "audio/x-wav": "audio/wav",
+    "audio/x-m4a": "audio/mp4",
 }
 
 
@@ -62,7 +72,13 @@ def verify_mime_type(data: bytes, claimed_type: str) -> bool:
     canonical_claimed = _MIME_ALIASES.get(claimed_type, claimed_type)
     canonical_detected = _MIME_ALIASES.get(detected, detected)
 
-    return canonical_claimed == canonical_detected
+    if canonical_claimed == canonical_detected:
+        return True
+
+    # python-magic often detects short audio chunks (webm, ogg) as
+    # application/octet-stream because the magic bytes are ambiguous.
+    # Trust the claimed type when it's an allowed audio MIME type.
+    return detected == "application/octet-stream" and canonical_claimed.startswith("audio/")
 
 
 class StorageClient:

@@ -289,6 +289,16 @@ function buildArchPositions(): ToothArchPosition[] {
   return positions;
 }
 
+/** Get the root count for a tooth by its FDI number */
+export function getToothRootCount(toothNumber: number): number {
+  return getToothTypeInfo(toothNumber).rootCount;
+}
+
+/** Get the tooth type classification by FDI number */
+export function getToothType(toothNumber: number): ToothType {
+  return getToothTypeInfo(toothNumber).type;
+}
+
 /** All 32 precomputed adult tooth positions for the anatomic arch view */
 export const TOOTH_ARCH_POSITIONS: readonly ToothArchPosition[] =
   buildArchPositions();

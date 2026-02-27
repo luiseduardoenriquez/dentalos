@@ -462,7 +462,13 @@ export function useToggleDentition() {
 export function useConditionsCatalog() {
   return useQuery({
     queryKey: conditionsCatalogKey,
-    queryFn: () => apiGet<CatalogCondition[]>("/catalog/conditions"),
+    queryFn: async () => {
+      const res = await apiGet<{ conditions: CatalogCondition[] } | CatalogCondition[]>(
+        "/catalog/conditions",
+      );
+      // Backend returns { conditions: [...] }, unwrap it
+      return Array.isArray(res) ? res : res.conditions;
+    },
     staleTime: Infinity, // static catalog — never refetch during a session
   });
 }

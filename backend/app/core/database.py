@@ -66,11 +66,24 @@ async def get_tenant_session(tenant_id: str) -> AsyncGenerator[AsyncSession, Non
     """Standalone async context manager for tenant-scoped DB sessions.
 
     Used by workers and background tasks that run outside FastAPI request scope.
-    Resolves the tenant schema from the tenant_id prefix (e.g., "tn_abc123").
+    Accepts either a schema name (e.g. "tn_demodent") or a raw tenant UUID.
+    When a UUID is provided, looks up the actual schema_name from public.tenants.
     """
-    schema = tenant_id if tenant_id.startswith("tn_") else f"tn_{tenant_id}"
-
     from app.core.tenant import validate_schema_name
+
+    if tenant_id.startswith("tn_") and validate_schema_name(tenant_id):
+        schema = tenant_id
+    else:
+        # Look up schema_name from public.tenants by UUID
+        async with AsyncSessionLocal() as lookup_session:
+            result = await lookup_session.execute(
+                text("SELECT schema_name FROM public.tenants WHERE id = :tid"),
+                {"tid": tenant_id},
+            )
+            row = result.scalar_one_or_none()
+            if row is None:
+                raise ValueError(f"Tenant not found: {tenant_id}")
+            schema = row
 
     if not validate_schema_name(schema):
         raise ValueError(f"Invalid tenant schema: {schema}")
