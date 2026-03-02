@@ -77,6 +77,11 @@ api_v1_router.include_router(invoices_router)
 api_v1_router.include_router(payments_router)
 api_v1_router.include_router(billing_summary_router)
 
+# Sprint 23-24: QR Payments (Nequi/Daviplata)
+from app.api.v1.billing.payment_qr_router import router as payment_qr_router
+
+api_v1_router.include_router(payment_qr_router)
+
 # Sprint 11-12: Notifications
 from app.api.v1.notifications.router import router as notifications_router
 
@@ -115,6 +120,29 @@ from app.api.v1.analytics.router import router as analytics_router
 
 api_v1_router.include_router(analytics_router)
 
+# Sprint 21-22: Patient Engagement & Revenue Acceleration
+from app.api.v1.memberships.router import router as memberships_router
+from app.api.v1.intake.router import router as intake_router
+from app.api.v1.intake.public_router import router as public_intake_router
+from app.api.v1.recall.router import router as recall_router
+
+api_v1_router.include_router(memberships_router)
+api_v1_router.include_router(intake_router)
+api_v1_router.include_router(public_intake_router)
+api_v1_router.include_router(recall_router)
+
+# Sprint 23-24: Verification Platform (VP-06 EPS, VP-07 RETHUS)
+from app.api.v1.patients.eps_router import router as eps_router
+from app.api.v1.users.rethus_router import router as rethus_router
+
+api_v1_router.include_router(eps_router)
+api_v1_router.include_router(rethus_router)
+
+# Sprint 23-24: Post-Op Instructions (VP-20)
+from app.api.v1.postop.router import router as postop_router
+
+api_v1_router.include_router(postop_router)
+
 # Sprint 17+: Webhooks (provider-authenticated, not JWT)
 from app.integrations.whatsapp.webhook_router import router as whatsapp_webhook_router
 
@@ -123,5 +151,31 @@ api_v1_router.include_router(whatsapp_webhook_router)
 from app.integrations.sms.webhook_router import router as twilio_webhook_router
 
 api_v1_router.include_router(twilio_webhook_router)
+
+# Sprint 25-26: Nequi + Daviplata QR payment webhooks (GAP-01)
+from app.integrations.nequi.webhook_router import router as nequi_webhook_router
+from app.integrations.daviplata.webhook_router import router as daviplata_webhook_router
+
+api_v1_router.include_router(nequi_webhook_router)
+api_v1_router.include_router(daviplata_webhook_router)
+
+# Sprint 23-24: GAP-02 Cash Register + GAP-03 Expenses
+from app.api.v1.cash_registers.router import router as cash_registers_router
+from app.api.v1.expenses.router import router as expenses_router
+
+api_v1_router.include_router(cash_registers_router)
+api_v1_router.include_router(expenses_router)
+
+# Sprint 23-24: VP-08 Patient Referral Program
+from app.api.v1.referral_program.router import router as referral_program_router
+from app.api.v1.portal.referral_router import router as portal_referral_router
+
+api_v1_router.include_router(referral_program_router)
+api_v1_router.include_router(portal_referral_router)
+
+# Sprint 23-24: GAP-05 + GAP-06 Staff Tasks (delinquency + acceptance follow-up)
+from app.api.v1.tasks.router import router as tasks_router
+
+api_v1_router.include_router(tasks_router)
 
 # Sprint 15-16: Admin (included at top of file for route priority)

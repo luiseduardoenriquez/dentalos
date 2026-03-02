@@ -45,6 +45,7 @@ from app.models.tenant.user_invite import UserInvite
 from app.models.tenant.user_session import UserSession
 from app.models.tenant.voice_session import VoiceParse, VoiceSession, VoiceTranscription
 from app.models.tenant.waitlist_entry import WaitlistEntry
+from app.models.tenant.intake_form import IntakeFormTemplate, IntakeSubmission
 from app.models.tenant.inventory import (
     InventoryItem,
     InventoryQuantityHistory,
@@ -52,6 +53,23 @@ from app.models.tenant.inventory import (
     SterilizationRecordInstrument,
     ImplantPlacement,
 )
+from app.models.tenant.membership import (
+    MembershipPlan,
+    MembershipSubscription,
+    MembershipUsageLog,
+)
+from app.models.tenant.eps_verification import EPSVerification
+from app.models.tenant.postop_template import PostopTemplate
+from app.models.tenant.recall_campaign import RecallCampaign, RecallCampaignRecipient
+
+from app.models.tenant.patient_referral_program import ReferralCode, ReferralReward
+
+# Sprint 23-24: GAP-02 Cash Register + GAP-03 Expenses
+from app.models.tenant.cash_register import CashMovement, CashRegister
+from app.models.tenant.expense import Expense, ExpenseCategory
+
+# Sprint 23-24: GAP-05 + GAP-06 Staff Tasks (delinquency + acceptance)
+from app.models.tenant.staff_task import StaffTask
 
 __all__ = [
     "AuditLog",
@@ -114,4 +132,23 @@ __all__ = [
     "SterilizationRecord",
     "SterilizationRecordInstrument",
     "ImplantPlacement",
+    "IntakeFormTemplate",
+    "IntakeSubmission",
+    "MembershipPlan",
+    "MembershipSubscription",
+    "MembershipUsageLog",
+    "EPSVerification",
+    "PostopTemplate",
+    "RecallCampaign",
+    "RecallCampaignRecipient",
+    # Sprint 23-24: VP-08 Patient Referral Program
+    "ReferralCode",
+    "ReferralReward",
+    # Sprint 23-24: GAP-02 + GAP-03
+    "CashRegister",
+    "CashMovement",
+    "ExpenseCategory",
+    "Expense",
+    # Sprint 23-24: GAP-05 + GAP-06
+    "StaffTask",
 ]

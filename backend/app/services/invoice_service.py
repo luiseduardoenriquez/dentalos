@@ -170,9 +170,23 @@ class InvoiceService:
                     "sort_order": idx,
                 })
 
+        # Sprint 21-22: Apply membership discount if patient has active membership
+        from app.services.membership_service import membership_service
+
+        membership_discount_pct, membership_sub_id = (
+            await membership_service.get_active_membership_discount(db=db, patient_id=pid)
+        )
+
         # Calculate totals
         subtotal = 0
+        total_membership_discount_cents = 0
         for ii in invoice_items:
+            # Apply membership discount on top of any existing per-item discount
+            if membership_discount_pct > 0:
+                base = ii["unit_price"] * ii["quantity"]
+                membership_disc = base * membership_discount_pct // 100
+                ii["discount"] = ii["discount"] + membership_disc
+                total_membership_discount_cents += membership_disc
             line_total = (ii["unit_price"] * ii["quantity"]) - ii["discount"]
             ii["line_total"] = max(line_total, 0)
             subtotal += ii["line_total"]
@@ -227,6 +241,32 @@ class InvoiceService:
 
         await db.flush()
         await db.refresh(invoice)
+
+        # Log membership usage if a discount was applied
+        if membership_sub_id and total_membership_discount_cents > 0:
+            await membership_service.log_usage(
+                db=db,
+                subscription_id=membership_sub_id,
+                invoice_id=invoice.id,
+                discount_applied_cents=total_membership_discount_cents,
+            )
+
+        # Sprint 23-24: Apply referral program discount (VP-08)
+        from app.services.referral_program_service import referral_program_service
+
+        referral_discount = await referral_program_service.apply_referral_discount(
+            db=db,
+            patient_id=patient_id,
+            invoice_id=invoice.id,
+            max_discount_cents=invoice.balance,
+        )
+        if referral_discount > 0:
+            invoice.total = max(invoice.total - referral_discount, 0)
+            invoice.balance = max(invoice.balance - referral_discount, 0)
+            if invoice.balance == 0:
+                invoice.status = "paid"
+            await db.flush()
+            await db.refresh(invoice)
 
         logger.info("Invoice created: number=%s patient=%s", invoice_number, patient_id[:8])
 

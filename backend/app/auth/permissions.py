@@ -53,6 +53,16 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "messages:read", "messages:write",
         # Notifications
         "notifications:read", "notifications:write",
+        # Sprint 21-22: Memberships, Intake, Recall
+        "memberships:read", "memberships:write",
+        "intake:read", "intake:write",
+        "recall:read", "recall:write",
+        # Sprint 23-24
+        "cash_register:read", "cash_register:write",
+        "expenses:read", "expenses:write",
+        "tasks:read", "tasks:write",
+        "postop:read", "postop:write",
+        "referral_program:read",
     }),
     "doctor": frozenset({
         "patients:read", "patients:write",
@@ -77,6 +87,11 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         # Notifications
         "notifications:read", "notifications:write",
         "inventory:read",
+        # Sprint 21-22
+        "memberships:read", "intake:read",
+        # Sprint 23-24
+        "postop:read", "postop:write",
+        "tasks:read",
     }),
     "assistant": frozenset({
         "patients:read", "patients:write",
@@ -98,6 +113,11 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         # Notifications
         "notifications:read", "notifications:write",
         "inventory:read", "inventory:write",
+        # Sprint 21-22
+        "memberships:read", "intake:read",
+        # Sprint 23-24
+        "postop:read", "postop:write",
+        "tasks:read",
     }),
     "receptionist": frozenset({
         "patients:read", "patients:write",
@@ -110,6 +130,14 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         # Notifications
         "notifications:read", "notifications:write",
         "inventory:read",
+        # Sprint 21-22
+        "memberships:read", "memberships:write",
+        "intake:read", "intake:write",
+        "recall:read", "recall:write",
+        # Sprint 23-24
+        "cash_register:read", "cash_register:write",
+        "expenses:read", "expenses:write",
+        "tasks:read", "tasks:write",
     }),
     "patient": frozenset({
         "patients:read",

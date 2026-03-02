@@ -135,6 +135,27 @@ async def list_portal_messages(
     return PortalMessageListResponse(**result)
 
 
+@router.get("/membership")
+async def get_portal_membership(
+    portal_user: PortalUser = Depends(get_current_portal_user),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> dict:
+    """Get the patient's active membership plan details."""
+    from app.services.membership_service import membership_service
+
+    discount, sub_id = await membership_service.get_active_membership_discount(
+        db=db, patient_id=portal_user.patient_id,
+    )
+    if sub_id is None:
+        return {"has_membership": False, "subscription": None}
+
+    subs = await membership_service.list_subscriptions(
+        db=db, patient_id=str(portal_user.patient_id), status="active",
+    )
+    subscription = subs["items"][0] if subs["items"] else None
+    return {"has_membership": True, "subscription": subscription}
+
+
 @router.get("/odontogram", response_model=PortalOdontogramResponse)
 async def get_portal_odontogram(
     portal_user: PortalUser = Depends(get_current_portal_user),

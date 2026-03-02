@@ -241,6 +241,93 @@ class ValidationErrors:
     REQUIRED_FIELD_MISSING = "VALIDATION_required_field_missing"
 
 
+class MembershipErrors:
+    """MEMBERSHIP domain — membership plan and subscription error codes."""
+
+    PLAN_NOT_FOUND = "MEMBERSHIP_plan_not_found"
+    ALREADY_SUBSCRIBED = "MEMBERSHIP_already_subscribed"
+    CANNOT_CANCEL = "MEMBERSHIP_cannot_cancel"
+    CANNOT_PAUSE = "MEMBERSHIP_cannot_pause"
+    SUBSCRIPTION_NOT_FOUND = "MEMBERSHIP_subscription_not_found"
+
+
+class IntakeErrors:
+    """INTAKE domain — intake form template and submission error codes."""
+
+    TEMPLATE_NOT_FOUND = "INTAKE_template_not_found"
+    SUBMISSION_NOT_FOUND = "INTAKE_submission_not_found"
+    ALREADY_APPROVED = "INTAKE_already_approved"
+    INVALID_SLUG = "INTAKE_invalid_slug"
+
+
+class RecallErrors:
+    """RECALL domain — recall campaign error codes."""
+
+    CAMPAIGN_NOT_FOUND = "RECALL_campaign_not_found"
+    ALREADY_ACTIVE = "RECALL_already_active"
+    ALREADY_PAUSED = "RECALL_already_paused"
+    CANNOT_ACTIVATE = "RECALL_cannot_activate"
+
+
+class EPSErrors:
+    """EPS domain — EPS insurance verification error codes."""
+
+    VERIFICATION_FAILED = "EPS_verification_failed"
+    NOT_FOUND = "EPS_not_found"
+    SERVICE_UNAVAILABLE = "EPS_service_unavailable"
+
+
+class RETHUSErrors:
+    """RETHUS domain — professional registry verification error codes."""
+
+    VERIFICATION_FAILED = "RETHUS_verification_failed"
+    NOT_FOUND = "RETHUS_not_found"
+    SERVICE_UNAVAILABLE = "RETHUS_service_unavailable"
+    ALREADY_VERIFIED = "RETHUS_already_verified"
+
+
+class ReferralProgramErrors:
+    """REFERRAL_PROGRAM domain — patient referral program error codes."""
+
+    CODE_NOT_FOUND = "REFERRAL_PROGRAM_code_not_found"
+    CODE_EXPIRED = "REFERRAL_PROGRAM_code_expired"
+    CODE_MAX_USES = "REFERRAL_PROGRAM_code_max_uses"
+    SELF_REFERRAL = "REFERRAL_PROGRAM_self_referral"
+    ALREADY_REFERRED = "REFERRAL_PROGRAM_already_referred"
+
+
+class CashRegisterErrors:
+    """CASH_REGISTER domain — cash register operation error codes."""
+
+    NOT_FOUND = "CASH_REGISTER_not_found"
+    ALREADY_OPEN = "CASH_REGISTER_already_open"
+    ALREADY_CLOSED = "CASH_REGISTER_already_closed"
+    NO_OPEN_REGISTER = "CASH_REGISTER_no_open_register"
+
+
+class ExpenseErrors:
+    """EXPENSE domain — expense tracking error codes."""
+
+    NOT_FOUND = "EXPENSE_not_found"
+    CATEGORY_NOT_FOUND = "EXPENSE_category_not_found"
+    ALREADY_DELETED = "EXPENSE_already_deleted"
+
+
+class TaskErrors:
+    """TASK domain — staff task error codes."""
+
+    NOT_FOUND = "TASK_not_found"
+    INVALID_STATUS_TRANSITION = "TASK_invalid_status_transition"
+    ALREADY_COMPLETED = "TASK_already_completed"
+
+
+class PostopErrors:
+    """POSTOP domain — post-operative instruction error codes."""
+
+    TEMPLATE_NOT_FOUND = "POSTOP_template_not_found"
+    SEND_FAILED = "POSTOP_send_failed"
+
+
 class SystemErrors:
     """SYSTEM domain — infrastructure, HTTP, and platform-level error codes."""
 

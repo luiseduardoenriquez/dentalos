@@ -10,7 +10,7 @@ class PaymentCreate(BaseModel):
 
     amount: int = Field(..., gt=0, description="Amount in cents (COP), must be > 0")
     payment_method: str = Field(
-        ..., pattern=r"^(cash|card|transfer|other)$"
+        ..., pattern=r"^(cash|card|transfer|nequi|daviplata|other)$"
     )
     reference_number: str | None = Field(default=None, max_length=100)
     notes: str | None = None

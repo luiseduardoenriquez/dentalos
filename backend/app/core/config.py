@@ -127,6 +127,27 @@ class Settings(BaseSettings):
     # ─── Mercado Pago ────────────────────────────────────
     mercadopago_access_token: str = ""
 
+    # ─── Nequi Mobile Wallet ────────────────────────────────
+    nequi_client_id: str = ""
+    nequi_client_secret: str = ""
+    nequi_api_key: str = ""
+    nequi_base_url: str = "https://api.sandbox.nequi.com"
+    nequi_webhook_secret: str = ""
+
+    # ─── Daviplata Mobile Wallet ────────────────────────────
+    daviplata_client_id: str = ""
+    daviplata_client_secret: str = ""
+    daviplata_base_url: str = "https://api.sandbox.daviplata.com"
+    daviplata_webhook_secret: str = ""
+
+    # ─── ADRES / BDUA (EPS Verification) ────────────────────
+    adres_api_url: str = "https://api.adres.gov.co"
+    adres_api_key: str = ""
+
+    # ─── RETHUS (Professional Registry) ─────────────────────
+    rethus_api_url: str = "https://www.datos.gov.co/resource"
+    rethus_app_token: str = ""
+
     # ─── Google Calendar ─────────────────────────────────
     google_client_id: str = ""
     google_client_secret: str = ""

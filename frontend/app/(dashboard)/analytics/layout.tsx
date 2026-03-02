@@ -10,6 +10,7 @@ const TABS = [
   { href: "/analytics/patients", label: "Pacientes" },
   { href: "/analytics/appointments", label: "Citas" },
   { href: "/analytics/revenue", label: "Ingresos" },
+  { href: "/analytics/profit-loss", label: "P&G" },
 ];
 
 export default function AnalyticsLayout({

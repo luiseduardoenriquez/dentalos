@@ -1,5 +1,6 @@
 """User management request/response schemas."""
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -24,6 +25,10 @@ class UserProfileResponse(BaseModel):
     email_verified: bool
     created_at: datetime
     updated_at: datetime
+    # RETHUS professional registry verification (Sprint 23-24)
+    rethus_number: str | None = None
+    rethus_verification_status: str = "pending"
+    rethus_verified_at: datetime | None = None
 
 
 class UserTeamMemberResponse(BaseModel):
@@ -43,6 +48,10 @@ class UserTeamMemberResponse(BaseModel):
     email_verified: bool
     created_at: datetime
     updated_at: datetime
+    # RETHUS professional registry verification (Sprint 23-24)
+    rethus_number: str | None = None
+    rethus_verification_status: str = "pending"
+    rethus_verified_at: datetime | None = None
 
 
 class UserListResponse(BaseModel):

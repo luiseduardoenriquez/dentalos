@@ -956,86 +956,86 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 
 Patients pay a monthly subscription for preventive care + discounts on treatments. Clinics in US report $100K+/year from memberships. 76% more patient visits. Zero LATAM competitors offer this. Colombia has ~40% out-of-pocket patients — ideal market fit.
 
-- [ ] Design `membership_plans` table (tenant schema): plan name, description, monthly_price_cents, annual_price_cents, benefits JSONB, discount_percentage, is_active, created_at, updated_at
-- [ ] Design `membership_subscriptions` table: patient_id, plan_id, status (active/paused/cancelled/expired), start_date, next_billing_date, cancelled_at, payment_method
-- [ ] Design `membership_usage_log` table: subscription_id, service_id, discount_applied_cents, used_at
-- [ ] `POST /api/v1/memberships/plans` — Create membership plan (clinic_owner)
-- [ ] `GET /api/v1/memberships/plans` — List plans (all staff roles)
-- [ ] `PUT /api/v1/memberships/plans/{id}` — Update plan (clinic_owner)
-- [ ] `POST /api/v1/memberships/subscriptions` — Subscribe patient to plan (receptionist+)
-- [ ] `GET /api/v1/memberships/subscriptions` — List active subscriptions with filters
-- [ ] `POST /api/v1/memberships/subscriptions/{id}/cancel` — Cancel subscription
-- [ ] `POST /api/v1/memberships/subscriptions/{id}/pause` — Pause subscription
-- [ ] Auto-apply membership discount on invoice creation (hook into billing service)
+- [x] Design `membership_plans` table (tenant schema): plan name, description, monthly_price_cents, annual_price_cents, benefits JSONB, discount_percentage, is_active, created_at, updated_at
+- [x] Design `membership_subscriptions` table: patient_id, plan_id, status (active/paused/cancelled/expired), start_date, next_billing_date, cancelled_at, payment_method
+- [x] Design `membership_usage_log` table: subscription_id, service_id, discount_applied_cents, used_at
+- [x] `POST /api/v1/memberships/plans` — Create membership plan (clinic_owner)
+- [x] `GET /api/v1/memberships/plans` — List plans (all staff roles)
+- [x] `PUT /api/v1/memberships/plans/{id}` — Update plan (clinic_owner)
+- [x] `POST /api/v1/memberships/subscriptions` — Subscribe patient to plan (receptionist+)
+- [x] `GET /api/v1/memberships/subscriptions` — List active subscriptions with filters
+- [x] `POST /api/v1/memberships/subscriptions/{id}/cancel` — Cancel subscription
+- [x] `POST /api/v1/memberships/subscriptions/{id}/pause` — Pause subscription
+- [x] Auto-apply membership discount on invoice creation (hook into billing service)
 - [ ] Mercado Pago recurring payment integration for auto-billing
-- [ ] Membership renewal notification via existing notification dispatch
-- [ ] Portal: patient can view their membership plan, benefits used, next billing date
+- [x] Membership renewal notification via existing notification dispatch
+- [x] Portal: patient can view their membership plan, benefits used, next billing date
 - [ ] Portal: patient can request cancellation (triggers staff review)
-- [ ] FE: Membership plan management page (clinic_owner) — create/edit/archive plans
-- [ ] FE: Subscribe patient flow from patient profile
-- [ ] FE: Membership dashboard — active members count, revenue, churn rate
+- [x] FE: Membership plan management page (clinic_owner) — create/edit/archive plans
+- [x] FE: Subscribe patient flow from patient profile
+- [x] FE: Membership dashboard — active members count, revenue, churn rate
 
 ### VP-02: Automated Recall & Reactivation Engine
 
 AI-driven campaigns that identify inactive patients (6+ months) and send WhatsApp/SMS/email sequences to bring them back. Reactivating 50 patients/month = ~10M COP additional revenue per clinic. Leverages existing notification dispatch + WhatsApp + RabbitMQ infrastructure.
 
-- [ ] Design `recall_campaigns` table: name, type (recall/reactivation/treatment_followup), filters JSONB, message_template_id, channel (whatsapp/sms/email/multi), schedule JSONB, status (draft/active/paused/completed), created_by
-- [ ] Design `recall_campaign_recipients` table: campaign_id, patient_id, status (pending/sent/delivered/opened/clicked/booked/failed), sent_at, responded_at, booked_appointment_id
-- [ ] `POST /api/v1/recall/campaigns` — Create campaign (clinic_owner/receptionist)
-- [ ] `GET /api/v1/recall/campaigns` — List campaigns with aggregated stats
-- [ ] `PUT /api/v1/recall/campaigns/{id}` — Update campaign
-- [ ] `POST /api/v1/recall/campaigns/{id}/activate` — Activate campaign
-- [ ] `POST /api/v1/recall/campaigns/{id}/pause` — Pause campaign
-- [ ] Cron job: identify patients with no visit in X months (configurable threshold)
-- [ ] Cron job: identify patients with incomplete treatment plans
-- [ ] Cron job: identify patients overdue for hygiene recall (6-month intervals)
-- [ ] Cron job: identify patients with upcoming birthdays (birthday campaign)
-- [ ] Multi-step sequence support: day 1 WhatsApp → day 3 SMS → day 7 email
-- [ ] WhatsApp/SMS/email dispatch via existing notification engine (RabbitMQ `notifications` queue)
-- [ ] Campaign performance tracking: sent, delivered, opened, booked, revenue attributed
-- [ ] Unsubscribe/opt-out handling (respect patient communication preferences)
-- [ ] FE: Campaign builder page — patient segment filters, message template, channel selection, schedule
-- [ ] FE: Campaign results dashboard — funnel visualization, ROI metrics
+- [x] Design `recall_campaigns` table: name, type (recall/reactivation/treatment_followup), filters JSONB, message_template_id, channel (whatsapp/sms/email/multi), schedule JSONB, status (draft/active/paused/completed), created_by
+- [x] Design `recall_campaign_recipients` table: campaign_id, patient_id, status (pending/sent/delivered/opened/clicked/booked/failed), sent_at, responded_at, booked_appointment_id
+- [x] `POST /api/v1/recall/campaigns` — Create campaign (clinic_owner/receptionist)
+- [x] `GET /api/v1/recall/campaigns` — List campaigns with aggregated stats
+- [x] `PUT /api/v1/recall/campaigns/{id}` — Update campaign
+- [x] `POST /api/v1/recall/campaigns/{id}/activate` — Activate campaign
+- [x] `POST /api/v1/recall/campaigns/{id}/pause` — Pause campaign
+- [x] Cron job: identify patients with no visit in X months (configurable threshold)
+- [x] Cron job: identify patients with incomplete treatment plans
+- [x] Cron job: identify patients overdue for hygiene recall (6-month intervals)
+- [x] Cron job: identify patients with upcoming birthdays (birthday campaign)
+- [x] Multi-step sequence support: day 1 WhatsApp → day 3 SMS → day 7 email
+- [x] WhatsApp/SMS/email dispatch via existing notification engine (RabbitMQ `notifications` queue)
+- [x] Campaign performance tracking: sent, delivered, opened, booked, revenue attributed
+- [x] Unsubscribe/opt-out handling (respect patient communication preferences)
+- [x] FE: Campaign builder page — patient segment filters, message template, channel selection, schedule
+- [x] FE: Campaign results dashboard — funnel visualization, ROI metrics
 - [ ] FE: Patient timeline shows recall campaign interactions
 
 ### VP-03: Smart Digital Intake Forms
 
 Patient completes medical history, consents, and personal data from their phone before the appointment. Auto-populates the patient record. Reduces front desk time from 15 min to <2 min per patient. Portal + anamnesis + consent infrastructure already exists.
 
-- [ ] Design `intake_form_templates` table: name, fields JSONB (field definitions), consent_template_ids, is_default, is_active, tenant_id
-- [ ] Design `intake_submissions` table: template_id, patient_id (nullable — new patients), appointment_id, data JSONB, status (pending/reviewed/approved/rejected), submitted_at, reviewed_by, reviewed_at
-- [ ] `POST /api/v1/intake/templates` — Create/customize intake form template (clinic_owner)
-- [ ] `GET /api/v1/intake/templates` — List templates
-- [ ] `PUT /api/v1/intake/templates/{id}` — Update template
-- [ ] `POST /api/v1/public/{slug}/intake` — Patient submits form (public, no auth required for new patients)
+- [x] Design `intake_form_templates` table: name, fields JSONB (field definitions), consent_template_ids, is_default, is_active, tenant_id
+- [x] Design `intake_submissions` table: template_id, patient_id (nullable — new patients), appointment_id, data JSONB, status (pending/reviewed/approved/rejected), submitted_at, reviewed_by, reviewed_at
+- [x] `POST /api/v1/intake/templates` — Create/customize intake form template (clinic_owner)
+- [x] `GET /api/v1/intake/templates` — List templates
+- [x] `PUT /api/v1/intake/templates/{id}` — Update template
+- [x] `POST /api/v1/public/{slug}/intake` — Patient submits form (public, no auth required for new patients)
 - [ ] `POST /api/v1/portal/intake` — Patient submits form (portal auth, existing patients)
-- [ ] `GET /api/v1/intake/submissions` — List submissions for review (staff)
-- [ ] `POST /api/v1/intake/submissions/{id}/approve` — Approve and auto-populate records
-- [ ] Auto-populate Patient + Anamnesis + Consent records from approved submission
+- [x] `GET /api/v1/intake/submissions` — List submissions for review (staff)
+- [x] `POST /api/v1/intake/submissions/{id}/approve` — Approve and auto-populate records
+- [x] Auto-populate Patient + Anamnesis + Consent records from approved submission
 - [ ] Pre-appointment intake link sent via notification dispatch (24h before appointment, configurable)
 - [ ] Default intake template seeded per tenant (Colombian medical history fields)
-- [ ] FE: Form template builder for clinic_owner (field types: text, select, date, checkbox, file upload, signature)
-- [ ] FE: Mobile-optimized patient intake form (public-facing, responsive 320px+)
-- [ ] FE: Intake submission review queue for staff — approve/edit/reject before saving to patient record
+- [x] FE: Form template builder for clinic_owner (field types: text, select, date, checkbox, file upload, signature)
+- [x] FE: Mobile-optimized patient intake form (public-facing, responsive 320px+)
+- [x] FE: Intake submission review queue for staff — approve/edit/reject before saving to patient record
 - [ ] FE: Intake completion status indicator on today's appointment list
 
 ### VP-04: Morning Huddle Dashboard (Resumen del Día)
 
 Daily briefing that aggregates existing data into actionable insights. Dental Intelligence built their entire company on this concept. Clinics report +15-25% production increase. No new data required — pure aggregation of patients, appointments, billing, treatment plans.
 
-- [ ] `GET /api/v1/analytics/huddle` — Today's briefing endpoint (aggregates existing data)
-- [ ] Huddle data: today's appointments with patient name, procedure, status, arrival
-- [ ] Huddle data: production goal vs actual (daily/weekly/monthly from billing)
-- [ ] Huddle data: incomplete treatment plans needing follow-up (top 10 by value)
-- [ ] Huddle data: outstanding patient balances (top 10 by amount)
-- [ ] Huddle data: patients with birthdays today
-- [ ] Huddle data: recall-due patients this week (no visit in 6+ months)
-- [ ] Huddle data: yesterday's collection summary
-- [ ] Huddle data: no-show count yesterday + today's high-risk no-shows
+- [x] `GET /api/v1/analytics/huddle` — Today's briefing endpoint (aggregates existing data)
+- [x] Huddle data: today's appointments with patient name, procedure, status, arrival
+- [x] Huddle data: production goal vs actual (daily/weekly/monthly from billing)
+- [x] Huddle data: incomplete treatment plans needing follow-up (top 10 by value)
+- [x] Huddle data: outstanding patient balances (top 10 by amount)
+- [x] Huddle data: patients with birthdays today
+- [x] Huddle data: recall-due patients this week (no visit in 6+ months)
+- [x] Huddle data: yesterday's collection summary
+- [x] Huddle data: no-show count yesterday + today's high-risk no-shows
 - [ ] Production goal configuration per doctor/clinic (`clinic_settings` JSONB)
-- [ ] FE: Morning Huddle page in (dashboard) route group
-- [ ] FE: Auto-refresh every 5 minutes during business hours
-- [ ] FE: Printable huddle summary (PDF or print-optimized CSS) for team meetings
+- [x] FE: Morning Huddle page in (dashboard) route group
+- [x] FE: Auto-refresh every 5 minutes during business hours
+- [x] FE: Printable huddle summary (PDF or print-optimized CSS) for team meetings
 - [ ] FE: Quick-action buttons (call patient, send reminder, view balance)
 
 ---
@@ -1048,130 +1048,130 @@ Daily briefing that aggregates existing data into actionable insights. Dental In
 
 21M+ Nequi users in Colombia — more than credit card holders. Zero dental software integrates mobile wallets. First-mover advantage. Included in all plans as a payment method.
 
-- [ ] Nequi Comercios QR Push API integration (sandbox + production)
-- [ ] Daviplata QR API integration (via Davivienda developer portal)
-- [ ] Add payment methods `nequi` and `daviplata` to payment recording enum
-- [ ] QR code generation service (encodes payment amount + reference)
-- [ ] `POST /api/v1/billing/invoices/{id}/payment-qr` — Generate QR for invoice payment
-- [ ] Payment webhook endpoint for Nequi confirmation callbacks
-- [ ] Payment webhook endpoint for Daviplata confirmation callbacks
-- [ ] Auto-reconcile webhook payment with invoice (mark as paid)
-- [ ] Patient portal: "Pay with Nequi" and "Pay with Daviplata" buttons on invoice
-- [ ] FE: QR display component on invoice detail page (staff shows to patient)
+- [x] Nequi Comercios QR Push API integration (sandbox + production)
+- [x] Daviplata QR API integration (via Davivienda developer portal)
+- [x] Add payment methods `nequi` and `daviplata` to payment recording enum
+- [x] QR code generation service (encodes payment amount + reference)
+- [x] `POST /api/v1/billing/invoices/{id}/payment-qr` — Generate QR for invoice payment
+- [x] Payment webhook endpoint for Nequi confirmation callbacks
+- [x] Payment webhook endpoint for Daviplata confirmation callbacks
+- [x] Auto-reconcile webhook payment with invoice (mark as paid)
+- [x] Patient portal: "Pay with Nequi" and "Pay with Daviplata" buttons on invoice
+- [x] FE: QR display component on invoice detail page (staff shows to patient)
 - [ ] FE: Payment confirmation toast/notification on successful webhook
 
 ### VP-06: EPS Insurance Verification (ADRES/BDUA)
 
 One-click verification of patient's EPS affiliation, copay level, and eligible procedures. Clinics currently spend 15-30 min per EPS patient on manual verification. Colombian equivalent of US "instant insurance verification."
 
-- [ ] ADRES BDUA API client service (SOAP/REST — document type + number → affiliation status)
-- [ ] `GET /api/v1/patients/{id}/eps-verification` — Verify EPS status (doctor/receptionist+)
-- [ ] Design `eps_verifications` table: patient_id, verification_date, eps_name, eps_code, affiliation_status, regime (contributivo/subsidiado), copay_category, raw_response JSONB
-- [ ] Cache verification result in Redis (TTL 24h, key pattern `...:eps:verification:{patient_id}`)
-- [ ] Display verification badge on patient profile (verified/unverified/expired)
-- [ ] Show coverage details: EPS name, regime, copay category, eligible procedure types
+- [x] ADRES BDUA API client service (SOAP/REST — document type + number → affiliation status)
+- [x] `GET /api/v1/patients/{id}/eps-verification` — Verify EPS status (doctor/receptionist+)
+- [x] Design `eps_verifications` table: patient_id, verification_date, eps_name, eps_code, affiliation_status, regime (contributivo/subsidiado), copay_category, raw_response JSONB
+- [x] Cache verification result in Redis (TTL 24h, key pattern `...:eps:verification:{patient_id}`)
+- [x] Display verification badge on patient profile (verified/unverified/expired)
+- [x] Show coverage details: EPS name, regime, copay category, eligible procedure types
 - [ ] Alert on coverage changes or inactive affiliation
-- [ ] Auto-verify on patient creation if document_type is CC/TI (background job via RabbitMQ)
-- [ ] FE: EPS verification badge and expandable detail panel on patient profile
-- [ ] FE: Manual "Re-verify" button for staff
+- [x] Auto-verify on patient creation if document_type is CC/TI (background job via RabbitMQ)
+- [x] FE: EPS verification badge and expandable detail panel on patient profile
+- [x] FE: Manual "Re-verify" button for staff
 - [ ] FE: EPS status column on patient list (filterable)
 
 ### VP-07: RETHUS Professional Registry Verification
 
 Automatic validation of doctor/assistant professional registration against MinSalud registry. Resolución 1888 requires it. High compliance value. No competitor offers automated verification.
 
-- [ ] RETHUS verification service (MinSalud RETHUS consulta API or web scraping fallback)
-- [ ] Add `rethus_number` field to User model (doctor/assistant roles)
-- [ ] Add `rethus_verification_status` field (pending/verified/failed/expired)
-- [ ] Add `rethus_verified_at` timestamp field
-- [ ] `GET /api/v1/users/{id}/rethus-verification` — Check RETHUS status
-- [ ] `POST /api/v1/users/{id}/rethus-verification` — Trigger manual verification
-- [ ] Auto-verify on team member invite/onboarding (background job)
-- [ ] Periodic re-verification via `maintenance` queue (monthly cron)
-- [ ] Verification status badge on team member profile
+- [x] RETHUS verification service (MinSalud RETHUS consulta API or web scraping fallback)
+- [x] Add `rethus_number` field to User model (doctor/assistant roles)
+- [x] Add `rethus_verification_status` field (pending/verified/failed/expired)
+- [x] Add `rethus_verified_at` timestamp field
+- [x] `GET /api/v1/users/{id}/rethus-verification` — Check RETHUS status
+- [x] `POST /api/v1/users/{id}/rethus-verification` — Trigger manual verification
+- [x] Auto-verify on team member invite/onboarding (background job)
+- [x] Periodic re-verification via `maintenance` queue (monthly cron)
+- [x] Verification status badge on team member profile
 - [ ] Alert clinic_owner if any doctor's RETHUS verification fails or expires
-- [ ] FE: RETHUS badge on doctor profile and team management page
-- [ ] FE: Verification trigger button and status history
+- [x] FE: RETHUS badge on doctor profile and team management page
+- [x] FE: Verification trigger button and status history
 
 ### VP-08: Patient Referral Program (Paciente Refiere Paciente)
 
 Word-of-mouth is the #1 patient acquisition channel for dental clinics in Colombia. Unique referral codes with discounts for both referrer and referred patient. +20-35% new patient acquisition. Public booking already accepts new patients.
 
-- [ ] Design `referral_codes` table: patient_id, code (unique, 8-char alphanumeric), is_active, uses_count, max_uses (nullable), created_at
-- [ ] Design `referral_rewards` table: referrer_patient_id, referred_patient_id, referral_code_id, reward_type (discount/credit/points), reward_amount_cents, status (pending/applied/expired), applied_to_invoice_id
-- [ ] Design `referral_program_config` in tenant settings JSONB: enabled, referrer_reward_type, referrer_reward_amount, referred_discount_percentage, max_referrals_per_patient
-- [ ] Auto-generate unique referral code per patient on first portal login
-- [ ] `GET /api/v1/portal/referral` — Patient views their referral code and stats
-- [ ] `GET /api/v1/portal/referral/rewards` — Patient views earned rewards
-- [ ] Accept `referral_code` parameter in public booking endpoint
-- [ ] Auto-create referral_reward record when referred patient completes first appointment
-- [ ] Auto-apply referrer discount on their next invoice
-- [ ] Welcome discount for referred patient on first invoice
+- [x] Design `referral_codes` table: patient_id, code (unique, 8-char alphanumeric), is_active, uses_count, max_uses (nullable), created_at
+- [x] Design `referral_rewards` table: referrer_patient_id, referred_patient_id, referral_code_id, reward_type (discount/credit/points), reward_amount_cents, status (pending/applied/expired), applied_to_invoice_id
+- [x] Design `referral_program_config` in tenant settings JSONB: enabled, referrer_reward_type, referrer_reward_amount, referred_discount_percentage, max_referrals_per_patient
+- [x] Auto-generate unique referral code per patient on first portal login
+- [x] `GET /api/v1/portal/referral` — Patient views their referral code and stats
+- [x] `GET /api/v1/portal/referral/rewards` — Patient views earned rewards
+- [x] Accept `referral_code` parameter in public booking endpoint
+- [x] Auto-create referral_reward record when referred patient completes first appointment
+- [x] Auto-apply referrer discount on their next invoice
+- [x] Welcome discount for referred patient on first invoice
 - [ ] Notification to referrer when their referral books + completes appointment
-- [ ] `GET /api/v1/referrals/stats` — Referral program analytics (clinic_owner)
-- [ ] FE: Referral program settings page (clinic_owner — configure reward rules)
-- [ ] FE: Portal referral sharing page (shareable link, WhatsApp share button, QR code)
+- [x] `GET /api/v1/referrals/stats` — Referral program analytics (clinic_owner)
+- [x] FE: Referral program settings page (clinic_owner — configure reward rules)
+- [x] FE: Portal referral sharing page (shareable link, WhatsApp share button, QR code)
 - [ ] FE: Referral tracking dashboard (clinic_owner — top referrers, conversion rate)
 
 ### VP-20: Post-Operative Instructions Automation (Quick Win)
 
 After a procedure, automatically send care instructions via WhatsApp/email/portal. Reduces post-op phone calls by 40-60%. Reuses evolution templates + notification dispatch infrastructure.
 
-- [ ] Design `postop_templates` table: procedure_type (maps to evolution template type), title, instruction_content (rich text), channel_preference (whatsapp/email/portal/all), is_active
-- [ ] Seed 10 built-in post-op templates for common procedures: resina, endodoncia, exodoncia, profilaxis, cirugía periodontal, blanqueamiento, corona, implante, ortodoncia ajuste, urgencia
-- [ ] `GET /api/v1/postop/templates` — List templates (staff)
-- [ ] `POST /api/v1/postop/templates` — Create custom template (clinic_owner)
-- [ ] `PUT /api/v1/postop/templates/{id}` — Update template
-- [ ] Event listener: on procedure completion (evolution record saved), auto-dispatch matching post-op instructions
-- [ ] Send via patient's preferred channel (WhatsApp → email → portal fallback)
-- [ ] Portal: patient can view past post-op instructions
-- [ ] `POST /api/v1/postop/send/{patient_id}` — Manual send for any procedure (staff)
-- [ ] FE: Post-op template management page (clinic_owner)
-- [ ] FE: "Send post-op instructions" button on procedure completion screen
+- [x] Design `postop_templates` table: procedure_type (maps to evolution template type), title, instruction_content (rich text), channel_preference (whatsapp/email/portal/all), is_active
+- [x] Seed 10 built-in post-op templates for common procedures: resina, endodoncia, exodoncia, profilaxis, cirugía periodontal, blanqueamiento, corona, implante, ortodoncia ajuste, urgencia
+- [x] `GET /api/v1/postop/templates` — List templates (staff)
+- [x] `POST /api/v1/postop/templates` — Create custom template (clinic_owner)
+- [x] `PUT /api/v1/postop/templates/{id}` — Update template
+- [x] Event listener: on procedure completion (evolution record saved), auto-dispatch matching post-op instructions
+- [x] Send via patient's preferred channel (WhatsApp → email → portal fallback)
+- [x] Portal: patient can view past post-op instructions
+- [x] `POST /api/v1/postop/send/{patient_id}` — Manual send for any procedure (staff)
+- [x] FE: Post-op template management page (clinic_owner)
+- [x] FE: "Send post-op instructions" button on procedure completion screen
 
 ### GAP-02: Control de Caja (Cash Register / Daily Cash Flow)
 
 ~40% of Colombian patients pay cash. Clinic owners need daily cash control with opening balance, cash/card/transfer breakdown, and end-of-day reconciliation. Dentalink has it — this is a daily operational tool.
 
-- [ ] Design `cash_registers` table: name, location, status (open/closed), opened_by, opened_at, opening_balance_cents, closing_balance_cents, closed_by, closed_at
-- [ ] Design `cash_movements` table: register_id, type (income/expense/adjustment), amount_cents, payment_method (cash/card/transfer/nequi/daviplata), reference_id (invoice/expense), description, recorded_by, created_at
-- [ ] `POST /api/v1/cash-registers/open` — Open register with initial balance (receptionist/clinic_owner)
-- [ ] `POST /api/v1/cash-registers/close` — Close register with reconciliation
-- [ ] `GET /api/v1/cash-registers/current` — Current register status and balance
-- [ ] `GET /api/v1/cash-registers/history` — Daily cash register history
-- [ ] Auto-record cash movements on invoice payment (hook into B-06)
-- [ ] FE: Cash register panel (open/close, current balance, today's movements)
-- [ ] FE: Daily cash report (printable)
+- [x] Design `cash_registers` table: name, location, status (open/closed), opened_by, opened_at, opening_balance_cents, closing_balance_cents, closed_by, closed_at
+- [x] Design `cash_movements` table: register_id, type (income/expense/adjustment), amount_cents, payment_method (cash/card/transfer/nequi/daviplata), reference_id (invoice/expense), description, recorded_by, created_at
+- [x] `POST /api/v1/cash-registers/open` — Open register with initial balance (receptionist/clinic_owner)
+- [x] `POST /api/v1/cash-registers/close` — Close register with reconciliation
+- [x] `GET /api/v1/cash-registers/current` — Current register status and balance
+- [x] `GET /api/v1/cash-registers/history` — Daily cash register history
+- [x] Auto-record cash movements on invoice payment (hook into B-06)
+- [x] FE: Cash register panel (open/close, current balance, today's movements)
+- [x] FE: Daily cash report (printable)
 
 ### GAP-03: Control de Gastos (Expense Tracking)
 
 Clinic owners need to see profit, not just revenue. Without expense tracking, they use a separate spreadsheet. Pairs naturally with Control de Caja for a complete financial picture.
 
-- [ ] Design `expense_categories` table: name, is_default, is_active (seed: rent, supplies, lab, salaries, utilities, marketing, equipment, other)
-- [ ] Design `expenses` table: category_id, amount_cents, description, date, receipt_url, recorded_by, created_at
-- [ ] `POST /api/v1/expenses` — Record expense (clinic_owner/receptionist)
-- [ ] `GET /api/v1/expenses` — List expenses with filters (date range, category)
-- [ ] `GET /api/v1/analytics/profit-loss` — Monthly P&L report (revenue from billing - expenses)
-- [ ] FE: Expense recording form (amount, category, date, receipt upload)
-- [ ] FE: Expense list page with filters
-- [ ] FE: P&L dashboard card on analytics page
+- [x] Design `expense_categories` table: name, is_default, is_active (seed: rent, supplies, lab, salaries, utilities, marketing, equipment, other)
+- [x] Design `expenses` table: category_id, amount_cents, description, date, receipt_url, recorded_by, created_at
+- [x] `POST /api/v1/expenses` — Record expense (clinic_owner/receptionist)
+- [x] `GET /api/v1/expenses` — List expenses with filters (date range, category)
+- [x] `GET /api/v1/analytics/profit-loss` — Monthly P&L report (revenue from billing - expenses)
+- [x] FE: Expense recording form (amount, category, date, receipt upload)
+- [x] FE: Expense list page with filters
+- [x] FE: P&L dashboard card on analytics page
 
 ### GAP-05: Tareas de Morosidad (Automated Delinquency Follow-up)
 
 DentalOS has B-12 aging report but no actionable task workflow. Auto-generate follow-up tasks when patients have overdue balances. Cash collection is a top pain point for clinics.
 
-- [ ] Event listener: when invoice ages past 30/60/90 days, auto-create follow-up task
-- [ ] Task assignment to receptionist with patient context + overdue amount
-- [ ] Configurable thresholds in tenant settings (days before task creation)
-- [ ] FE: Delinquency task queue on billing dashboard
+- [x] Event listener: when invoice ages past 30/60/90 days, auto-create follow-up task (`staff_task_service.check_delinquency`, dispatched via `tasks.check_delinquency` queue job)
+- [x] Task assignment to receptionist with patient context + overdue amount (auto-assigns to first active receptionist)
+- [x] Configurable thresholds in tenant settings (days before task creation, reads `billing.delinquency_thresholds_days` with [30,60,90] default)
+- [x] FE: Delinquency task queue on billing dashboard
 
 ### GAP-06: Tareas de Captación (Treatment Acceptance Follow-up)
 
 Treatment plan acceptance is directly tied to revenue. Clinics report 40-60% of quotations never convert. Auto-create follow-up tasks when quotations aren't accepted within configurable days.
 
-- [ ] Event listener: when quotation not accepted within X days (configurable, default 7), auto-create follow-up task
-- [ ] `GET /api/v1/analytics/acceptance-rate` — Quotation acceptance rate metrics
-- [ ] FE: Quotation follow-up queue with one-click call/WhatsApp actions
+- [x] Event listener: when quotation not accepted within X days (configurable, default 7), auto-create follow-up task (`staff_task_service.check_acceptance`, dispatched via `tasks.check_acceptance` queue job)
+- [x] `GET /api/v1/analytics/acceptance-rate` — Quotation acceptance rate metrics
+- [x] FE: Quotation follow-up queue with one-click call/WhatsApp actions
 
 ---
 
@@ -1276,12 +1276,12 @@ Many clinics in Colombia have agreements with empresas, universidades, fondos de
 
 Clinics currently use WhatsApp groups for task coordination — messy and untracked. Assign, track, and prioritize tasks among staff. Feeds into GAP-05 and GAP-06 automated tasks.
 
-- [ ] Design `clinic_tasks` table: title, description, assignee_id, created_by, priority (low/medium/high/urgent), status (pending/in_progress/completed), due_date, related_patient_id, related_entity_type, related_entity_id
-- [ ] `POST /api/v1/tasks` — Create task (any staff role)
-- [ ] `GET /api/v1/tasks` — List tasks (filterable by assignee, status, priority)
-- [ ] `PUT /api/v1/tasks/{id}` — Update task
+- [x] Design `staff_tasks` table: title, description, assigned_to, priority, status, due_date, patient_id, reference_id/type, metadata JSONB (`backend/app/models/tenant/staff_task.py`)
+- [x] `POST /api/v1/tasks` — Create task (any staff role) (`backend/app/api/v1/tasks/router.py`)
+- [x] `GET /api/v1/tasks` — List tasks (filterable by assignee, status, type) (`backend/app/api/v1/tasks/router.py`)
+- [x] `PUT /api/v1/tasks/{id}` — Update task with validated status transitions (`backend/app/api/v1/tasks/router.py`)
 - [ ] Notification on task assignment
-- [ ] FE: Task list/board view with filters
+- [x] FE: Task list/board view with filters
 - [ ] FE: Quick-add task from patient profile, invoice, appointment
 
 ### GAP-10: Super Familias (Family Grouping)
@@ -1724,7 +1724,7 @@ Each sprint must meet these criteria before sign-off:
 | 15-16 | 8 | ~37 | Analytics + Import/Export + Merge + Inventory + Mexico + Admin | Analytics + Import + Inventory screens | Analytics + Load tests | Complete (59/59) |
 | 17-18 | 9 | -- | Bug fixes + Optimizations | Bug fixes + UX polish | Security audit + Load tests | In Progress (32/36) |
 | 19-20 | 10 | -- | Production deploy + Monitoring | Marketing site | Final validation | In Progress (26/38) |
-| 21-22 | 11 | ~22 | Memberships + Recall + Intake + Huddle | Membership + Campaign + Intake + Huddle pages | Module tests | Not Started |
+| 21-22 | 11 | ~52 | Memberships + Recall + Intake + Huddle | Membership + Campaign + Intake + Huddle pages | Module tests | Complete (48/52) |
 | 23-24 | 12 | ~44 | Nequi/Daviplata + EPS + RETHUS + Referrals + Post-Op + **Cash Register + Expenses + Delinquency/Acceptance Tasks** | Payment QR + EPS badge + Referral portal + Cash register + Expense mgmt | Integration tests | Not Started |
 | 25-26 | 13 | ~47 | Reputation + Schedule AI + Multi-Currency + Loyalty + **Periodontogram + Convenios + Tasks + Families** | Reviews + Intelligence + Loyalty + Perio chart + Convenios + Task board + Family groups | Analytics + perio tests | Not Started |
 | 27-28 | 14 | ~20 | WhatsApp Chat + AI Treatment + Email Marketing + **AI Reports** | Inbox + AI panel + Campaign builder + AI query bar | AI + messaging tests | Not Started |

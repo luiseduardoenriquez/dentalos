@@ -1,4 +1,4 @@
-"""Analytics API routes — AN-01 through AN-07.
+"""Analytics API routes — AN-01 through AN-07 + VP-04 Huddle.
 
 Endpoint map:
   GET /analytics/dashboard     — AN-01: KPI dashboard (5 parallel queries)
@@ -8,6 +8,7 @@ Endpoint map:
   GET /analytics/clinical      — AN-05: Clinical analytics (stub)
   GET /analytics/export        — AN-06: CSV export (sync <=1000 rows, 202 >1000)
   GET /analytics/audit-trail   — AN-07: Audit trail (clinic_owner only)
+  GET /analytics/huddle        — VP-04: Morning Huddle daily briefing
 """
 
 import csv
@@ -382,6 +383,72 @@ async def audit_trail(
         user_id=user_id,
         resource_type=resource_type,
         action=action,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+
+# ─── VP-04: Morning Huddle ─────────────────────────────────────────────────
+
+
+@router.get("/huddle")
+async def morning_huddle(
+    current_user: AuthenticatedUser = Depends(require_permission("analytics:read")),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> dict:
+    """Morning Huddle — daily briefing aggregating 8 data sections."""
+    from app.services.huddle_service import huddle_service
+
+    return await huddle_service.get_huddle(
+        db=db,
+        tenant_id=current_user.tenant.tenant_id,
+    )
+
+
+# ─── GAP-06: Acceptance rate analytics ──────────────────────────────────────
+
+
+@router.get("/acceptance-rate")
+async def acceptance_rate(
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    current_user: AuthenticatedUser = Depends(require_permission("analytics:read")),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> dict:
+    """Quotation acceptance rate analytics (GAP-06).
+
+    Returns total, accepted, pending, expired counts plus the acceptance
+    rate ratio and average days-to-accept for approved quotations.
+    """
+    from app.services.staff_task_service import staff_task_service
+
+    return await staff_task_service.get_acceptance_rate(
+        db=db,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+
+# ─── GAP-03: Profit & Loss ─────────────────────────────────────────────────
+
+
+@router.get("/profit-loss")
+async def profit_loss(
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    current_user: AuthenticatedUser = Depends(require_permission("analytics:read")),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> dict:
+    """Profit and loss report (GAP-03).
+
+    Aggregates revenue from invoices against expenses for the period,
+    returning net profit, gross revenue, total expenses, and a breakdown
+    by expense category.
+    """
+    from app.services.expense_service import expense_service
+
+    return await expense_service.get_profit_loss(
+        db=db,
         date_from=date_from,
         date_to=date_to,
     )

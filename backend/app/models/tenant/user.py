@@ -60,6 +60,15 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
     )
     token_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
+    # RETHUS professional registry verification (Sprint 23-24)
+    rethus_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    rethus_verification_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="pending", server_default="pending"
+    )
+    rethus_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Relationships
     sessions: Mapped[list["UserSession"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
