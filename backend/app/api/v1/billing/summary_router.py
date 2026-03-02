@@ -12,9 +12,8 @@ from uuid import UUID as PyUUID
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import Date, String, case, func, select
+from sqlalchemy import Date, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased
 
 from app.auth.context import AuthenticatedUser
 from app.auth.dependencies import require_permission

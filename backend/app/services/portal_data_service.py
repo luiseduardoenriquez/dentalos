@@ -23,6 +23,7 @@ from app.models.tenant.odontogram import OdontogramCondition, OdontogramState
 from app.models.tenant.patient import Patient
 from app.models.tenant.patient_document import PatientDocument
 from app.models.tenant.prescription import Prescription
+from app.models.tenant.quotation import Quotation
 from app.models.tenant.treatment_plan import TreatmentPlan
 from app.models.tenant.user import User
 
@@ -105,6 +106,20 @@ class PortalDataService:
                 "notes_for_patient": appt.completion_notes if hasattr(appt, "completion_notes") else None,
             }
 
+        # Get clinic name from public.tenants (accessible via search_path)
+        from app.models.public.tenant import Tenant
+        clinic_name = "Clínica"
+        clinic_slug = tenant_id[:8]
+        tenant_result = await db.execute(
+            select(Tenant.name, Tenant.slug).where(
+                Tenant.id == uuid.UUID(tenant_id),
+            )
+        )
+        tenant_row = tenant_result.first()
+        if tenant_row:
+            clinic_name = tenant_row.name
+            clinic_slug = tenant_row.slug
+
         # Get outstanding balance from invoices
         balance_result = await db.execute(
             select(
@@ -129,8 +144,8 @@ class PortalDataService:
             "insurance_provider": patient.insurance_provider,
             "insurance_policy_number": patient.insurance_policy_number,
             "clinic": {
-                "name": "Clínica",  # TODO: join with public.tenants
-                "slug": tenant_id[:8],
+                "name": clinic_name,
+                "slug": clinic_slug,
                 "logo_url": None,
                 "phone": None,
                 "address": None,
@@ -256,6 +271,24 @@ class PortalDataService:
             last = items[-1]
             next_cursor = _encode_cursor(last.created_at, last.id)
 
+        # Pre-fetch paid amounts per treatment plan from linked invoices
+        plan_ids = [plan.id for plan in items]
+        paid_map: dict[uuid.UUID, int] = {}
+        if plan_ids:
+            paid_result = await db.execute(
+                select(
+                    Quotation.treatment_plan_id,
+                    func.coalesce(func.sum(Invoice.amount_paid), 0).label("paid"),
+                )
+                .join(Invoice, Invoice.id == Quotation.invoice_id)
+                .where(
+                    Quotation.treatment_plan_id.in_(plan_ids),
+                    Quotation.invoice_id.isnot(None),
+                )
+                .group_by(Quotation.treatment_plan_id)
+            )
+            paid_map = {row.treatment_plan_id: int(row.paid) for row in paid_result.all()}
+
         data = []
         for plan in items:
             # Use the selectin-loaded relationship — no extra query per plan
@@ -282,7 +315,7 @@ class PortalDataService:
                 "status": plan.status,
                 "procedures": procedures,
                 "total": total,
-                "paid": 0,  # TODO: calculate from payments
+                "paid": paid_map.get(plan.id, 0),
                 "progress_pct": progress,
                 "created_at": plan.created_at,
             })

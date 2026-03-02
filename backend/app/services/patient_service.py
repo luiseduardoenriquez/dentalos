@@ -68,13 +68,12 @@ def compute_dentition_type(birthdate: date | None) -> str | None:
 # ─── Serialization helper ────────────────────────────────────────────────────
 
 
-def _patient_to_dict(patient: Patient, *, include_clinical_summary: bool = False) -> dict[str, Any]:
+def _patient_to_dict(patient: Patient) -> dict[str, Any]:
     """Serialize a Patient ORM instance to a plain dict.
 
     dentition_type is computed here rather than stored in the DB.
-    clinical_summary is a stub until Sprint 5-6 (odontogram, treatment plans).
     """
-    data: dict[str, Any] = {
+    return {
         "id": str(patient.id),
         "document_type": patient.document_type,
         "document_number": patient.document_number,
@@ -107,16 +106,39 @@ def _patient_to_dict(patient: Patient, *, include_clinical_summary: bool = False
         "dentition_type": compute_dentition_type(patient.birthdate),
     }
 
-    if include_clinical_summary:
-        # TODO: Replace with real counts from clinical tables (Sprint 5-6)
-        data["clinical_summary"] = {
-            "active_diagnoses": 0,
-            "treatment_plans": 0,
-            "pending_treatments": 0,
-            "next_appointment": None,
-        }
 
-    return data
+async def _get_clinical_summary(db: AsyncSession, patient_id: uuid.UUID) -> dict[str, Any]:
+    """Fetch real clinical summary counts for a patient."""
+    from app.models.tenant.appointment import Appointment
+    from app.models.tenant.treatment_plan import TreatmentPlan
+
+    tp_total = (await db.execute(
+        select(func.count(TreatmentPlan.id)).where(
+            TreatmentPlan.patient_id == patient_id,
+        )
+    )).scalar_one()
+
+    tp_pending = (await db.execute(
+        select(func.count(TreatmentPlan.id)).where(
+            TreatmentPlan.patient_id == patient_id,
+            TreatmentPlan.status.in_(["draft", "active"]),
+        )
+    )).scalar_one()
+
+    next_appt_row = (await db.execute(
+        select(Appointment.start_time).where(
+            Appointment.patient_id == patient_id,
+            Appointment.start_time > datetime.now(UTC),
+            Appointment.status.in_(["scheduled", "confirmed"]),
+        ).order_by(Appointment.start_time.asc()).limit(1)
+    )).scalar_one_or_none()
+
+    return {
+        "active_diagnoses": 0,  # derived from odontogram conditions — separate endpoint
+        "treatment_plans": tp_total,
+        "pending_treatments": tp_pending,
+        "next_appointment": next_appt_row.isoformat() if next_appt_row else None,
+    }
 
 
 # ─── Cache helpers ───────────────────────────────────────────────────────────
@@ -287,8 +309,6 @@ class PatientService:
                     exc_info=True,
                 )
 
-        # TODO: Auto-create odontogram_states for this patient — deferred to Sprint 5-6.
-
         logger.info(
             "Patient created in tenant=%s (id=%s)",
             tenant_id[:8],
@@ -298,7 +318,9 @@ class PatientService:
         # Invalidate search cache for this tenant so the new patient appears
         await cache_delete_pattern(_invalidate_search_cache(tenant_id))
 
-        return _patient_to_dict(patient, include_clinical_summary=True)
+        data = _patient_to_dict(patient)
+        data["clinical_summary"] = await _get_clinical_summary(db, patient.id)
+        return data
 
     # ─── Read ────────────────────────────────────────────────────────────
 
@@ -329,7 +351,9 @@ class PatientService:
         if patient is None:
             return None
 
-        return _patient_to_dict(patient, include_clinical_summary=True)
+        data = _patient_to_dict(patient)
+        data["clinical_summary"] = await _get_clinical_summary(db, patient.id)
+        return data
 
     # ─── List ────────────────────────────────────────────────────────────
 
@@ -605,7 +629,9 @@ class PatientService:
         # Invalidate cached detail and all search results for this tenant
         await cache_delete_pattern(_invalidate_search_cache(tenant_id))
 
-        return _patient_to_dict(patient, include_clinical_summary=True)
+        data = _patient_to_dict(patient)
+        data["clinical_summary"] = await _get_clinical_summary(db, patient.id)
+        return data
 
     # ─── Deactivate ──────────────────────────────────────────────────────
 

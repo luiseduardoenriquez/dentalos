@@ -345,7 +345,7 @@ class QuotationService:
         quotation.signature_id = uuid.UUID(sig_result["id"])
         quotation.approved_at = datetime.now(UTC)
         quotation.status = "approved"
-        # invoice_id = null (Sprint 11-12 TODO)
+        # invoice_id remains null — set when invoice is created from this quotation
 
         await db.flush()
         await db.refresh(quotation)

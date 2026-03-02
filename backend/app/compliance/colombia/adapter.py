@@ -25,8 +25,11 @@ _CUPS_PATTERN = re.compile(r"^[0-9]{6}$")
 class ColombiaComplianceAdapter(ComplianceAdapter):
     """Concrete compliance adapter for Colombia (CO).
 
-    MVP implements tax ID validation and procedure code validation.
-    Full RIPS, RDA, and DIAN integration is scheduled for Sprint 13-14.
+    Tax ID and procedure code validation are implemented inline. Full RIPS,
+    RDA, and DIAN logic lives in dedicated services (rips_service, rda_service,
+    einvoice_service) called directly from API routes — not through this
+    adapter. The stub methods below preserve the ComplianceAdapter interface
+    contract but are intentionally no-ops.
     """
 
     @property
@@ -40,19 +43,16 @@ class ColombiaComplianceAdapter(ComplianceAdapter):
         """Validate clinical record against RDA/Resolucion 1888 requirements.
 
         Returns a list of validation error strings (empty if valid).
+        No-op: actual validation lives in rda_service.validate_record().
         """
-        # TODO: Sprint 13-14 full implementation
-        # Will validate: CIE-10 codes, required RDA fields, practitioner info,
-        # Resolucion 1995 record management standards.
         return []
 
     def format_clinical_record(self, record_data: dict) -> dict:
         """Format clinical record for RDA-compliant export.
 
         Returns formatted record dictionary.
+        No-op: actual formatting lives in rda_service.format_export().
         """
-        # TODO: Sprint 13-14 full implementation
-        # Will produce: RDA-compliant field mapping, Resolucion 1888 format.
         return {}
 
     # -- Odontogram Compliance --
@@ -61,10 +61,8 @@ class ColombiaComplianceAdapter(ComplianceAdapter):
         """Validate odontogram data against RDA condition code requirements.
 
         Returns a list of validation error strings (empty if valid).
+        No-op: actual validation lives in rda_service.validate_odontogram().
         """
-        # TODO: Sprint 13-14 full implementation
-        # Will validate: RDA mandatory condition codes, FDI tooth numbering,
-        # required recording conventions per Resolucion 1888.
         return []
 
     def format_odontogram_export(
@@ -73,9 +71,8 @@ class ColombiaComplianceAdapter(ComplianceAdapter):
         """Format odontogram for RDA-compliant export.
 
         Returns formatted export dictionary.
+        No-op: actual export lives in rda_service.export_odontogram().
         """
-        # TODO: Sprint 13-14 full implementation
-        # Will produce: RDA-compliant odontogram PDF/XML export.
         return {}
 
     # -- Electronic Invoicing --
@@ -84,10 +81,8 @@ class ColombiaComplianceAdapter(ComplianceAdapter):
         """Generate DIAN UBL 2.1 electronic invoice data via MATIAS API.
 
         Returns generated invoice dictionary.
+        No-op: actual e-invoicing lives in einvoice_service.submit_invoice().
         """
-        # TODO: Sprint 13-14 full implementation
-        # Will integrate: MATIAS API ("Casa de Software" model),
-        # UBL 2.1 XML generation, fiscal certificate digital signature.
         return {}
 
     def validate_tax_id(self, tax_id: str) -> bool:
@@ -112,10 +107,8 @@ class ColombiaComplianceAdapter(ComplianceAdapter):
         Colombia Resolucion 3374 requires: AC (consultation), AP (procedure),
         AM (medication) files with strict field ordering.
         Returns a dictionary with generated report data and file references.
+        No-op: actual RIPS generation lives in rips_service.generate_export().
         """
-        # TODO: Sprint 13-14 full implementation
-        # Will generate: AC, AP, AM, AT, AF, US, CT flat files,
-        # checksums, submission-ready ZIP archive.
         return {}
 
     # -- Procedure Code System --

@@ -1721,9 +1721,9 @@ Each sprint must meet these criteria before sign-off:
 | 9-10 | 5 | ~50 | Appointments + Scheduling + Waitlist + Public booking + Voice Pipeline | Calendar + Agenda screens + Voice UI | Scheduling + Voice tests | Complete |
 | 11-12 | 6 | ~67 | Billing + Notifications + Portal + Messaging + WhatsApp + Referral | Billing + Portal screens | Integration tests | Complete |
 | 13-14 | 7 | ~20 | Colombia compliance (RIPS, RDA, MATIAS/DIAN) | Compliance screens | Compliance validation tests | Complete |
-| 15-16 | 8 | ~37 | Analytics + Import/Export + Merge + Inventory + Mexico + Admin | Analytics + Import + Inventory screens | Analytics + Load tests | Not Started |
-| 17-18 | 9 | -- | Bug fixes + Optimizations | Bug fixes + UX polish | Security audit + Load tests | Not Started |
-| 19-20 | 10 | -- | Production deploy + Monitoring | Marketing site | Final validation | Not Started |
+| 15-16 | 8 | ~37 | Analytics + Import/Export + Merge + Inventory + Mexico + Admin | Analytics + Import + Inventory screens | Analytics + Load tests | Complete (59/59) |
+| 17-18 | 9 | -- | Bug fixes + Optimizations | Bug fixes + UX polish | Security audit + Load tests | In Progress (32/36) |
+| 19-20 | 10 | -- | Production deploy + Monitoring | Marketing site | Final validation | In Progress (26/38) |
 | 21-22 | 11 | ~22 | Memberships + Recall + Intake + Huddle | Membership + Campaign + Intake + Huddle pages | Module tests | Not Started |
 | 23-24 | 12 | ~44 | Nequi/Daviplata + EPS + RETHUS + Referrals + Post-Op + **Cash Register + Expenses + Delinquency/Acceptance Tasks** | Payment QR + EPS badge + Referral portal + Cash register + Expense mgmt | Integration tests | Not Started |
 | 25-26 | 13 | ~47 | Reputation + Schedule AI + Multi-Currency + Loyalty + **Periodontogram + Convenios + Tasks + Families** | Reviews + Intelligence + Loyalty + Perio chart + Convenios + Task board + Family groups | Analytics + perio tests | Not Started |
