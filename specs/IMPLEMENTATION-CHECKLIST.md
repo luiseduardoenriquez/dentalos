@@ -657,6 +657,19 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 - [x] **E-14** Patient portal access invitation
 - [x] **E-15** New message notification
 
+### Integration Tests (S11-12)
+
+- [x] Invoice API integration tests (`test_billing/test_invoices_api.py` — 25 tests)
+- [x] Payment API integration tests (`test_billing/test_payments_api.py` — 25 tests)
+- [x] Billing summary API integration tests (`test_billing/test_billing_summary_api.py` — 14 tests)
+- [x] Referral API integration tests (`test_billing/test_referrals_api.py` — 10 tests)
+- [x] Portal auth integration tests (`test_portal/test_portal_auth_api.py` — 18 tests)
+- [x] Portal data API integration tests (`test_portal/test_portal_data_api.py` — 11 tests)
+- [x] Portal actions API integration tests (`test_portal/test_portal_actions_api.py` — 14 tests)
+- [x] Notification API integration tests (`test_notifications/test_notifications_api.py` — 22 tests)
+- [x] Messaging API integration tests (`test_messaging/test_messages_api.py` — 22 tests)
+- [x] Webhook integration tests (`test_webhooks/test_webhooks_api.py` — 7 tests)
+
 ---
 
 ## Sprint 13-14: Compliance (Month 7)
@@ -1691,7 +1704,7 @@ Each sprint must meet these criteria before sign-off:
 | 5-6 | 3 | ~46 | Odontogram + Clinical Records (base) + Evolution Templates + Service Catalog | Odontogram + Clinical (base) | Odontogram tests | Complete |
 | 7-8 | 4 | ~57 | Diagnoses + Procedures + Treatment + Consents + Rx + Quotation + Digital Sig + Tooth Photos | Clinical + Treatment + Consent + Rx screens | Clinical workflow tests | Complete |
 | 9-10 | 5 | ~50 | Appointments + Scheduling + Waitlist + Public booking + Voice Pipeline | Calendar + Agenda screens + Voice UI | Scheduling + Voice tests | Complete |
-| 11-12 | 6 | ~67 | Billing + Notifications + Portal + Messaging + WhatsApp + Referral | Billing + Portal screens | Integration tests | Not Started |
+| 11-12 | 6 | ~67 | Billing + Notifications + Portal + Messaging + WhatsApp + Referral | Billing + Portal screens | Integration tests | Complete |
 | 13-14 | 7 | ~20 | Colombia compliance (RIPS, RDA, MATIAS/DIAN) | Compliance screens | Compliance validation tests | Complete |
 | 15-16 | 8 | ~37 | Analytics + Import/Export + Merge + Inventory + Mexico + Admin | Analytics + Import + Inventory screens | Analytics + Load tests | Not Started |
 | 17-18 | 9 | -- | Bug fixes + Optimizations | Bug fixes + UX polish | Security audit + Load tests | Not Started |
