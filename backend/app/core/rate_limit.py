@@ -95,3 +95,20 @@ async def check_rate_limit_tenant(
     tenant_id_short = tenant_id.removeprefix("tn_")
     key = f"dentalos:{tenant_id_short}:rl:{resource}"
     await check_rate_limit(key, limit, window_seconds)
+
+
+async def check_rate_limit_user(
+    user_id: str,
+    action: str,
+    limit: int,
+    window_seconds: int,
+) -> None:
+    """Check rate limit scoped to a specific user and action.
+
+    Uses key pattern: rl:user:{user_id}:{action}
+    Applies to sensitive endpoints: password changes, data exports, etc.
+    Raises RateLimitError if the limit is exceeded.
+    If Redis is down, allows the request (graceful degradation).
+    """
+    key = f"rl:user:{user_id}:{action}"
+    await check_rate_limit(key, limit, window_seconds)

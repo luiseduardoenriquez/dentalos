@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import cache_delete, get_cached, set_cached
 from app.core.exceptions import (
     ResourceNotFoundError,
     TenantError,
@@ -159,8 +160,16 @@ async def get_plan_limits(
 ) -> dict[str, Any]:
     """Return plan limits and features for the current tenant.
 
-    Returns a dict suitable for PlanLimitsResponse.
+    Uses Redis cache with 10min TTL. Returns a dict suitable for
+    PlanLimitsResponse.
     """
+    cache_key = f"dentalos:{tenant_id}:config:plan_limits"
+
+    # Check Redis cache first
+    cached = await get_cached(cache_key)
+    if cached is not None:
+        return cached
+
     tenant = await _get_tenant_or_raise(tenant_id, db)
     plan = tenant.plan
 
@@ -171,13 +180,18 @@ async def get_plan_limits(
             status_code=500,
         )
 
-    return {
+    result = {
         "max_patients": plan.max_patients,
         "max_doctors": plan.max_doctors,
         "max_users": plan.max_users,
         "max_storage_mb": plan.max_storage_mb,
         "features": plan.features or {},
     }
+
+    # Cache for 10 minutes
+    await set_cached(cache_key, result, ttl_seconds=600)
+
+    return result
 
 
 async def process_onboarding_step(
@@ -495,6 +509,9 @@ async def admin_update_tenant(
 
     await db.flush()
     await invalidate_tenant_cache(tenant_id)
+
+    # Invalidate plan limits cache on any tenant update (plan may have changed)
+    await cache_delete(f"dentalos:{tenant_id}:config:plan_limits")
 
     return await admin_get_tenant(tenant_id, db)
 

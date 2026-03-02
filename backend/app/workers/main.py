@@ -50,6 +50,11 @@ async def main(worker_name: str | None = None) -> None:
 
         workers.append(import_worker)
 
+    if worker_name is None or worker_name == "maintenance":
+        from app.workers.maintenance_worker import maintenance_worker
+
+        workers.append(maintenance_worker)
+
     if not workers:
         logger.error("No workers matched name: %s", worker_name)
         sys.exit(1)

@@ -62,11 +62,14 @@ async def connect_rabbitmq() -> None:
             )
             await dlq.bind(dlx_exchange, routing_key=dlq_name)
 
-            # Main queue: routes failed messages to DLX
+            # Main queue: routes failed messages to DLX, supports priority
             main_queue = await _channel.declare_queue(
                 queue_name,
                 durable=True,
-                arguments={"x-dead-letter-exchange": EXCHANGE_DLX},
+                arguments={
+                    "x-dead-letter-exchange": EXCHANGE_DLX,
+                    "x-max-priority": 10,
+                },
             )
             await main_queue.bind(_exchange, routing_key=queue_name)
 

@@ -87,6 +87,33 @@ async def get_current_user(
             status_code=401,
         )
 
+    # Fast path: check Redis session cache before hitting DB
+    session_cache_key = f"dentalos:{tenant_id}:auth:session:{user_id}"
+    cached_session = await get_cached(session_cache_key)
+    if cached_session and isinstance(cached_session, dict):
+        try:
+            tenant_ctx = await get_tenant_with_plan(tenant_id, db)
+        except Exception:
+            clear_current_tenant()
+            raise AuthError(
+                error="AUTH_tenant_not_found",
+                message="Tenant not found or inactive.",
+                status_code=401,
+            ) from None
+
+        set_current_tenant(tenant_ctx)
+
+        return AuthenticatedUser(
+            user_id=cached_session["user_id"],
+            email=cached_session["email"],
+            name=cached_session["name"],
+            role=cached_session["role"],
+            permissions=cached_session["permissions"],
+            tenant=tenant_ctx,
+            token_jti=jti,  # type: ignore[arg-type]
+            token_version=cached_session.get("token_version", 0),
+        )
+
     # Resolve tenant
     try:
         tenant_ctx = await get_tenant_with_plan(tenant_id, db)
@@ -112,6 +139,20 @@ async def get_current_user(
 
     # Get permissions for role
     permissions = get_permissions_for_role(role)  # type: ignore[arg-type]
+
+    # Cache session in Redis (TTL 15min) for fast subsequent lookups
+    await set_cached(
+        session_cache_key,
+        {
+            "user_id": user_id,
+            "email": email,
+            "name": name,
+            "role": role,
+            "permissions": list(permissions),
+            "token_version": token_version,
+        },
+        ttl_seconds=900,
+    )
 
     return AuthenticatedUser(
         user_id=user_id,
