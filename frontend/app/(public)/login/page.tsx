@@ -325,15 +325,26 @@ export default function LoginPage() {
 
       {/* Footer links */}
       {!tenants && (
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          ¿No tienes cuenta?{" "}
-          <Link
-            href="/register"
-            className="font-medium text-primary-600 hover:underline dark:text-primary-400"
-          >
-            Registrar clínica
-          </Link>
-        </p>
+        <div className="mt-6 space-y-2 text-center text-sm text-muted-foreground">
+          <p>
+            ¿No tienes cuenta?{" "}
+            <Link
+              href="/register"
+              className="font-medium text-primary-600 hover:underline dark:text-primary-400"
+            >
+              Registrar clínica
+            </Link>
+          </p>
+          <p>
+            ¿Eres paciente?{" "}
+            <Link
+              href="/portal/login"
+              className="font-medium text-primary-600 hover:underline dark:text-primary-400"
+            >
+              Ingresa a tu portal &rarr;
+            </Link>
+          </p>
+        </div>
       )}
     </div>
   );

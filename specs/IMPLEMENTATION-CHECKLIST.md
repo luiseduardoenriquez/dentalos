@@ -6,7 +6,7 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 | Attribute           | Value                                         |
 |---------------------|-----------------------------------------------|
-| Total Sprints       | 20 (across 10 months)                         |
+| Total Sprints       | 32 (20 pre-launch + 12 post-launch)           |
 | Sprint Duration     | 2 weeks each                                  |
 | Total Specs Mapped  | ~381                                          |
 | Launch Target       | Colombia first, then Mexico expansion          |
@@ -28,8 +28,14 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 | Pro | $39/doctor/mo | All features |
 | Clinica | $69/location/mo | Includes 3 doctors, +$15/additional doctor |
 | Enterprise | Custom | Multi-location, SLA, dedicated support |
-| **Add-on:** AI Voice | +$10/mo | Voice-to-Odontogram dictation |
-| **Add-on:** AI Radiograph | +$20/mo | Radiograph AI analysis |
+| **Add-on:** AI Voice | +$10/doc/mo | Voice-to-Odontogram dictation |
+| **Add-on:** AI Radiograph | +$20/doc/mo | Radiograph AI analysis |
+| **Add-on:** AI Treatment Advisor | +$5/doc/mo | AI-powered treatment recommendations (VP-13) |
+| **Add-on:** Patient Engagement Suite | +$15/loc/mo | Recall/reactivation engine + email campaigns (VP-02, VP-17) |
+| **Add-on:** Membership Plans | +$15/loc/mo | Patient subscription/membership management (VP-01) |
+| **Add-on:** Reputation Manager | +$10/loc/mo | Review routing + NPS/CSAT surveys (VP-09, VP-21) |
+| **Add-on:** Virtual Receptionist | +$10/loc/mo | AI chatbot on WhatsApp + web (VP-16) |
+| **Add-on:** Telehealth | +$15/loc/mo | Video consultations (post-MVP roadmap) |
 
 ---
 
@@ -914,6 +920,431 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 
 ---
 
+## Sprint 21-22: Patient Engagement & Revenue Acceleration (Post-Launch Month 1-2)
+
+**Goal:** Ship critical differentiators that drive clinic revenue and patient engagement. These are P0 features — highest ROI, fastest time-to-value.
+
+### VP-01: Membership Plans (Planes de Membresía Dental)
+
+Patients pay a monthly subscription for preventive care + discounts on treatments. Clinics in US report $100K+/year from memberships. 76% more patient visits. Zero LATAM competitors offer this. Colombia has ~40% out-of-pocket patients — ideal market fit.
+
+- [ ] Design `membership_plans` table (tenant schema): plan name, description, monthly_price_cents, annual_price_cents, benefits JSONB, discount_percentage, is_active, created_at, updated_at
+- [ ] Design `membership_subscriptions` table: patient_id, plan_id, status (active/paused/cancelled/expired), start_date, next_billing_date, cancelled_at, payment_method
+- [ ] Design `membership_usage_log` table: subscription_id, service_id, discount_applied_cents, used_at
+- [ ] `POST /api/v1/memberships/plans` — Create membership plan (clinic_owner)
+- [ ] `GET /api/v1/memberships/plans` — List plans (all staff roles)
+- [ ] `PUT /api/v1/memberships/plans/{id}` — Update plan (clinic_owner)
+- [ ] `POST /api/v1/memberships/subscriptions` — Subscribe patient to plan (receptionist+)
+- [ ] `GET /api/v1/memberships/subscriptions` — List active subscriptions with filters
+- [ ] `POST /api/v1/memberships/subscriptions/{id}/cancel` — Cancel subscription
+- [ ] `POST /api/v1/memberships/subscriptions/{id}/pause` — Pause subscription
+- [ ] Auto-apply membership discount on invoice creation (hook into billing service)
+- [ ] Mercado Pago recurring payment integration for auto-billing
+- [ ] Membership renewal notification via existing notification dispatch
+- [ ] Portal: patient can view their membership plan, benefits used, next billing date
+- [ ] Portal: patient can request cancellation (triggers staff review)
+- [ ] FE: Membership plan management page (clinic_owner) — create/edit/archive plans
+- [ ] FE: Subscribe patient flow from patient profile
+- [ ] FE: Membership dashboard — active members count, revenue, churn rate
+
+### VP-02: Automated Recall & Reactivation Engine
+
+AI-driven campaigns that identify inactive patients (6+ months) and send WhatsApp/SMS/email sequences to bring them back. Reactivating 50 patients/month = ~10M COP additional revenue per clinic. Leverages existing notification dispatch + WhatsApp + RabbitMQ infrastructure.
+
+- [ ] Design `recall_campaigns` table: name, type (recall/reactivation/treatment_followup), filters JSONB, message_template_id, channel (whatsapp/sms/email/multi), schedule JSONB, status (draft/active/paused/completed), created_by
+- [ ] Design `recall_campaign_recipients` table: campaign_id, patient_id, status (pending/sent/delivered/opened/clicked/booked/failed), sent_at, responded_at, booked_appointment_id
+- [ ] `POST /api/v1/recall/campaigns` — Create campaign (clinic_owner/receptionist)
+- [ ] `GET /api/v1/recall/campaigns` — List campaigns with aggregated stats
+- [ ] `PUT /api/v1/recall/campaigns/{id}` — Update campaign
+- [ ] `POST /api/v1/recall/campaigns/{id}/activate` — Activate campaign
+- [ ] `POST /api/v1/recall/campaigns/{id}/pause` — Pause campaign
+- [ ] Cron job: identify patients with no visit in X months (configurable threshold)
+- [ ] Cron job: identify patients with incomplete treatment plans
+- [ ] Cron job: identify patients overdue for hygiene recall (6-month intervals)
+- [ ] Cron job: identify patients with upcoming birthdays (birthday campaign)
+- [ ] Multi-step sequence support: day 1 WhatsApp → day 3 SMS → day 7 email
+- [ ] WhatsApp/SMS/email dispatch via existing notification engine (RabbitMQ `notifications` queue)
+- [ ] Campaign performance tracking: sent, delivered, opened, booked, revenue attributed
+- [ ] Unsubscribe/opt-out handling (respect patient communication preferences)
+- [ ] FE: Campaign builder page — patient segment filters, message template, channel selection, schedule
+- [ ] FE: Campaign results dashboard — funnel visualization, ROI metrics
+- [ ] FE: Patient timeline shows recall campaign interactions
+
+### VP-03: Smart Digital Intake Forms
+
+Patient completes medical history, consents, and personal data from their phone before the appointment. Auto-populates the patient record. Reduces front desk time from 15 min to <2 min per patient. Portal + anamnesis + consent infrastructure already exists.
+
+- [ ] Design `intake_form_templates` table: name, fields JSONB (field definitions), consent_template_ids, is_default, is_active, tenant_id
+- [ ] Design `intake_submissions` table: template_id, patient_id (nullable — new patients), appointment_id, data JSONB, status (pending/reviewed/approved/rejected), submitted_at, reviewed_by, reviewed_at
+- [ ] `POST /api/v1/intake/templates` — Create/customize intake form template (clinic_owner)
+- [ ] `GET /api/v1/intake/templates` — List templates
+- [ ] `PUT /api/v1/intake/templates/{id}` — Update template
+- [ ] `POST /api/v1/public/{slug}/intake` — Patient submits form (public, no auth required for new patients)
+- [ ] `POST /api/v1/portal/intake` — Patient submits form (portal auth, existing patients)
+- [ ] `GET /api/v1/intake/submissions` — List submissions for review (staff)
+- [ ] `POST /api/v1/intake/submissions/{id}/approve` — Approve and auto-populate records
+- [ ] Auto-populate Patient + Anamnesis + Consent records from approved submission
+- [ ] Pre-appointment intake link sent via notification dispatch (24h before appointment, configurable)
+- [ ] Default intake template seeded per tenant (Colombian medical history fields)
+- [ ] FE: Form template builder for clinic_owner (field types: text, select, date, checkbox, file upload, signature)
+- [ ] FE: Mobile-optimized patient intake form (public-facing, responsive 320px+)
+- [ ] FE: Intake submission review queue for staff — approve/edit/reject before saving to patient record
+- [ ] FE: Intake completion status indicator on today's appointment list
+
+### VP-04: Morning Huddle Dashboard (Resumen del Día)
+
+Daily briefing that aggregates existing data into actionable insights. Dental Intelligence built their entire company on this concept. Clinics report +15-25% production increase. No new data required — pure aggregation of patients, appointments, billing, treatment plans.
+
+- [ ] `GET /api/v1/analytics/huddle` — Today's briefing endpoint (aggregates existing data)
+- [ ] Huddle data: today's appointments with patient name, procedure, status, arrival
+- [ ] Huddle data: production goal vs actual (daily/weekly/monthly from billing)
+- [ ] Huddle data: incomplete treatment plans needing follow-up (top 10 by value)
+- [ ] Huddle data: outstanding patient balances (top 10 by amount)
+- [ ] Huddle data: patients with birthdays today
+- [ ] Huddle data: recall-due patients this week (no visit in 6+ months)
+- [ ] Huddle data: yesterday's collection summary
+- [ ] Huddle data: no-show count yesterday + today's high-risk no-shows
+- [ ] Production goal configuration per doctor/clinic (`clinic_settings` JSONB)
+- [ ] FE: Morning Huddle page in (dashboard) route group
+- [ ] FE: Auto-refresh every 5 minutes during business hours
+- [ ] FE: Printable huddle summary (PDF or print-optimized CSS) for team meetings
+- [ ] FE: Quick-action buttons (call patient, send reminder, view balance)
+
+---
+
+## Sprint 23-24: Colombia-Specific Integrations & Growth (Post-Launch Month 3-4)
+
+**Goal:** Integrate Colombia-specific payment methods and regulatory verifications that no dental SaaS offers. Ship growth loops (referrals) and quick wins (post-op instructions).
+
+### VP-05: Nequi / Daviplata Mobile Wallet Payments
+
+21M+ Nequi users in Colombia — more than credit card holders. Zero dental software integrates mobile wallets. First-mover advantage. Included in all plans as a payment method.
+
+- [ ] Nequi Comercios QR Push API integration (sandbox + production)
+- [ ] Daviplata QR API integration (via Davivienda developer portal)
+- [ ] Add payment methods `nequi` and `daviplata` to payment recording enum
+- [ ] QR code generation service (encodes payment amount + reference)
+- [ ] `POST /api/v1/billing/invoices/{id}/payment-qr` — Generate QR for invoice payment
+- [ ] Payment webhook endpoint for Nequi confirmation callbacks
+- [ ] Payment webhook endpoint for Daviplata confirmation callbacks
+- [ ] Auto-reconcile webhook payment with invoice (mark as paid)
+- [ ] Patient portal: "Pay with Nequi" and "Pay with Daviplata" buttons on invoice
+- [ ] FE: QR display component on invoice detail page (staff shows to patient)
+- [ ] FE: Payment confirmation toast/notification on successful webhook
+
+### VP-06: EPS Insurance Verification (ADRES/BDUA)
+
+One-click verification of patient's EPS affiliation, copay level, and eligible procedures. Clinics currently spend 15-30 min per EPS patient on manual verification. Colombian equivalent of US "instant insurance verification."
+
+- [ ] ADRES BDUA API client service (SOAP/REST — document type + number → affiliation status)
+- [ ] `GET /api/v1/patients/{id}/eps-verification` — Verify EPS status (doctor/receptionist+)
+- [ ] Design `eps_verifications` table: patient_id, verification_date, eps_name, eps_code, affiliation_status, regime (contributivo/subsidiado), copay_category, raw_response JSONB
+- [ ] Cache verification result in Redis (TTL 24h, key pattern `...:eps:verification:{patient_id}`)
+- [ ] Display verification badge on patient profile (verified/unverified/expired)
+- [ ] Show coverage details: EPS name, regime, copay category, eligible procedure types
+- [ ] Alert on coverage changes or inactive affiliation
+- [ ] Auto-verify on patient creation if document_type is CC/TI (background job via RabbitMQ)
+- [ ] FE: EPS verification badge and expandable detail panel on patient profile
+- [ ] FE: Manual "Re-verify" button for staff
+- [ ] FE: EPS status column on patient list (filterable)
+
+### VP-07: RETHUS Professional Registry Verification
+
+Automatic validation of doctor/assistant professional registration against MinSalud registry. Resolución 1888 requires it. High compliance value. No competitor offers automated verification.
+
+- [ ] RETHUS verification service (MinSalud RETHUS consulta API or web scraping fallback)
+- [ ] Add `rethus_number` field to User model (doctor/assistant roles)
+- [ ] Add `rethus_verification_status` field (pending/verified/failed/expired)
+- [ ] Add `rethus_verified_at` timestamp field
+- [ ] `GET /api/v1/users/{id}/rethus-verification` — Check RETHUS status
+- [ ] `POST /api/v1/users/{id}/rethus-verification` — Trigger manual verification
+- [ ] Auto-verify on team member invite/onboarding (background job)
+- [ ] Periodic re-verification via `maintenance` queue (monthly cron)
+- [ ] Verification status badge on team member profile
+- [ ] Alert clinic_owner if any doctor's RETHUS verification fails or expires
+- [ ] FE: RETHUS badge on doctor profile and team management page
+- [ ] FE: Verification trigger button and status history
+
+### VP-08: Patient Referral Program (Paciente Refiere Paciente)
+
+Word-of-mouth is the #1 patient acquisition channel for dental clinics in Colombia. Unique referral codes with discounts for both referrer and referred patient. +20-35% new patient acquisition. Public booking already accepts new patients.
+
+- [ ] Design `referral_codes` table: patient_id, code (unique, 8-char alphanumeric), is_active, uses_count, max_uses (nullable), created_at
+- [ ] Design `referral_rewards` table: referrer_patient_id, referred_patient_id, referral_code_id, reward_type (discount/credit/points), reward_amount_cents, status (pending/applied/expired), applied_to_invoice_id
+- [ ] Design `referral_program_config` in tenant settings JSONB: enabled, referrer_reward_type, referrer_reward_amount, referred_discount_percentage, max_referrals_per_patient
+- [ ] Auto-generate unique referral code per patient on first portal login
+- [ ] `GET /api/v1/portal/referral` — Patient views their referral code and stats
+- [ ] `GET /api/v1/portal/referral/rewards` — Patient views earned rewards
+- [ ] Accept `referral_code` parameter in public booking endpoint
+- [ ] Auto-create referral_reward record when referred patient completes first appointment
+- [ ] Auto-apply referrer discount on their next invoice
+- [ ] Welcome discount for referred patient on first invoice
+- [ ] Notification to referrer when their referral books + completes appointment
+- [ ] `GET /api/v1/referrals/stats` — Referral program analytics (clinic_owner)
+- [ ] FE: Referral program settings page (clinic_owner — configure reward rules)
+- [ ] FE: Portal referral sharing page (shareable link, WhatsApp share button, QR code)
+- [ ] FE: Referral tracking dashboard (clinic_owner — top referrers, conversion rate)
+
+### VP-20: Post-Operative Instructions Automation (Quick Win)
+
+After a procedure, automatically send care instructions via WhatsApp/email/portal. Reduces post-op phone calls by 40-60%. Reuses evolution templates + notification dispatch infrastructure.
+
+- [ ] Design `postop_templates` table: procedure_type (maps to evolution template type), title, instruction_content (rich text), channel_preference (whatsapp/email/portal/all), is_active
+- [ ] Seed 10 built-in post-op templates for common procedures: resina, endodoncia, exodoncia, profilaxis, cirugía periodontal, blanqueamiento, corona, implante, ortodoncia ajuste, urgencia
+- [ ] `GET /api/v1/postop/templates` — List templates (staff)
+- [ ] `POST /api/v1/postop/templates` — Create custom template (clinic_owner)
+- [ ] `PUT /api/v1/postop/templates/{id}` — Update template
+- [ ] Event listener: on procedure completion (evolution record saved), auto-dispatch matching post-op instructions
+- [ ] Send via patient's preferred channel (WhatsApp → email → portal fallback)
+- [ ] Portal: patient can view past post-op instructions
+- [ ] `POST /api/v1/postop/send/{patient_id}` — Manual send for any procedure (staff)
+- [ ] FE: Post-op template management page (clinic_owner)
+- [ ] FE: "Send post-op instructions" button on procedure completion screen
+
+---
+
+## Sprint 25-26: Reputation, Intelligence & Multi-Currency (Post-Launch Month 5-6)
+
+**Goal:** Build reputation management loop, schedule intelligence, and support for dental tourism / multi-currency billing.
+
+### VP-09: Review & Reputation Management
+
+Post-appointment auto-survey that routes satisfied patients to Google Reviews and unsatisfied patients to private feedback. 77% of patients check reviews before choosing a dentist. Google Maps reviews are critical for discovery in LATAM.
+
+- [ ] Design `satisfaction_surveys` table: patient_id, appointment_id, score (1-5), feedback_text, channel_sent, sent_at, responded_at, routed_to (google_review/private_feedback)
+- [ ] Design `reputation_config` in tenant settings JSONB: enabled, min_score_for_review_routing (default 4), google_review_url, survey_delay_hours (default 2), channels
+- [ ] `POST /api/v1/reputation/surveys/send` — Manually trigger survey for appointment
+- [ ] Event listener: auto-send survey X hours after appointment completion
+- [ ] Survey response handler: score >= threshold → redirect to Google Reviews link; score < threshold → save as private feedback
+- [ ] `GET /api/v1/reputation/dashboard` — Reputation analytics (avg score, response rate, review count, NPS)
+- [ ] `GET /api/v1/reputation/feedback` — List private feedback (clinic_owner)
+- [ ] WhatsApp/SMS/email survey delivery via notification engine
+- [ ] FE: Reputation dashboard — score trends, review volume, feedback queue
+- [ ] FE: Reputation settings page (Google Review URL, threshold, channels)
+- [ ] FE: Patient-facing survey form (mobile-optimized, 1-tap star rating)
+
+### VP-10: Intelligent Schedule Optimization
+
+AI analyzes appointment patterns to suggest fill strategies, predict no-shows, and recommend optimal scheduling. +10-15% chair utilization. All data already exists in appointments module.
+
+- [ ] `GET /api/v1/analytics/schedule-intelligence` — Schedule optimization insights
+- [ ] No-show prediction model: based on patient history, day of week, time, procedure type, weather (future)
+- [ ] Gap analysis: identify unfilled slots and suggest patients from waitlist or recall list
+- [ ] Overbooking recommendations: for high no-show slots, suggest double-booking threshold
+- [ ] Optimal scheduling patterns: analyze which procedure sequences maximize production
+- [ ] Chair utilization metrics: actual vs potential production per chair/doctor
+- [ ] `GET /api/v1/appointments/suggested-fills` — AI-suggested patients for empty slots
+- [ ] Alert: same-day unfilled slot notification to receptionist with suggested patients
+- [ ] FE: Schedule intelligence panel on agenda sidebar
+- [ ] FE: No-show risk indicator on appointment cards (low/medium/high)
+- [ ] FE: Suggested fill actions (one-click send invite to suggested patient)
+
+### VP-14: Multi-Currency Billing
+
+Invoice in COP/USD/EUR with automatic conversion. Growing dental tourism in Medellín/Cartagena. Border clinics (Cúcuta) serve Venezuelan patients. Plan-gated to Clínica+ tier.
+
+- [ ] Add `currency` field to invoice model (default COP, options: COP/USD/EUR/MXN)
+- [ ] Add `exchange_rate` and `exchange_rate_date` fields to invoice
+- [ ] Exchange rate service: daily rates from Banco de la República API (COP) or fallback to open exchange rates
+- [ ] Cache exchange rates in Redis (TTL 1h)
+- [ ] Multi-currency service catalog: prices can be defined in multiple currencies
+- [ ] Invoice PDF renders with correct currency symbol and formatting
+- [ ] Payment recording supports multi-currency (amount_paid_cents + currency)
+- [ ] `GET /api/v1/billing/exchange-rates` — Current exchange rates
+- [ ] FE: Currency selector on invoice creation
+- [ ] FE: Exchange rate display on invoice detail
+- [ ] FE: Multi-currency financial reports (normalize to COP for clinic reporting)
+
+### VP-15: Patient Loyalty / Points Program
+
+Points for completed appointments, on-time payments, referrals. Redeemable for discounts. +15-20% retention. Multiplies effect of memberships (VP-01) and referrals (VP-08).
+
+- [ ] Design `loyalty_config` in tenant settings JSONB: enabled, points_per_appointment, points_per_referral, points_per_ontime_payment, points_to_currency_ratio
+- [ ] Design `loyalty_points` table: patient_id, points_balance, lifetime_points_earned, lifetime_points_redeemed
+- [ ] Design `loyalty_transactions` table: patient_id, type (earned/redeemed/expired/adjusted), points, reason, reference_id, created_at
+- [ ] Award points on: appointment completion, on-time payment, referral completion, membership renewal
+- [ ] `GET /api/v1/portal/loyalty` — Patient views points balance and history
+- [ ] `POST /api/v1/loyalty/redeem` — Redeem points for discount on next invoice (staff action)
+- [ ] Points expiration: configurable TTL (default 12 months of inactivity)
+- [ ] `GET /api/v1/loyalty/leaderboard` — Top patients by points (gamification)
+- [ ] FE: Portal loyalty page — balance, history, available rewards
+- [ ] FE: Points redemption flow at checkout (staff applies patient points)
+- [ ] FE: Loyalty program settings page (clinic_owner)
+
+---
+
+## Sprint 27-28: AI Advisor, WhatsApp Chat & Email Marketing (Post-Launch Month 7-8)
+
+**Goal:** Ship AI-powered treatment recommendations, bidirectional WhatsApp, and email marketing campaigns to complete the patient engagement suite.
+
+### VP-12: Bidirectional WhatsApp Chat
+
+Unified inbox in dashboard for WhatsApp conversations with patients. Currently only sends template messages. Clinics need to answer questions, send post-op instructions, coordinate appointments.
+
+- [ ] WhatsApp Business API webhook for incoming messages
+- [ ] Design `whatsapp_conversations` table: patient_id, phone_number, status (active/archived), last_message_at, assigned_to (staff user_id)
+- [ ] Design `whatsapp_messages` table: conversation_id, direction (inbound/outbound), content, media_url, status (sent/delivered/read/failed), timestamp
+- [ ] Inbound message processing: match phone number to patient record
+- [ ] `GET /api/v1/messaging/conversations` — List active conversations (staff)
+- [ ] `GET /api/v1/messaging/conversations/{id}/messages` — Message history
+- [ ] `POST /api/v1/messaging/conversations/{id}/send` — Send message (staff)
+- [ ] Real-time updates via WebSocket or SSE for new incoming messages
+- [ ] Conversation assignment: receptionist assigns conversations to staff members
+- [ ] Quick-reply templates for common responses (appointment confirmation, directions, hours)
+- [ ] FE: WhatsApp inbox page — conversation list + message thread
+- [ ] FE: Unread message badge in navigation
+- [ ] FE: Quick-reply template selector
+- [ ] FE: Patient profile link from conversation
+
+### VP-13: AI Treatment Recommendation
+
+Based on odontogram conditions + patient history, AI suggests a treatment plan with procedures from the clinic's service catalog and prices. Reduces plan creation from 10-15 min to <2 min. Reuses Claude API from voice pipeline.
+
+- [ ] AI treatment advisor service: input = odontogram state + patient age/history + catalog → output = suggested procedures with rationale
+- [ ] `POST /api/v1/treatment-plans/ai-suggest` — Generate AI treatment suggestion (doctor)
+- [ ] Claude API integration: structured prompt with patient context + dental knowledge
+- [ ] Map AI suggestions to clinic's service catalog (procedure codes + prices)
+- [ ] Confidence score per suggestion (high/medium/low)
+- [ ] Doctor review flow: accept, modify, or reject each suggestion before creating plan
+- [ ] Usage metering: track AI suggestions per doctor for add-on billing
+- [ ] Add-on gating: check AI Treatment Advisor add-on is active for tenant
+- [ ] FE: "AI Suggest" button on treatment plan creation screen
+- [ ] FE: AI suggestion review panel — accept/modify/reject per procedure
+- [ ] FE: AI confidence indicators and reasoning display
+
+### VP-17: Email Marketing Campaigns
+
+Patient segmentation + dental-specific email templates in Spanish + open/click tracking. Extends recall engine (VP-02). Pre-built Spanish templates are a competitive advantage over US-centric tools.
+
+- [ ] Design `email_campaigns` table: name, subject, template_id, segment_filters JSONB, status (draft/scheduled/sending/sent), scheduled_at, sent_count, open_count, click_count
+- [ ] Design `email_campaign_recipients` table: campaign_id, patient_id, email, status (pending/sent/opened/clicked/bounced/unsubscribed)
+- [ ] Patient segmentation engine: filter by last visit date, procedures received, age range, insurance type, membership status, balance
+- [ ] `POST /api/v1/marketing/campaigns` — Create campaign (clinic_owner)
+- [ ] `GET /api/v1/marketing/campaigns` — List campaigns with stats
+- [ ] `POST /api/v1/marketing/campaigns/{id}/send` — Send campaign
+- [ ] `POST /api/v1/marketing/campaigns/{id}/schedule` — Schedule campaign
+- [ ] Open/click tracking via tracking pixel and redirect links
+- [ ] Seed 10 dental email templates in Spanish: recall, birthday, new service, holiday, referral promo, membership promo, treatment followup, post-op care, feedback request, welcome
+- [ ] Unsubscribe handling (CAN-SPAM / Colombia Ley 1581 compliance)
+- [ ] Bundled with Patient Engagement Suite add-on (VP-02 recall + VP-17 campaigns)
+- [ ] FE: Campaign builder — template selection, segment filters, preview, schedule
+- [ ] FE: Campaign analytics dashboard — open rate, click rate, unsubscribe rate, revenue attributed
+- [ ] FE: Email template editor (basic rich text, variable interpolation: {patient_name}, {clinic_name}, etc.)
+
+---
+
+## Sprint 29-30: Patient Financing, Chatbot & Surveys (Post-Launch Month 9-10)
+
+**Goal:** Ship patient financing integration, AI virtual receptionist, and satisfaction surveys.
+
+### VP-11: Patient Financing (Cuotas vía Fintech)
+
+Interest-free installments for expensive treatments via fintech partners (Addi, Sistecrédito). Treatment acceptance increases 30-60% with financing options. Revenue share model (1-2%).
+
+- [ ] Addi API integration (payment plan creation, status callbacks)
+- [ ] Sistecrédito API integration (as alternative/complementary)
+- [ ] Add `financing` payment method to billing module
+- [ ] `POST /api/v1/billing/invoices/{id}/financing-request` — Request financing for invoice
+- [ ] Financing status tracking: requested → approved → disbursed → repaying → completed
+- [ ] Financing eligibility check: patient credit pre-qualification
+- [ ] Auto-record payment on financing disbursement (clinic receives full amount)
+- [ ] Revenue share tracking for DentalOS (1-2% per financed transaction)
+- [ ] FE: "Finance this treatment" button on invoice/quotation
+- [ ] FE: Financing status on invoice detail
+- [ ] FE: Financing report for clinic_owner (financed amounts, approval rate)
+
+### VP-16: AI Virtual Receptionist / Chatbot
+
+24/7 bot on web and WhatsApp that schedules appointments, answers FAQs, and processes payments. In LATAM the value is 24/7 availability — clinics close at 6pm but patients search at night.
+
+- [ ] Chatbot engine: intent classification (schedule, reschedule, cancel, FAQ, payment, hours, location, emergency)
+- [ ] Claude API integration for natural language understanding (Spanish dental context)
+- [ ] WhatsApp chatbot: integrate with VP-12 bidirectional WhatsApp
+- [ ] Web widget chatbot: embeddable JavaScript widget for clinic website
+- [ ] Appointment scheduling flow: available slots → patient selects → confirmation
+- [ ] FAQ knowledge base: configurable per clinic (hours, services, prices, location, insurance accepted)
+- [ ] Payment collection: send payment link via chat
+- [ ] Human handoff: escalate to staff when bot can't resolve
+- [ ] `GET /api/v1/chatbot/conversations` — Bot conversation history (staff oversight)
+- [ ] `PUT /api/v1/chatbot/config` — Configure bot responses, FAQ, business hours (clinic_owner)
+- [ ] Usage metering for add-on billing (conversations per month)
+- [ ] FE: Chatbot configuration page (clinic_owner — FAQs, tone, hours)
+- [ ] FE: Bot conversation monitoring dashboard (staff)
+- [ ] FE: Web widget customization (colors, position, greeting message)
+
+### VP-21: Patient Satisfaction Surveys (NPS/CSAT)
+
+Automated post-appointment surveys with NPS and CSAT tracking per doctor. Feeds into reputation management (VP-09). Actionable data for clinic_owner.
+
+- [ ] Design `satisfaction_survey_responses` table: patient_id, appointment_id, doctor_id, nps_score (0-10), csat_score (1-5), comments, submitted_at
+- [ ] NPS calculation service: promoters (9-10), passives (7-8), detractors (0-6)
+- [ ] Auto-send survey after appointment (configurable delay, default 2h)
+- [ ] Multi-channel delivery: WhatsApp (preferred) → SMS → email
+- [ ] `GET /api/v1/analytics/nps` — NPS dashboard data (clinic_owner)
+- [ ] `GET /api/v1/analytics/nps/by-doctor` — NPS breakdown per doctor
+- [ ] NPS trend over time (weekly/monthly)
+- [ ] Alert clinic_owner on detractor response (immediate notification)
+- [ ] Link to VP-09: low score triggers private feedback flow, high score triggers review request
+- [ ] FE: NPS/CSAT dashboard with trends, per-doctor breakdown
+- [ ] FE: Patient-facing survey form (mobile-optimized, WhatsApp-embedded or web link)
+- [ ] FE: Detractor alert inbox for clinic_owner
+
+---
+
+## Sprint 31-32: Advanced Operations & Lab Management (Post-Launch Month 11-12)
+
+**Goal:** Ship remaining value propositions — VoIP integration, EPS claims management, and dental lab order tracking.
+
+### VP-18: VoIP with Screen Pop
+
+When receiving a phone call, the patient's profile automatically appears on screen. Weave built a billion-dollar company on this. Lower impact in LATAM (WhatsApp > phone calls) but valuable for clinics with high call volume.
+
+- [ ] VoIP provider integration (Twilio Voice or local provider)
+- [ ] Caller ID → patient phone number matching service
+- [ ] `GET /api/v1/calls/screen-pop/{phone}` — Lookup patient by phone number
+- [ ] WebSocket push: incoming call notification with patient data to receptionist's browser
+- [ ] Call logging: design `call_log` table — patient_id, phone_number, direction, duration, staff_id, notes
+- [ ] `GET /api/v1/calls/log` — Call history with patient links
+- [ ] FE: Screen pop notification component (appears on incoming call)
+- [ ] FE: Call log page with patient links and note-taking
+- [ ] FE: Click-to-call from patient profile
+
+### VP-19: EPS Claims Management (Gestión de Recobros)
+
+Generate and track electronic claims to EPS insurers. High complexity — each EPS has different portals. Only for clinics with high EPS patient volume.
+
+- [ ] Design `eps_claims` table: patient_id, eps_code, claim_type, procedures JSONB, total_amount_cents, status (draft/submitted/acknowledged/paid/rejected/appealed), submitted_at, response_at
+- [ ] Claim generation service: compile patient + procedures + diagnoses into standardized claim format
+- [ ] `POST /api/v1/billing/eps-claims` — Create EPS claim (clinic_owner/billing staff)
+- [ ] `GET /api/v1/billing/eps-claims` — List claims with status filters
+- [ ] `PUT /api/v1/billing/eps-claims/{id}` — Update claim status
+- [ ] Claim status tracking workflow: draft → submitted → acknowledged → paid/rejected
+- [ ] Rejection handling: reason codes, resubmission flow
+- [ ] Aging report: claims by age bucket (30/60/90+ days)
+- [ ] FE: EPS claims management page — create, submit, track
+- [ ] FE: Claims aging dashboard
+- [ ] FE: Claim detail page with status history and documents
+
+### VP-22: Dental Lab Order Management
+
+Track orders to external dental laboratories with patient-order traceability. Lab coordination (5-15 day turnaround) is a common pain point currently managed via WhatsApp.
+
+- [ ] Design `lab_orders` table: patient_id, treatment_plan_id, lab_id, order_type (corona, puente, protesis, ferula, modelo, etc.), specifications JSONB, status (draft/sent/in_progress/ready/delivered/rejected), due_date, sent_at, completed_at
+- [ ] Design `dental_labs` table (tenant): name, contact_info JSONB, phone, email, address, is_active
+- [ ] `POST /api/v1/lab-orders` — Create lab order (doctor)
+- [ ] `GET /api/v1/lab-orders` — List orders with status filters
+- [ ] `PUT /api/v1/lab-orders/{id}` — Update order status
+- [ ] `POST /api/v1/lab-orders/{id}/send` — Send order to lab (generates PDF or email)
+- [ ] Status update notifications: alert doctor when lab marks order as ready
+- [ ] Overdue order alerts: notify when order passes due_date
+- [ ] Link lab order to patient's treatment plan and appointment (schedule delivery appointment)
+- [ ] FE: Lab order management page — create, track, filter by status/lab/patient
+- [ ] FE: Lab directory management (clinic_owner)
+- [ ] FE: Lab order detail with specifications and status timeline
+- [ ] FE: Overdue orders alert on dashboard
+
+---
+
 ## Acceptance Criteria per Sprint
 
 Each sprint must meet these criteria before sign-off:
@@ -1020,6 +1451,53 @@ Each sprint must meet these criteria before sign-off:
 | Compliance | Colombia legal review passed |
 | Launch | First paying customers onboarded |
 
+### Sprint 21-22: Patient Engagement & Revenue Acceleration
+| Criteria | Target |
+|----------|--------|
+| Membership Plans | Patient can subscribe, discount auto-applies on invoice, portal shows membership |
+| Recall Engine | Campaigns identify inactive patients, send multi-channel sequences, track conversions |
+| Digital Intake | Patient completes intake on phone pre-appointment, data auto-populates record in <2 min |
+| Morning Huddle | Dashboard loads in <1s, shows all 8 data sections, printable summary works |
+| Test coverage | 80% for all new modules |
+
+### Sprint 23-24: Colombia Integrations & Growth
+| Criteria | Target |
+|----------|--------|
+| Nequi/Daviplata | QR payment flow works end-to-end in sandbox, webhook confirms payment |
+| EPS Verification | ADRES lookup returns affiliation status, cached in Redis, badge displays on patient |
+| RETHUS | Doctor registration verified against MinSalud, monthly re-check via cron |
+| Referral Program | Patient shares code, referred patient books, referrer earns reward automatically |
+| Post-Op Instructions | Auto-dispatched on procedure completion, 10 templates seeded |
+
+### Sprint 25-26: Reputation, Intelligence & Multi-Currency
+| Criteria | Target |
+|----------|--------|
+| Reputation | Post-appointment survey sends, routes high scores to Google Reviews |
+| Schedule AI | No-show prediction and fill suggestions based on historical data |
+| Multi-Currency | Invoice in COP/USD/EUR with exchange rates from Banco de la República |
+| Loyalty | Points awarded, redeemable for discounts, portal shows balance |
+
+### Sprint 27-28: AI Advisor, WhatsApp Chat & Email Marketing
+| Criteria | Target |
+|----------|--------|
+| WhatsApp Chat | Bidirectional messaging with real-time updates, conversation assignment |
+| AI Treatment | Claude suggests treatment plan from odontogram, doctor reviews before applying |
+| Email Marketing | Segment patients, send campaigns, track opens/clicks, 10 Spanish templates |
+
+### Sprint 29-30: Patient Financing, Chatbot & Surveys
+| Criteria | Target |
+|----------|--------|
+| Financing | Addi integration works, financing request flow, payment auto-recorded |
+| Chatbot | 24/7 bot schedules appointments, answers FAQs on WhatsApp + web |
+| NPS/CSAT | Auto-survey after appointment, NPS dashboard with per-doctor breakdown |
+
+### Sprint 31-32: Advanced Operations & Lab Management
+| Criteria | Target |
+|----------|--------|
+| VoIP | Incoming call triggers screen pop with patient profile |
+| EPS Claims | Claim generation, submission tracking, aging report |
+| Lab Orders | Order tracking with patient-lab traceability, overdue alerts |
+
 ---
 
 ## Progress Tracking
@@ -1036,7 +1514,13 @@ Each sprint must meet these criteria before sign-off:
 | 15-16 | 8 | ~37 | Analytics + Import/Export + Merge + Inventory + Mexico + Admin | Analytics + Import + Inventory screens | Analytics + Load tests | Not Started |
 | 17-18 | 9 | -- | Bug fixes + Optimizations | Bug fixes + UX polish | Security audit + Load tests | Not Started |
 | 19-20 | 10 | -- | Production deploy + Monitoring | Marketing site | Final validation | Not Started |
-| **Total** | **10** | **~381** | | | | |
+| 21-22 | 11 | ~22 | Memberships + Recall + Intake + Huddle | Membership + Campaign + Intake + Huddle pages | Module tests | Not Started |
+| 23-24 | 12 | ~18 | Nequi/Daviplata + EPS + RETHUS + Referrals + Post-Op | Payment QR + EPS badge + Referral portal | Integration tests | Not Started |
+| 25-26 | 13 | ~16 | Reputation + Schedule AI + Multi-Currency + Loyalty | Reviews + Intelligence + Loyalty pages | Analytics tests | Not Started |
+| 27-28 | 14 | ~14 | WhatsApp Chat + AI Treatment + Email Marketing | Inbox + AI panel + Campaign builder | AI + messaging tests | Not Started |
+| 29-30 | 15 | ~12 | Financing + Chatbot + NPS/CSAT | Financing flow + Bot config + NPS dashboard | Chatbot + survey tests | Not Started |
+| 31-32 | 16 | ~10 | VoIP + EPS Claims + Lab Orders | Screen pop + Claims mgmt + Lab tracking | VoIP + claims tests | Not Started |
+| **Total** | **16** | **~473** | | | | |
 
 ---
 
@@ -1125,6 +1609,30 @@ Track E: Voice Pipeline (Sprint 9-10)
     Requires: Whisper API key, Claude API key
     External dependency: OpenAI Whisper API, Anthropic Claude API
     Feature gated: AI Voice add-on ($10/mo) plan check at V-01
+
+Track F: Post-Launch Value Propositions (Sprint 21+)
+    VP-01 Memberships: Requires billing (B-01+), portal, patient (P-01+)
+    VP-02 Recall Engine: Requires notifications (N-01+), patients, appointments
+    VP-03 Digital Intake: Requires patients (P-01+), anamnesis, consents (IC-01+), portal
+    VP-04 Morning Huddle: Requires appointments, billing, patients (pure aggregation)
+    VP-05 Nequi/Daviplata: Requires billing (B-01+), portal
+    VP-06 EPS Verification: Requires patients (P-01+)
+    VP-07 RETHUS: Requires users (U-01+)
+    VP-08 Referrals: Requires portal, public booking (AP-15), billing
+    VP-09 Reputation: Requires appointments, notifications
+    VP-10 Schedule AI: Requires appointments (AP-01+), analytics
+    VP-11 Financing: Requires billing (B-01+)
+    VP-12 WhatsApp Chat: Requires WhatsApp integration (INT-01)
+    VP-13 AI Treatment: Requires odontogram (OD-01+), catalog (CR-11), Claude API
+    VP-14 Multi-Currency: Requires billing (B-01+)
+    VP-15 Loyalty: Requires patients, billing, VP-01, VP-08
+    VP-16 Chatbot: Requires VP-12, appointments (AP-01+), Claude API
+    VP-17 Email Marketing: Requires VP-02, email engine (INT-03)
+    VP-18 VoIP: Requires patients, Twilio Voice
+    VP-19 EPS Claims: Requires billing, VP-06, compliance (CO-01+)
+    VP-20 Post-Op: Requires evolution templates (CR-15+), notifications
+    VP-21 NPS/CSAT: Requires appointments, notifications, VP-09
+    VP-22 Lab Orders: Requires treatment plans (TP-01+), patients
 ```
 
 ### Blocking Dependencies (must resolve before proceeding)
@@ -1148,6 +1656,17 @@ Track E: Voice Pipeline (Sprint 9-10)
 | Inventory | P-01 Patient (for implant linking), I-11 Audit logging | Sprint 15 |
 | Analytics | Requires data from patients, appointments, billing | Sprint 15 |
 | Patient Portal | Requires auth, patients, appointments, billing, consents | Sprint 11 |
+| VP-01 Membership Plans | Requires billing (B-01+), portal, patient management | Sprint 21 |
+| VP-02 Recall Engine | Requires notifications (N-01+), patients, appointments data | Sprint 21 |
+| VP-03 Digital Intake | Requires patients, anamnesis, consents, portal | Sprint 21 |
+| VP-05 Nequi/Daviplata | Requires billing module, Nequi/Daviplata API credentials | Sprint 23 |
+| VP-06 EPS Verification | Requires patient management, ADRES API access | Sprint 23 |
+| VP-08 Referral Program | Requires portal, public booking (AP-15), billing | Sprint 23 |
+| VP-12 WhatsApp Chat | Requires WhatsApp integration (INT-01) | Sprint 27 |
+| VP-13 AI Treatment | Requires odontogram, service catalog, Claude API key | Sprint 27 |
+| VP-16 AI Chatbot | Requires VP-12 WhatsApp Chat, appointments, Claude API | Sprint 29 |
+| VP-19 EPS Claims | Requires billing, VP-06 EPS Verification, compliance engine | Sprint 31 |
+| VP-21 NPS/CSAT | Requires VP-09 Reputation Management, appointments | Sprint 29 |
 
 ---
 
@@ -1163,10 +1682,18 @@ Track E: Voice Pipeline (Sprint 9-10)
 | Offline sync complexity | Low | Defer to post-launch if needed, focus on online-first | 15-16 |
 | Voice transcription accuracy | Medium | Use LLM post-processing to compensate Whisper errors. Review-before-apply mode prevents bad data from reaching odontogram | 9-10 |
 | Inventory scope creep | Low | Keep inventory minimal: no purchase orders, no supplier management in MVP. Semaphore + sterilization + implant traceability only | 15-16 |
+| Nequi/Daviplata API stability | Medium | Build with graceful fallback to manual payment recording. Test extensively in sandbox | 23-24 |
+| ADRES/BDUA API availability | Medium | Cache aggressively (24h TTL). Manual verification fallback if API is down | 23-24 |
+| RETHUS API access | Low | Web scraping fallback if no official API. Manual entry always available | 23-24 |
+| Fintech partner integration delays (Addi/Sistecrédito) | Medium | Start partnership conversations early. Build generic financing interface | 29-30 |
+| WhatsApp Business API message limits | Medium | Rate limiting + queue management. Start with template messages for campaigns | 27-28 |
+| AI treatment recommendation accuracy | Medium | Doctor always reviews before applying. Track acceptance rate. Iterate on prompts | 27-28 |
+| Post-launch feature scope creep | High | Strict tier prioritization (P0→P1→P2→P3). Ship P0 first, validate with metrics before P1 | 21+ |
 
 ---
 
-*Last updated: 2026-02-25*
-*Document version: 1.1*
-*Revised based on client interview findings (2026-02-25)*
+*Last updated: 2026-02-27*
+*Document version: 1.2*
+*v1.2: Added 22 post-launch value propositions (VP-01 through VP-22) across Sprints 21-32*
+*v1.1: Revised based on client interview findings (2026-02-25)*
 *Next review: End of Sprint 2*

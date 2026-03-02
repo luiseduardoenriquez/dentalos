@@ -58,7 +58,7 @@ export function Navbar() {
         {/* Desktop CTAs */}
         <div className="hidden md:flex items-center gap-3">
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/login">Iniciar sesion</Link>
+            <Link href="/acceso">Iniciar sesion</Link>
           </Button>
           <Button size="sm" asChild>
             <Link href="/register">Prueba gratis</Link>
@@ -92,7 +92,7 @@ export function Navbar() {
             ))}
             <hr className="border-[hsl(var(--border))]" />
             <Button variant="outline" size="sm" asChild>
-              <Link href="/login">Iniciar sesion</Link>
+              <Link href="/acceso">Iniciar sesion</Link>
             </Button>
             <Button size="sm" asChild>
               <Link href="/register">Prueba gratis</Link>

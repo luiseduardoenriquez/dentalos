@@ -385,6 +385,15 @@ function PortalLoginContent() {
         <p className="text-center text-xs text-[hsl(var(--muted-foreground))]">
           Portal del paciente de DentalOS
         </p>
+        <p className="text-center text-sm text-[hsl(var(--muted-foreground))]">
+          ¿Eres del equipo clínico?{" "}
+          <a
+            href="/login"
+            className="font-medium text-primary-600 hover:underline dark:text-primary-400"
+          >
+            Ingresa aquí &rarr;
+          </a>
+        </p>
       </div>
     </div>
   );
