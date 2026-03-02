@@ -1686,8 +1686,8 @@ Each sprint must meet these criteria before sign-off:
 
 | Sprint | Month | Specs | Backend | Frontend | Tests | Status |
 |--------|-------|-------|---------|----------|-------|--------|
-| 1-2 | 1 | ~42 | Auth + Tenants + Infra | -- | Infrastructure tests | In Progress |
-| 3-4 | 2 | ~53 | Users + Patients | Design system + Auth + Dashboard + Patients + Settings | Component + API tests | Not Started |
+| 1-2 | 1 | ~42 | Auth + Tenants + Infra | -- | Infrastructure tests | Complete |
+| 3-4 | 2 | ~53 | Users + Patients | Design system + Auth + Dashboard + Patients + Settings | Component + API tests | Complete |
 | 5-6 | 3 | ~46 | Odontogram + Clinical Records (base) + Evolution Templates + Service Catalog | Odontogram + Clinical (base) | Odontogram tests | Complete |
 | 7-8 | 4 | ~57 | Diagnoses + Procedures + Treatment + Consents + Rx + Quotation + Digital Sig + Tooth Photos | Clinical + Treatment + Consent + Rx screens | Clinical workflow tests | Complete |
 | 9-10 | 5 | ~50 | Appointments + Scheduling + Waitlist + Public booking + Voice Pipeline | Calendar + Agenda screens + Voice UI | Scheduling + Voice tests | Complete |
