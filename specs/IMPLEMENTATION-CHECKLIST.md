@@ -6,9 +6,9 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 | Attribute           | Value                                         |
 |---------------------|-----------------------------------------------|
-| Total Sprints       | 32 (20 pre-launch + 12 post-launch)           |
+| Total Sprints       | 32 (20 pre-launch + 12 post-launch) + backlog |
 | Sprint Duration     | 2 weeks each                                  |
-| Total Specs Mapped  | ~381                                          |
+| Total Specs Mapped  | ~530 (incl. competitive gap closures)         |
 | Launch Target       | Colombia first, then Mexico expansion          |
 | Tech Stack          | FastAPI + Next.js + PostgreSQL + Redis + RabbitMQ |
 | Hosting             | Hetzner Cloud                                 |
@@ -1101,6 +1101,50 @@ After a procedure, automatically send care instructions via WhatsApp/email/porta
 - [ ] FE: Post-op template management page (clinic_owner)
 - [ ] FE: "Send post-op instructions" button on procedure completion screen
 
+### GAP-02: Control de Caja (Cash Register / Daily Cash Flow)
+
+~40% of Colombian patients pay cash. Clinic owners need daily cash control with opening balance, cash/card/transfer breakdown, and end-of-day reconciliation. Dentalink has it — this is a daily operational tool.
+
+- [ ] Design `cash_registers` table: name, location, status (open/closed), opened_by, opened_at, opening_balance_cents, closing_balance_cents, closed_by, closed_at
+- [ ] Design `cash_movements` table: register_id, type (income/expense/adjustment), amount_cents, payment_method (cash/card/transfer/nequi/daviplata), reference_id (invoice/expense), description, recorded_by, created_at
+- [ ] `POST /api/v1/cash-registers/open` — Open register with initial balance (receptionist/clinic_owner)
+- [ ] `POST /api/v1/cash-registers/close` — Close register with reconciliation
+- [ ] `GET /api/v1/cash-registers/current` — Current register status and balance
+- [ ] `GET /api/v1/cash-registers/history` — Daily cash register history
+- [ ] Auto-record cash movements on invoice payment (hook into B-06)
+- [ ] FE: Cash register panel (open/close, current balance, today's movements)
+- [ ] FE: Daily cash report (printable)
+
+### GAP-03: Control de Gastos (Expense Tracking)
+
+Clinic owners need to see profit, not just revenue. Without expense tracking, they use a separate spreadsheet. Pairs naturally with Control de Caja for a complete financial picture.
+
+- [ ] Design `expense_categories` table: name, is_default, is_active (seed: rent, supplies, lab, salaries, utilities, marketing, equipment, other)
+- [ ] Design `expenses` table: category_id, amount_cents, description, date, receipt_url, recorded_by, created_at
+- [ ] `POST /api/v1/expenses` — Record expense (clinic_owner/receptionist)
+- [ ] `GET /api/v1/expenses` — List expenses with filters (date range, category)
+- [ ] `GET /api/v1/analytics/profit-loss` — Monthly P&L report (revenue from billing - expenses)
+- [ ] FE: Expense recording form (amount, category, date, receipt upload)
+- [ ] FE: Expense list page with filters
+- [ ] FE: P&L dashboard card on analytics page
+
+### GAP-05: Tareas de Morosidad (Automated Delinquency Follow-up)
+
+DentalOS has B-12 aging report but no actionable task workflow. Auto-generate follow-up tasks when patients have overdue balances. Cash collection is a top pain point for clinics.
+
+- [ ] Event listener: when invoice ages past 30/60/90 days, auto-create follow-up task
+- [ ] Task assignment to receptionist with patient context + overdue amount
+- [ ] Configurable thresholds in tenant settings (days before task creation)
+- [ ] FE: Delinquency task queue on billing dashboard
+
+### GAP-06: Tareas de Captación (Treatment Acceptance Follow-up)
+
+Treatment plan acceptance is directly tied to revenue. Clinics report 40-60% of quotations never convert. Auto-create follow-up tasks when quotations aren't accepted within configurable days.
+
+- [ ] Event listener: when quotation not accepted within X days (configurable, default 7), auto-create follow-up task
+- [ ] `GET /api/v1/analytics/acceptance-rate` — Quotation acceptance rate metrics
+- [ ] FE: Quotation follow-up queue with one-click call/WhatsApp actions
+
 ---
 
 ## Sprint 25-26: Reputation, Intelligence & Multi-Currency (Post-Launch Month 5-6)
@@ -1171,6 +1215,60 @@ Points for completed appointments, on-time payments, referrals. Redeemable for d
 - [ ] FE: Points redemption flow at checkout (staff applies patient points)
 - [ ] FE: Loyalty program settings page (clinic_owner)
 
+### GAP-01: Periodontograma (Periodontal Charting)
+
+~30% of adult patients need perio treatment. Clinics doing perio work CANNOT use DentalOS without this. Interactive periodontal charting with pocket depths, bleeding, recession, mobility, and furcation per tooth. Table stakes for any complete dental SaaS.
+
+- [ ] Design `periodontal_records` table: patient_id, recorded_by, recorded_at, dentition_type, notes
+- [ ] Design `periodontal_measurements` table: record_id, tooth_number (FDI), site (mesial_buccal, buccal, distal_buccal, mesial_lingual, lingual, distal_lingual), pocket_depth, recession, clinical_attachment_level, bleeding_on_probing (bool), plaque_index, mobility (0-3), furcation (0-3)
+- [ ] `POST /api/v1/patients/{patient_id}/periodontal-records` — Create record with measurements (doctor/assistant)
+- [ ] `GET /api/v1/patients/{patient_id}/periodontal-records` — List records
+- [ ] `GET /api/v1/patients/{patient_id}/periodontal-records/{id}` — Get with all measurements
+- [ ] `GET /api/v1/patients/{patient_id}/periodontal-records/compare` — Compare two records (improvement tracking)
+- [ ] Voice-to-periodontogram: extend V-01 pipeline to parse "18 mesial 4, bleeding" → structured perio data
+- [ ] FE: Periodontal charting view (6-site measurement grid per tooth, color-coded depths)
+- [ ] FE: Perio comparison view (before/after with color diff)
+- [ ] FE: Voice recording button on perio charting screen
+
+### GAP-04: Gestión de Convenios (Corporate Agreements / Discount Plans)
+
+Many clinics in Colombia have agreements with empresas, universidades, fondos de empleados. Auto-apply discounts when patient is linked to a convenio — eliminates manual calculation errors.
+
+- [ ] Design `convenios` table: company_name, contact_info JSONB, discount_rules JSONB, valid_from, valid_until, is_active
+- [ ] Design `convenio_patients` table: convenio_id, patient_id, employee_id (company internal)
+- [ ] `POST /api/v1/convenios` — Create convenio (clinic_owner)
+- [ ] `GET /api/v1/convenios` — List convenios
+- [ ] `PUT /api/v1/convenios/{id}` — Update convenio
+- [ ] `POST /api/v1/patients/{id}/convenio` — Link patient to convenio
+- [ ] Auto-apply convenio discount on invoice creation (hook into billing service)
+- [ ] FE: Convenio management page (clinic_owner)
+- [ ] FE: Patient convenio badge and discount display on invoice
+
+### GAP-08: Gestión de Tareas (Internal Task Management)
+
+Clinics currently use WhatsApp groups for task coordination — messy and untracked. Assign, track, and prioritize tasks among staff. Feeds into GAP-05 and GAP-06 automated tasks.
+
+- [ ] Design `clinic_tasks` table: title, description, assignee_id, created_by, priority (low/medium/high/urgent), status (pending/in_progress/completed), due_date, related_patient_id, related_entity_type, related_entity_id
+- [ ] `POST /api/v1/tasks` — Create task (any staff role)
+- [ ] `GET /api/v1/tasks` — List tasks (filterable by assignee, status, priority)
+- [ ] `PUT /api/v1/tasks/{id}` — Update task
+- [ ] Notification on task assignment
+- [ ] FE: Task list/board view with filters
+- [ ] FE: Quick-add task from patient profile, invoice, appointment
+
+### GAP-10: Super Familias (Family Grouping)
+
+Families are the natural unit in dental — parent brings kids, pays for all. Link patients into family groups for consolidated billing, family discounts, and unified communication.
+
+- [ ] Design `family_groups` table: name, primary_contact_patient_id
+- [ ] Design `family_members` table: family_group_id, patient_id, relationship (parent/child/spouse/sibling)
+- [ ] `POST /api/v1/families` — Create family group
+- [ ] `GET /api/v1/families/{id}` — Get family with members
+- [ ] `POST /api/v1/families/{id}/members` — Add member
+- [ ] Consolidated family billing view (all invoices for family members)
+- [ ] FE: Family group management on patient profile
+- [ ] FE: Family billing summary view
+
 ---
 
 ## Sprint 27-28: AI Advisor, WhatsApp Chat & Email Marketing (Post-Launch Month 7-8)
@@ -1231,6 +1329,17 @@ Patient segmentation + dental-specific email templates in Spanish + open/click t
 - [ ] FE: Campaign analytics dashboard — open rate, click rate, unsubscribe rate, revenue attributed
 - [ ] FE: Email template editor (basic rich text, variable interpolation: {patient_name}, {clinic_name}, etc.)
 
+### GAP-14: Informes IA (Natural Language Reports)
+
+"How much revenue did Dr. Garcia generate last month?" → AI answers with charts. Low effort since Claude API is already integrated from voice pipeline. High wow factor for demos.
+
+- [ ] `POST /api/v1/analytics/ai-query` — Natural language query endpoint (doctor/clinic_owner)
+- [ ] Claude API integration: convert natural language → SQL-safe analytics query
+- [ ] Predefined safe query templates (revenue by period, appointments by doctor, top procedures, patient demographics, etc.)
+- [ ] Guardrails: only SELECT on analytics views, no raw table access, no PHI in responses
+- [ ] FE: "Ask AI" search bar on analytics dashboard
+- [ ] FE: AI response display with charts/tables
+
 ---
 
 ## Sprint 29-30: Patient Financing, Chatbot & Surveys (Post-Launch Month 9-10)
@@ -1289,6 +1398,20 @@ Automated post-appointment surveys with NPS and CSAT tracking per doctor. Feeds 
 - [ ] FE: Patient-facing survey form (mobile-optimized, WhatsApp-embedded or web link)
 - [ ] FE: Detractor alert inbox for clinic_owner
 
+### GAP-09: Telemedicina (Video Consultations)
+
+Post-COVID, teleodontología is growing. Built-in video consultation capability linked to appointment and clinical record. Listed in pricing as Telehealth add-on ($15/loc/mo) but no spec exists yet.
+
+- [ ] Integrate video provider (Daily.co or Twilio Video)
+- [ ] Design `video_sessions` table: appointment_id, provider_session_id, status (created/active/ended), started_at, ended_at, duration_seconds, recording_url
+- [ ] `POST /api/v1/appointments/{id}/video-session` — Create video session for appointment (doctor)
+- [ ] `GET /api/v1/appointments/{id}/video-session` — Get session URL/token
+- [ ] Patient joins via portal or unique link (no app install required)
+- [ ] Auto-link video session to clinical record
+- [ ] FE: "Start Video Call" button on appointment detail (doctor)
+- [ ] FE: Patient video call page (portal)
+- [ ] Feature gate: Telehealth add-on check
+
 ---
 
 ## Sprint 31-32: Advanced Operations & Lab Management (Post-Launch Month 11-12)
@@ -1342,6 +1465,55 @@ Track orders to external dental laboratories with patient-order traceability. La
 - [ ] FE: Lab directory management (clinic_owner)
 - [ ] FE: Lab order detail with specifications and status timeline
 - [ ] FE: Overdue orders alert on dashboard
+
+---
+
+## Post-S32 Backlog (Competitive Analysis Gaps — Future)
+
+Items identified from competitive analysis (Dentalink, Dentrix, Open Dental, Curve Dental) that are lower priority or high effort. To be scheduled based on customer demand and market signals.
+
+### BACKLOG: GAP-07 — Módulo de Ortodoncia
+Specialized orthodontics tracking: bracket bonding chart, archwire changes, appointment sequence, payment tracking per visit, material tracking. ~25-30% of clinic revenue. Consider a "lite" version first.
+- [ ] Design orthodontic case model and visit tracking
+- [ ] Bracket bonding chart UI
+- [ ] Ortho-specific payment plan (per-visit tracking over 12-36 months)
+- [ ] Material tracking per case
+
+### BACKLOG: GAP-11 — Videos Educativos 3D
+Curate or embed open-source dental education videos. Low dev effort if embedded from external library.
+- [ ] Video library integration (embed or curate open-source dental education content)
+
+### BACKLOG: GAP-12 — Módulo de Estética Facial
+Facial aesthetics with body/face diagram for clinics doing botox/fillers. Niche feature.
+- [ ] Facial aesthetics module (body/face diagram, injection points tracking)
+
+### BACKLOG: GAP-13 — Simulador de Sonrisa IA
+AI-generated smile simulation for patient consultations. Could integrate 3rd party.
+- [ ] AI smile simulation integration (3rd party or custom)
+
+### BACKLOG: GAP-15 — Controlador IA (Workflow Compliance Monitor)
+AI that monitors if clinical and administrative workflows are being completed on time.
+- [ ] AI workflow compliance monitor (alerts on incomplete workflows)
+
+### BACKLOG: GAP-16 — Marketplace de API Abierta
+Open API marketplace for third-party integrations. Valuable long-term for ecosystem.
+- [ ] Public API marketplace with developer portal and OAuth2 for third-party apps
+
+### BACKLOG: GAP-17 — Panel de Impacto Ecológico
+"Paper saved" dashboard. Pure marketing feature, very low effort.
+- [ ] Eco-impact dashboard (paper saved, digital vs analog metrics)
+
+### BACKLOG: GAP-18 — Gestión Predictiva de Inventario
+AI predicts inventory needs from scheduled procedures. Enhances INV module.
+- [ ] AI-powered inventory prediction based on scheduled procedures
+
+### BACKLOG: GAP-19 — Centro de Capacitación del Personal
+In-app training LMS for staff onboarding and compliance training.
+- [ ] In-app training/LMS module for staff
+
+### BACKLOG: GAP-20 — App Gamificada Salud Pediátrica
+Gamified kids brushing app. Very niche, low priority.
+- [ ] Gamified pediatric oral health app
 
 ---
 
@@ -1468,6 +1640,10 @@ Each sprint must meet these criteria before sign-off:
 | RETHUS | Doctor registration verified against MinSalud, monthly re-check via cron |
 | Referral Program | Patient shares code, referred patient books, referrer earns reward automatically |
 | Post-Op Instructions | Auto-dispatched on procedure completion, 10 templates seeded |
+| Cash Register (GAP-02) | Open/close register, auto-record invoice payments, printable daily report |
+| Expenses (GAP-03) | Record/list expenses by category, P&L report shows revenue minus expenses |
+| Delinquency Tasks (GAP-05) | Auto-create follow-up tasks at 30/60/90 day overdue thresholds |
+| Acceptance Tasks (GAP-06) | Auto-create tasks for unaccepted quotations after configurable days |
 
 ### Sprint 25-26: Reputation, Intelligence & Multi-Currency
 | Criteria | Target |
@@ -1476,6 +1652,10 @@ Each sprint must meet these criteria before sign-off:
 | Schedule AI | No-show prediction and fill suggestions based on historical data |
 | Multi-Currency | Invoice in COP/USD/EUR with exchange rates from Banco de la República |
 | Loyalty | Points awarded, redeemable for discounts, portal shows balance |
+| Periodontogram (GAP-01) | 6-site measurement per tooth, color-coded depths, comparison between records, voice input |
+| Convenios (GAP-04) | Create convenio with discount rules, link patients, auto-apply on invoice |
+| Task Management (GAP-08) | Create/assign/track tasks, notifications on assignment, quick-add from context |
+| Family Groups (GAP-10) | Create family, link patients, consolidated billing view |
 
 ### Sprint 27-28: AI Advisor, WhatsApp Chat & Email Marketing
 | Criteria | Target |
@@ -1483,6 +1663,7 @@ Each sprint must meet these criteria before sign-off:
 | WhatsApp Chat | Bidirectional messaging with real-time updates, conversation assignment |
 | AI Treatment | Claude suggests treatment plan from odontogram, doctor reviews before applying |
 | Email Marketing | Segment patients, send campaigns, track opens/clicks, 10 Spanish templates |
+| AI Reports (GAP-14) | Natural language query returns analytics data, guardrails prevent PHI leakage |
 
 ### Sprint 29-30: Patient Financing, Chatbot & Surveys
 | Criteria | Target |
@@ -1490,6 +1671,7 @@ Each sprint must meet these criteria before sign-off:
 | Financing | Addi integration works, financing request flow, payment auto-recorded |
 | Chatbot | 24/7 bot schedules appointments, answers FAQs on WhatsApp + web |
 | NPS/CSAT | Auto-survey after appointment, NPS dashboard with per-doctor breakdown |
+| Telemedicine (GAP-09) | Video session linked to appointment, patient joins via portal link, no install |
 
 ### Sprint 31-32: Advanced Operations & Lab Management
 | Criteria | Target |
@@ -1515,12 +1697,12 @@ Each sprint must meet these criteria before sign-off:
 | 17-18 | 9 | -- | Bug fixes + Optimizations | Bug fixes + UX polish | Security audit + Load tests | Not Started |
 | 19-20 | 10 | -- | Production deploy + Monitoring | Marketing site | Final validation | Not Started |
 | 21-22 | 11 | ~22 | Memberships + Recall + Intake + Huddle | Membership + Campaign + Intake + Huddle pages | Module tests | Not Started |
-| 23-24 | 12 | ~18 | Nequi/Daviplata + EPS + RETHUS + Referrals + Post-Op | Payment QR + EPS badge + Referral portal | Integration tests | Not Started |
-| 25-26 | 13 | ~16 | Reputation + Schedule AI + Multi-Currency + Loyalty | Reviews + Intelligence + Loyalty pages | Analytics tests | Not Started |
-| 27-28 | 14 | ~14 | WhatsApp Chat + AI Treatment + Email Marketing | Inbox + AI panel + Campaign builder | AI + messaging tests | Not Started |
-| 29-30 | 15 | ~12 | Financing + Chatbot + NPS/CSAT | Financing flow + Bot config + NPS dashboard | Chatbot + survey tests | Not Started |
+| 23-24 | 12 | ~44 | Nequi/Daviplata + EPS + RETHUS + Referrals + Post-Op + **Cash Register + Expenses + Delinquency/Acceptance Tasks** | Payment QR + EPS badge + Referral portal + Cash register + Expense mgmt | Integration tests | Not Started |
+| 25-26 | 13 | ~47 | Reputation + Schedule AI + Multi-Currency + Loyalty + **Periodontogram + Convenios + Tasks + Families** | Reviews + Intelligence + Loyalty + Perio chart + Convenios + Task board + Family groups | Analytics + perio tests | Not Started |
+| 27-28 | 14 | ~20 | WhatsApp Chat + AI Treatment + Email Marketing + **AI Reports** | Inbox + AI panel + Campaign builder + AI query bar | AI + messaging tests | Not Started |
+| 29-30 | 15 | ~21 | Financing + Chatbot + NPS/CSAT + **Telemedicine** | Financing flow + Bot config + NPS dashboard + Video calls | Chatbot + survey + video tests | Not Started |
 | 31-32 | 16 | ~10 | VoIP + EPS Claims + Lab Orders | Screen pop + Claims mgmt + Lab tracking | VoIP + claims tests | Not Started |
-| **Total** | **16** | **~473** | | | | |
+| **Total** | **16** | **~530** | | | | |
 
 ---
 
@@ -1633,6 +1815,18 @@ Track F: Post-Launch Value Propositions (Sprint 21+)
     VP-20 Post-Op: Requires evolution templates (CR-15+), notifications
     VP-21 NPS/CSAT: Requires appointments, notifications, VP-09
     VP-22 Lab Orders: Requires treatment plans (TP-01+), patients
+
+Track G: Competitive Gap Closures (Sprint 23+)
+    GAP-02 Cash Register: Requires billing (B-01+). Sprint 23-24
+    GAP-03 Expenses: Requires tenant settings. Sprint 23-24
+    GAP-05 Delinquency Tasks: Requires billing aging (B-12), GAP-08 Tasks. Sprint 23-24
+    GAP-06 Acceptance Tasks: Requires quotations (B-16+), GAP-08 Tasks. Sprint 23-24
+    GAP-01 Periodontogram: Requires patients (P-01+), odontogram (OD-01+), voice (V-01+). Sprint 25-26
+    GAP-04 Convenios: Requires patients (P-01+), billing (B-01+). Sprint 25-26
+    GAP-08 Task Management: Requires users (U-01+), notifications (N-01+). Sprint 25-26
+    GAP-10 Family Groups: Requires patients (P-01+), billing (B-01+). Sprint 25-26
+    GAP-14 AI Reports: Requires analytics (AN-01+), Claude API. Sprint 27-28
+    GAP-09 Telemedicine: Requires appointments (AP-01+), portal, video provider API. Sprint 29-30
 ```
 
 ### Blocking Dependencies (must resolve before proceeding)
@@ -1667,6 +1861,14 @@ Track F: Post-Launch Value Propositions (Sprint 21+)
 | VP-16 AI Chatbot | Requires VP-12 WhatsApp Chat, appointments, Claude API | Sprint 29 |
 | VP-19 EPS Claims | Requires billing, VP-06 EPS Verification, compliance engine | Sprint 31 |
 | VP-21 NPS/CSAT | Requires VP-09 Reputation Management, appointments | Sprint 29 |
+| GAP-02 Cash Register | Requires billing module (B-01+) | Sprint 23 |
+| GAP-05 Delinquency Tasks | Requires billing aging (B-12), GAP-08 Task Management | Sprint 23 |
+| GAP-06 Acceptance Tasks | Requires quotations (B-16+), GAP-08 Task Management | Sprint 23 |
+| GAP-01 Periodontogram | Requires patients (P-01+), odontogram (OD-01+), voice pipeline (V-01+) | Sprint 25 |
+| GAP-04 Convenios | Requires patients (P-01+), billing (B-01+) | Sprint 25 |
+| GAP-08 Task Management | Requires users (U-01+), notifications (N-01+) | Sprint 25 |
+| GAP-14 AI Reports | Requires analytics (AN-01+), Claude API key | Sprint 27 |
+| GAP-09 Telemedicine | Requires appointments (AP-01+), portal, video provider API credentials | Sprint 29 |
 
 ---
 
@@ -1689,11 +1891,16 @@ Track F: Post-Launch Value Propositions (Sprint 21+)
 | WhatsApp Business API message limits | Medium | Rate limiting + queue management. Start with template messages for campaigns | 27-28 |
 | AI treatment recommendation accuracy | Medium | Doctor always reviews before applying. Track acceptance rate. Iterate on prompts | 27-28 |
 | Post-launch feature scope creep | High | Strict tier prioritization (P0→P1→P2→P3). Ship P0 first, validate with metrics before P1 | 21+ |
+| GAP-01 Perio voice accuracy | Medium | Reuse V-01 pipeline patterns. Start with manual entry, voice as enhancement. Review-before-apply | 25-26 |
+| GAP-02 Cash register edge cases | Low | Keep simple: open/close/movements. No multi-register reconciliation in v1 | 23-24 |
+| GAP-09 Video provider reliability | Medium | Use Daily.co (simpler) or Twilio Video. Fallback to shareable meeting link | 29-30 |
+| GAP-14 AI report safety | Medium | Strict guardrails: read-only analytics views, no PHI, no raw SQL. Predefined query templates | 27-28 |
 
 ---
 
-*Last updated: 2026-02-27*
-*Document version: 1.2*
+*Last updated: 2026-03-01*
+*Document version: 1.3*
+*v1.3: Added 10 competitive gap closures (GAP-01 through GAP-10, GAP-14) + post-S32 backlog (GAP-07, GAP-11 through GAP-20) from Dentalink/Dentrix/Open Dental/Curve analysis*
 *v1.2: Added 22 post-launch value propositions (VP-01 through VP-22) across Sprints 21-32*
 *v1.1: Revised based on client interview findings (2026-02-25)*
 *Next review: End of Sprint 2*
