@@ -805,6 +805,20 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 - [x] **E-16** Daily clinic summary email
 - [x] **E-17** Plan upgrade prompt (limit approaching)
 
+### Integration Tests (S15-16)
+
+- [x] Analytics API integration tests (`test_analytics/test_analytics_api.py` — 24 tests)
+- [x] Inventory API integration tests (`test_inventory/test_inventory_api.py` — 31 tests)
+- [x] Admin API integration tests (`test_admin/test_admin_api.py` — 28 tests)
+- [x] Patient import/export API integration tests (`test_patients/test_patient_import_export_api.py` — 15 tests)
+- [x] Patient merge API integration tests (`test_patients/test_patient_merge_api.py` — 8 tests)
+- [x] Service catalog API integration tests (`test_billing/test_service_catalog_api.py` — 11 tests)
+
+### Unit Tests (S15-16)
+
+- [x] Patient import schema validators (`test_schemas_patient_import.py` — 30 tests)
+- [x] Mexico compliance validators + CFDI builder (`test_mexico_compliance.py` — 42 tests)
+
 ---
 
 ## Sprint 17-18: Beta (Month 9)
