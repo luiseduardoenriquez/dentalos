@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
+import { apiPost } from "@/lib/api-client";
 import {
   ArrowRight,
   ArrowLeft,
@@ -108,7 +110,14 @@ function StepProgress({ currentStep }: StepProgressProps) {
 
 // ─── Step 1: Clinic info ───────────────────────────────────────────────────────
 
-function StepClinica({ onNext }: { onNext: () => void }) {
+function StepClinica({ onNext, isSaving }: { onNext: (data: { address: string; phone: string }) => void; isSaving: boolean }) {
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
+
+  function handleSubmit() {
+    onNext({ address, phone });
+  }
+
   return (
     <div className="space-y-5">
       <div>
@@ -126,6 +135,8 @@ function StepClinica({ onNext }: { onNext: () => void }) {
           type="text"
           placeholder="Calle 123 #45-67, Bogotá"
           autoComplete="street-address"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
         />
       </div>
 
@@ -137,6 +148,8 @@ function StepClinica({ onNext }: { onNext: () => void }) {
           type="tel"
           placeholder="+57 1 234 5678"
           autoComplete="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
         />
       </div>
 
@@ -155,9 +168,9 @@ function StepClinica({ onNext }: { onNext: () => void }) {
         <p className="text-xs text-muted-foreground">Opcional — puedes agregarlo después.</p>
       </div>
 
-      <Button type="button" className="w-full" onClick={onNext}>
-        Siguiente
-        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+      <Button type="button" className="w-full" onClick={handleSubmit} disabled={isSaving}>
+        {isSaving ? "Guardando..." : "Siguiente"}
+        {!isSaving && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
       </Button>
     </div>
   );
@@ -319,6 +332,23 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
 
+  const onboardingMutation = useMutation({
+    mutationFn: (data: { step: number; data: Record<string, unknown> }) =>
+      apiPost<{ current_step: number; completed: boolean; message: string }>("/onboarding", data),
+  });
+
+  const handleStep1Next = useCallback(
+    (data: { address: string; phone: string }) => {
+      onboardingMutation.mutate(
+        { step: 0, data: { address: data.address, phone: data.phone } },
+        {
+          onSuccess: () => setStep(2),
+        },
+      );
+    },
+    [onboardingMutation],
+  );
+
   function goNext() {
     setStep((s) => Math.min(s + 1, STEPS.length));
   }
@@ -335,10 +365,16 @@ export default function OnboardingPage() {
     <div className="rounded-xl border border-[hsl(var(--border))] bg-white dark:bg-zinc-900 shadow-sm p-8">
       <StepProgress currentStep={step} />
 
-      {step === 1 && <StepClinica onNext={goNext} />}
+      {step === 1 && <StepClinica onNext={handleStep1Next} isSaving={onboardingMutation.isPending} />}
       {step === 2 && <StepHorarios onNext={goNext} onBack={goBack} />}
       {step === 3 && <StepEquipo onNext={goNext} onBack={goBack} />}
       {step === 4 && <StepListo onFinish={finish} />}
+
+      {onboardingMutation.isError && (
+        <p className="mt-3 text-sm text-destructive text-center">
+          No se pudo guardar. Inténtalo de nuevo.
+        </p>
+      )}
     </div>
   );
 }

@@ -15,9 +15,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/hooks/use-auth";
-import { usePatients } from "@/lib/hooks/use-patients";
+import { useAnalyticsDashboard } from "@/lib/hooks/use-analytics";
 import { useIncomingReferrals, useUpdateReferral } from "@/lib/hooks/use-referrals";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 
@@ -272,7 +272,7 @@ export default function DashboardPage() {
   // Derive first name from full name for the greeting
   const firstName = user?.name?.split(" ")[0] ?? "Doctor";
 
-  const { data: patients, isLoading: patientsLoading } = usePatients({ page: 1, page_size: 1 });
+  const { data: dashboard, isLoading: dashboardLoading } = useAnalyticsDashboard("month");
   const role = user?.role;
 
   // ── Role-based welcome subtitle ──────────────────────────────────────────
@@ -302,39 +302,48 @@ export default function DashboardPage() {
   }
 
   // ── Dynamic KPI cards ────────────────────────────────────────────────────
-  const patientTotal = patients?.total ?? 0;
+  const patientTotal = dashboard?.patients.total ?? 0;
+  const newPatients = dashboard?.patients.new_in_period ?? 0;
+  const patientGrowth = dashboard?.patients.growth_percentage ?? 0;
+  const todayAppointments = dashboard?.appointments.today_count ?? 0;
+  const pendingTreatments = (dashboard?.appointments.period_total ?? 0) - (dashboard?.appointments.completed ?? 0);
+  const monthRevenue = dashboard?.revenue.collected ?? 0;
+  const revenueGrowth = dashboard?.revenue.growth_percentage ?? 0;
+
   const kpiCards: KpiCardProps[] = [
     {
       title: "Pacientes activos",
-      value: patientsLoading ? "..." : String(patientTotal),
-      subtitle: patientTotal === 0 ? "Registra tu primer paciente" : `${patientTotal} registrados`,
+      value: dashboardLoading ? "..." : String(patientTotal),
+      subtitle: patientTotal === 0 ? "Registra tu primer paciente" : `+${newPatients} este mes`,
       icon: Users,
       iconColor: "text-primary-600",
       iconBg: "bg-primary-50 dark:bg-primary-900/30",
+      trend: patientGrowth > 0 ? `${patientGrowth}% vs mes anterior` : undefined,
     },
     {
       title: role === "doctor" ? "Mis citas hoy" : "Citas hoy (clínica)",
-      value: "0",
-      subtitle: "Sin citas programadas",
+      value: dashboardLoading ? "..." : String(todayAppointments),
+      subtitle: todayAppointments === 0 ? "Sin citas programadas" : `${todayAppointments} programadas`,
       icon: CalendarDays,
       iconColor: "text-secondary-600",
       iconBg: "bg-secondary-50 dark:bg-secondary-900/30",
     },
     {
       title: "Tratamientos pendientes",
-      value: "—",
-      subtitle: "Próximamente",
+      value: dashboardLoading ? "..." : String(Math.max(0, pendingTreatments)),
+      subtitle: pendingTreatments === 0 ? "Todo al día" : `${dashboard?.appointments.completed ?? 0} completados`,
       icon: ClipboardList,
       iconColor: "text-accent-600",
       iconBg: "bg-accent-50 dark:bg-accent-900/30",
     },
     {
       title: "Ingresos del mes",
-      value: "—",
-      subtitle: "Próximamente",
+      value: dashboardLoading ? "..." : formatCurrency(monthRevenue),
+      subtitle: monthRevenue === 0 ? "Sin ingresos registrados" : undefined,
       icon: DollarSign,
       iconColor: "text-success-600",
       iconBg: "bg-success-50 dark:bg-success-700/20",
+      trend: revenueGrowth > 0 ? `${revenueGrowth}% vs mes anterior` : undefined,
     },
   ];
 
@@ -391,7 +400,7 @@ export default function DashboardPage() {
       </section>
 
       {/* ── Empty state / Getting started ── */}
-      {!patientsLoading && patientTotal === 0 && (
+      {!dashboardLoading && patientTotal === 0 && (
         <section aria-label="Primeros pasos">
           <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
             Primeros pasos

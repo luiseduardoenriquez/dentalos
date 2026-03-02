@@ -12,14 +12,16 @@ from uuid import UUID as PyUUID
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import Date, case, func, select
+from sqlalchemy import Date, String, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.auth.context import AuthenticatedUser
 from app.auth.dependencies import require_permission
 from app.core.database import get_tenant_db
 from app.core.exceptions import BusinessValidationError
 from app.models.tenant.invoice import Invoice, InvoiceItem
+from app.models.tenant.patient import Patient
 from app.models.tenant.payment import Payment
 from app.models.tenant.user import User
 
@@ -54,6 +56,94 @@ class RevenueResponse(BaseModel):
     collected: int  # cents
     invoice_count: int
     payment_count: int
+
+
+class InvoiceSummaryItem(BaseModel):
+    id: str
+    invoice_number: str
+    patient_id: str
+    patient_name: str
+    total: int  # cents
+    balance: int  # cents
+    status: str
+    due_date: str | None
+    created_at: str
+
+
+class InvoiceSummaryListResponse(BaseModel):
+    items: list[InvoiceSummaryItem]
+    total: int
+    page: int
+    page_size: int
+
+
+# ─── Global invoice list (cross-patient) ────────────────────────────────────
+
+
+@router.get("/invoices", response_model=InvoiceSummaryListResponse)
+async def list_all_invoices(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    status: str | None = Query(default=None),
+    current_user: AuthenticatedUser = Depends(
+        require_permission("billing:read")
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> InvoiceSummaryListResponse:
+    """List invoices across all patients for the billing dashboard."""
+    conditions = [Invoice.is_active.is_(True)]
+    if status:
+        conditions.append(Invoice.status == status)
+
+    # Count
+    count_result = await db.execute(
+        select(func.count(Invoice.id)).where(*conditions)
+    )
+    total = count_result.scalar_one()
+
+    # Paginated list with patient name join
+    offset = (page - 1) * page_size
+    rows_result = await db.execute(
+        select(
+            Invoice.id,
+            Invoice.invoice_number,
+            Invoice.patient_id,
+            (Patient.first_name + " " + Patient.last_name).label("patient_name"),
+            Invoice.total,
+            Invoice.balance,
+            Invoice.status,
+            Invoice.due_date,
+            Invoice.created_at,
+        )
+        .outerjoin(Patient, Patient.id == Invoice.patient_id)
+        .where(*conditions)
+        .order_by(Invoice.created_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    rows = rows_result.all()
+
+    items = [
+        InvoiceSummaryItem(
+            id=str(row.id),
+            invoice_number=row.invoice_number,
+            patient_id=str(row.patient_id),
+            patient_name=row.patient_name or "—",
+            total=row.total,
+            balance=row.balance,
+            status=row.status,
+            due_date=row.due_date.isoformat() if row.due_date else None,
+            created_at=row.created_at.isoformat(),
+        )
+        for row in rows
+    ]
+
+    return InvoiceSummaryListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 # ─── B-11: Billing summary ──────────────────────────────────────────────────

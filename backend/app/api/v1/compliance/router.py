@@ -13,7 +13,9 @@ Endpoint map:
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.context import AuthenticatedUser
@@ -22,6 +24,9 @@ from app.compliance.base import ComplianceAdapter
 from app.compliance.deps import get_compliance, require_colombia
 from app.core.audit import audit_action
 from app.core.database import get_tenant_db
+from app.models.tenant.e_invoice import EInvoice
+from app.models.tenant.invoice import Invoice
+from app.models.tenant.patient import Patient
 from app.schemas.compliance import (
     CountryConfigResponse,
     EInvoiceCreateRequest,
@@ -209,6 +214,92 @@ async def validate_rips(
         resource_id=batch_id,
     )
     return result
+
+
+# ─── E-Invoice list (cross-patient) ──────────────────────────────────────────
+
+
+class EInvoiceListItem(BaseModel):
+    id: str
+    invoice_id: str
+    invoice_number: str
+    patient_name: str
+    total: int  # cents
+    status: str
+    cufe: str | None
+    created_at: str
+
+
+class EInvoiceListResponse(BaseModel):
+    items: list[EInvoiceListItem]
+    total: int
+    page: int
+    page_size: int
+
+
+@router.get("/e-invoices", response_model=EInvoiceListResponse)
+async def list_electronic_invoices(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    status: str | None = Query(default=None),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> EInvoiceListResponse:
+    """List all e-invoices submitted to DIAN."""
+    conditions = []
+    if status:
+        conditions.append(EInvoice.status == status)
+
+    count_result = await db.execute(
+        select(func.count(EInvoice.id)).where(*conditions) if conditions
+        else select(func.count(EInvoice.id))
+    )
+    total = count_result.scalar_one()
+
+    offset = (page - 1) * page_size
+    base_query = (
+        select(
+            EInvoice.id,
+            EInvoice.invoice_id,
+            Invoice.invoice_number,
+            (Patient.first_name + " " + Patient.last_name).label("patient_name"),
+            Invoice.total,
+            EInvoice.status,
+            EInvoice.cufe,
+            EInvoice.created_at,
+        )
+        .outerjoin(Invoice, Invoice.id == EInvoice.invoice_id)
+        .outerjoin(Patient, Patient.id == Invoice.patient_id)
+        .order_by(EInvoice.created_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    if conditions:
+        base_query = base_query.where(*conditions)
+
+    rows_result = await db.execute(base_query)
+    rows = rows_result.all()
+
+    items = [
+        EInvoiceListItem(
+            id=str(row.id),
+            invoice_id=str(row.invoice_id),
+            invoice_number=row.invoice_number or "—",
+            patient_name=row.patient_name or "—",
+            total=row.total or 0,
+            status=row.status,
+            cufe=row.cufe,
+            created_at=row.created_at.isoformat(),
+        )
+        for row in rows
+    ]
+
+    return EInvoiceListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 # ─── CO-06, CO-07: DIAN E-Invoicing ──────────────────────────────────────────

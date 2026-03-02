@@ -689,6 +689,7 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 - [x] **CO-05** `GET /api/v1/compliance/rda/status` -- RDA compliance status check
 - [x] **CO-06** `POST /api/v1/compliance/e-invoice` -- Electronic invoice via MATIAS API (Colombia DIAN); DentalOS operates as "Casa de Software"; any authorized role (clinic_owner, doctor, assistant) can generate invoices -- not restricted to 1 user like Dentalink
 - [x] **CO-07** `GET .../e-invoice/{invoice_id}/status` -- E-invoice status with DIAN via MATIAS API
+- [x] **CO-07b** `GET /api/v1/compliance/e-invoices` -- List e-invoices with status filters (status badges, paginated)
 - [x] **CO-08** `GET /api/v1/compliance/config` -- Country compliance configuration
 
 ### Integration: Electronic Invoicing

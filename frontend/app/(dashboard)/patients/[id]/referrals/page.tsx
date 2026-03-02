@@ -11,6 +11,7 @@ import { DataTable, type ColumnDef } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { Pagination } from "@/components/pagination";
 import { usePatient } from "@/lib/hooks/use-patients";
+import { useUsers } from "@/lib/hooks/use-users";
 import {
   usePatientReferrals,
   useCreateReferral,
@@ -159,6 +160,13 @@ export default function PatientReferralsPage() {
   const [priority, setPriority] = React.useState("normal");
   const [specialty, setSpecialty] = React.useState("");
 
+  // Load clinic doctors for the dropdown
+  const { data: usersData } = useUsers({ page: 1, page_size: 100 });
+  const doctors = React.useMemo(
+    () => usersData?.items.filter((u) => u.role === "doctor" && u.is_active) ?? [],
+    [usersData],
+  );
+
   const { data: patient } = usePatient(patientId);
   const { data, isLoading, isError } = usePatientReferrals(patientId, page, 20);
   const createReferral = useCreateReferral(patientId);
@@ -225,14 +233,19 @@ export default function PatientReferralsPage() {
       {showCreateForm && (
         <form onSubmit={handleCreate} className="rounded-xl border border-[hsl(var(--border))] p-4 space-y-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <input
-              type="text"
+            <select
               value={toDoctorId}
               onChange={(e) => setToDoctorId(e.target.value)}
-              placeholder="ID del doctor destino"
               className="px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-primary-600"
               required
-            />
+            >
+              <option value="">Seleccionar doctor destino</option>
+              {doctors.map((doc) => (
+                <option key={doc.id} value={doc.id}>
+                  {doc.name}{doc.specialties?.length ? ` — ${doc.specialties[0]}` : ""}
+                </option>
+              ))}
+            </select>
             <input
               type="text"
               value={specialty}
