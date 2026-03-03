@@ -56,14 +56,8 @@ export function VoiceQuickStartModal({ open, onOpenChange }: VoiceQuickStartModa
   const hasPatient = voiceStore.patient_id !== null;
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen && phase !== "idle" && phase !== "patient_select" && phase !== "success") {
-        // Prevent closing while recording/processing — user must cancel explicitly
-        return;
-      }
-      onOpenChange(isOpen);
-    }}>
-      <DialogContent size="lg" showCloseButton={phase === "idle" || phase === "patient_select" || phase === "success"}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent size="lg">
         {/* Patient selection step */}
         {phase === "patient_select" && (
           <PatientSelectStep />
@@ -115,6 +109,10 @@ function ActiveSessionStep({ onClose }: { onClose: () => void }) {
     on_parse_complete: (results) => {
       voiceStore.set_findings(results.findings, results.warnings, results.filtered_speech);
     },
+    on_error: () => {
+      // Sync store phase back to idle so the toolbar button resets
+      voiceStore.reset();
+    },
   });
 
   // Auto-start recording when this step mounts (ref guard prevents StrictMode double-call)
@@ -139,8 +137,11 @@ function ActiveSessionStep({ onClose }: { onClose: () => void }) {
 
   function handleRetry() {
     orchestrator.cancel();
-    voiceStore.set_phase("recording");
-    orchestrator.start_recording();
+    // Small delay to let cancel() state settle before starting fresh
+    setTimeout(() => {
+      voiceStore.set_phase("recording");
+      orchestrator.start_recording();
+    }, 100);
   }
 
   function handleDone() {

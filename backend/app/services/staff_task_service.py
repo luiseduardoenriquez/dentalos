@@ -72,7 +72,7 @@ class StaffTaskService:
             reference_id=reference_id,
             reference_type=reference_type,
             due_date=due_date,
-            metadata=metadata,
+            task_metadata=metadata,
         )
         db.add(task)
         await db.flush()
@@ -244,7 +244,7 @@ class StaffTaskService:
                             StaffTask.reference_id == invoice_id,
                             StaffTask.status.in_(["open", "in_progress"]),
                             # Use metadata to distinguish per-threshold duplicates.
-                            StaffTask.metadata["threshold_days"].astext
+                            StaffTask.task_metadata["threshold_days"].astext
                             == str(threshold_days),
                         )
                     ).limit(1)
@@ -544,7 +544,7 @@ class StaffTaskService:
             "reference_type": task.reference_type,
             "due_date": task.due_date,
             "completed_at": task.completed_at,
-            "metadata": task.metadata,
+            "metadata": task.task_metadata,
             "created_at": task.created_at,
             "updated_at": task.updated_at,
         }

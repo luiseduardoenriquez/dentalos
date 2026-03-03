@@ -34,12 +34,18 @@ const STAGE_ORDER: Record<PipelineStage, number> = {
  * Animated 3-phase pipeline indicator for voice processing.
  * Shows uploading -> transcribing -> parsing progress.
  */
+const STAGE_HINTS: Record<PipelineStage, string> = {
+  uploading: "Subiendo audio al servidor...",
+  transcribing: "Transcribiendo audio a texto (puede tardar ~10s)...",
+  parsing: "Analizando hallazgos con IA (puede tardar ~15s)...",
+};
+
 export function VoiceProcessingStatus({ stage, className }: VoiceProcessingStatusProps) {
   const currentIndex = STAGE_ORDER[stage];
 
   return (
     <div className={cn("space-y-3 py-4", className)}>
-      <p className="text-sm font-medium text-foreground text-center">Procesando dictado...</p>
+      <p className="text-sm font-medium text-foreground text-center">{STAGE_HINTS[stage]}</p>
 
       <div className="flex items-center justify-center gap-2">
         {STEPS.map((step, index) => {

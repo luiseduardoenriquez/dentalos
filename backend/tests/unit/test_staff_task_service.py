@@ -36,7 +36,7 @@ def _make_task(**overrides) -> MagicMock:
     task.reference_type = overrides.get("reference_type", "invoice")
     task.due_date = overrides.get("due_date", None)
     task.completed_at = overrides.get("completed_at", None)
-    task.metadata = overrides.get("metadata", {"threshold_days": 30})
+    task.task_metadata = overrides.get("metadata", {"threshold_days": 30})
     task.created_at = datetime.now(UTC)
     task.updated_at = datetime.now(UTC)
     return task
@@ -69,7 +69,7 @@ class TestCreateTask:
             obj.reference_type = task.reference_type
             obj.due_date = task.due_date
             obj.completed_at = None
-            obj.metadata = task.metadata
+            obj.task_metadata = task.metadata
             obj.created_at = task.created_at
             obj.updated_at = task.updated_at
 
@@ -110,7 +110,7 @@ class TestCreateTask:
             obj.reference_type = task.reference_type
             obj.due_date = task.due_date
             obj.completed_at = None
-            obj.metadata = task.metadata
+            obj.task_metadata = task.metadata
             obj.created_at = task.created_at
             obj.updated_at = task.updated_at
 
@@ -149,7 +149,7 @@ class TestCreateTask:
             obj.reference_type = task.reference_type
             obj.due_date = None
             obj.completed_at = None
-            obj.metadata = task.metadata
+            obj.task_metadata = task.metadata
             obj.created_at = task.created_at
             obj.updated_at = task.updated_at
 
@@ -355,7 +355,7 @@ class TestCheckDelinquencyCreatesTasks:
             obj.reference_type = "invoice"
             obj.due_date = None
             obj.completed_at = None
-            obj.metadata = {"threshold_days": 30}
+            obj.task_metadata = {"threshold_days": 30}
             obj.created_at = created_task.created_at
             obj.updated_at = created_task.updated_at
 
@@ -553,7 +553,7 @@ class TestCheckAcceptance:
             obj.reference_type = "quotation"
             obj.due_date = None
             obj.completed_at = None
-            obj.metadata = {"followup_days": 7}
+            obj.task_metadata = {"followup_days": 7}
             obj.created_at = created_task.created_at
             obj.updated_at = created_task.updated_at
 

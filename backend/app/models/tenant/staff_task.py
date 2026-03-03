@@ -58,7 +58,7 @@ class StaffTask(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Extra context stored as JSONB (threshold days for delinquency, etc.)
-    metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    task_metadata: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
 
     def __repr__(self) -> str:
         return (

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import { Stethoscope } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Stethoscope } from "lucide-react";
 
 export const metadata: Metadata = {
   title: {
@@ -14,13 +15,26 @@ export const metadata: Metadata = {
 
 function PublicLogo() {
   return (
-    <div className="flex items-center justify-center gap-2.5 mb-8">
-      <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary-600 shadow-md">
-        <Stethoscope className="w-5 h-5 text-white" aria-hidden="true" />
-      </div>
-      <span className="text-2xl font-bold tracking-tight text-primary-600 select-none">
-        DentalOS
-      </span>
+    <div className="flex flex-col items-center gap-4 mb-8">
+      <Link
+        href="/"
+        className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
+        aria-label="Ir al inicio"
+      >
+        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary-600 shadow-md">
+          <Stethoscope className="w-5 h-5 text-white" aria-hidden="true" />
+        </div>
+        <span className="text-2xl font-bold tracking-tight text-primary-600 select-none">
+          DentalOS
+        </span>
+      </Link>
+      <Link
+        href="/"
+        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft className="w-3 h-3" aria-hidden="true" />
+        Volver al inicio
+      </Link>
     </div>
   );
 }

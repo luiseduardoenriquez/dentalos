@@ -311,6 +311,7 @@ function ZoneDiagram({
 interface ConditionGridProps {
   conditions: CatalogCondition[];
   selectedCondition: string | null;
+  selectedZone: string | null;
   onConditionSelect: (code: string) => void;
   disabled: boolean;
 }
@@ -318,9 +319,18 @@ interface ConditionGridProps {
 function ConditionGrid({
   conditions,
   selectedCondition,
+  selectedZone,
   onConditionSelect,
   disabled,
 }: ConditionGridProps) {
+  // Filter conditions by zone validity (same logic as grid view's condition-panel)
+  const allConditions = Array.isArray(conditions) ? conditions : [];
+  const filteredConditions = selectedZone
+    ? allConditions.filter(
+        (c) => c.zones.length === 0 || c.zones.includes(selectedZone),
+      )
+    : allConditions;
+
   return (
     <div
       className={cn(
@@ -332,12 +342,14 @@ function ConditionGrid({
         Condiciones dentales
       </h3>
       <p className="text-xs text-gray-400 mb-4">
-        Selecciona una zona del diente para aplicar una condicion.
+        {selectedZone
+          ? `${filteredConditions.length} condiciones disponibles para esta zona.`
+          : "Selecciona una zona del diente para aplicar una condicion."}
       </p>
 
       {/* 2-column condition grid with colored dots */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-        {(Array.isArray(conditions) ? conditions : []).map((c) => {
+        {filteredConditions.map((c) => {
           const isActive = selectedCondition === c.code;
           return (
             <button
@@ -563,6 +575,7 @@ function ToothDetailModal({
               <ConditionGrid
                 conditions={conditions}
                 selectedCondition={selectedCondition}
+                selectedZone={selectedZone}
                 onConditionSelect={handleConditionSelect}
                 disabled={selectedZone === null}
               />

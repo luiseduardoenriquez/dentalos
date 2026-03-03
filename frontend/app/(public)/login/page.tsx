@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, Loader2, Building2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Loader2, Building2, CheckCircle2 } from "lucide-react";
 import type { Metadata } from "next";
 
 import { Button } from "@/components/ui/button";
@@ -53,10 +53,11 @@ function roleBadgeColor(role: string): string {
 interface ClinicSelectorProps {
   tenants: TenantListItem[];
   onSelect: (tenant_id: string) => void;
+  onBack: () => void;
   isLoading: boolean;
 }
 
-function ClinicSelector({ tenants, onSelect, isLoading }: ClinicSelectorProps) {
+function ClinicSelector({ tenants, onSelect, onBack, isLoading }: ClinicSelectorProps) {
   const [selected, setSelected] = useState<string>(
     tenants.find((t) => t.is_primary)?.tenant_id ?? tenants[0]?.tenant_id ?? "",
   );
@@ -156,6 +157,16 @@ function ClinicSelector({ tenants, onSelect, isLoading }: ClinicSelectorProps) {
           "Continuar"
         )}
       </Button>
+
+      <button
+        type="button"
+        onClick={onBack}
+        disabled={isLoading}
+        className="flex items-center justify-center gap-1 w-full text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+        Volver al inicio de sesión
+      </button>
     </div>
   );
 }
@@ -319,6 +330,10 @@ export default function LoginPage() {
         <ClinicSelector
           tenants={tenants}
           onSelect={handleSelectTenant}
+          onBack={() => {
+            setTenants(null);
+            setPreAuthToken("");
+          }}
           isLoading={isSelectPending}
         />
       )}

@@ -60,6 +60,10 @@ export function VoiceContextualPanel({
     on_parse_complete: (results) => {
       voiceStore.set_findings(results.findings, results.warnings, results.filtered_speech);
     },
+    on_error: () => {
+      // Sync store phase back to idle so the toolbar button resets
+      voiceStore.reset();
+    },
   });
 
   // Auto-start recording on mount
@@ -87,8 +91,11 @@ export function VoiceContextualPanel({
 
   function handleRetry() {
     orchestrator.cancel();
-    voiceStore.set_phase("recording");
-    orchestrator.start_recording();
+    // Small delay to let cancel() state settle before starting fresh
+    setTimeout(() => {
+      voiceStore.set_phase("recording");
+      orchestrator.start_recording();
+    }, 100);
   }
 
   // ─── Formatted elapsed time ─────────────────────────────────────────────

@@ -15,6 +15,8 @@ import type { VoiceContext } from "@/lib/stores/voice-store";
 
 const CHUNK_DURATION_MS = 30_000;
 const WAVEFORM_BAR_COUNT = 16;
+/** Max time (ms) to wait for transcription + parsing before timing out */
+const PROCESSING_TIMEOUT_MS = 90_000;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,6 +84,7 @@ export function useVoiceOrchestrator(
   const pendingUploadsRef = React.useRef(0);
   const mimeTypeRef = React.useRef<string>("audio/webm");
   const isCancelledRef = React.useRef(false);
+  const processingTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ─── Hooks ────────────────────────────────────────────────────────────────
   const { mutateAsync: createSession } = useCreateVoiceSession();
@@ -326,12 +329,38 @@ export function useVoiceOrchestrator(
   const cancel = React.useCallback(() => {
     isCancelledRef.current = true;
     cleanupMedia();
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
     setPhase("idle");
     setSessionId(null);
     setElapsedSeconds(0);
     setParseResults(null);
     setError(null);
   }, [cleanupMedia]);
+
+  // ─── Processing timeout ──────────────────────────────────────────────────
+
+  React.useEffect(() => {
+    if (phase === "processing" || phase === "parsing") {
+      processingTimeoutRef.current = setTimeout(() => {
+        setPhase("error");
+        setError(
+          "El procesamiento tardó demasiado. Esto puede ocurrir si el servicio de " +
+          "transcripción o análisis no está disponible. Intente de nuevo.",
+        );
+        on_error?.("Timeout de procesamiento");
+      }, PROCESSING_TIMEOUT_MS);
+
+      return () => {
+        if (processingTimeoutRef.current) {
+          clearTimeout(processingTimeoutRef.current);
+          processingTimeoutRef.current = null;
+        }
+      };
+    }
+  }, [phase, on_error]);
 
   // ─── Auto-parse when transcriptions complete ──────────────────────────────
 
