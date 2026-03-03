@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/table";
 import { RefreshCw, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AIQueryBar, type AIQueryResponse } from "@/components/analytics/ai-query-bar";
+import { AIResponseDisplay } from "@/components/analytics/ai-response-display";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -64,8 +66,15 @@ const PERIOD_OPTIONS: { value: AnalyticsPeriod; label: string }[] = [
 
 export default function AnalyticsDashboardPage() {
   const [period, setPeriod] = React.useState<AnalyticsPeriod>("month");
+  const [aiResponse, setAiResponse] = React.useState<AIQueryResponse | null>(null);
+  const [aiLoading, setAiLoading] = React.useState(false);
 
   const { data, isLoading, isError } = useAnalyticsDashboard(period);
+
+  const handleAIResponse = (response: AIQueryResponse) => {
+    setAiLoading(false);
+    setAiResponse(response);
+  };
 
   if (isLoading) {
     return (
@@ -87,6 +96,16 @@ export default function AnalyticsDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* ─── AI Query Bar ──────────────────────────────────────────────────── */}
+      <AIQueryBar
+        onResponse={handleAIResponse}
+        className="w-full"
+      />
+      <AIResponseDisplay
+        response={aiResponse}
+        isLoading={aiLoading}
+      />
+
       {/* Period selector */}
       <div className="flex items-center gap-3">
         <label

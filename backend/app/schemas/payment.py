@@ -8,9 +8,15 @@ from pydantic import BaseModel, ConfigDict, Field
 class PaymentCreate(BaseModel):
     """Fields required to record a payment."""
 
-    amount: int = Field(..., gt=0, description="Amount in cents (COP), must be > 0")
+    amount: int = Field(..., gt=0, description="Amount in cents, must be > 0")
     payment_method: str = Field(
         ..., pattern=r"^(cash|card|transfer|nequi|daviplata|other)$"
+    )
+    currency: str = Field(
+        default="COP",
+        min_length=3,
+        max_length=3,
+        description="ISO 4217 currency code for this payment (e.g. COP, USD, EUR).",
     )
     reference_number: str | None = Field(default=None, max_length=100)
     notes: str | None = None
@@ -25,6 +31,7 @@ class PaymentResponse(BaseModel):
     invoice_id: str
     patient_id: str
     amount: int
+    currency: str = "COP"
     payment_method: str
     reference_number: str | None = None
     received_by: str

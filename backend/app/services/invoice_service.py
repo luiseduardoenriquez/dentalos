@@ -27,6 +27,52 @@ from app.schemas.queue import QueueMessage
 logger = logging.getLogger("dentalos.invoice")
 
 
+# ─── Currency formatting helpers ──────────────────────────────────────────────
+
+_CURRENCY_SYMBOLS: dict[str, str] = {
+    "COP": "$",
+    "USD": "US$",
+    "MXN": "MX$",
+    "EUR": "€",
+    "BRL": "R$",
+    "PEN": "S/",
+    "CLP": "$",
+    "ARS": "$",
+}
+
+_CURRENCY_DECIMALS: dict[str, int] = {
+    "COP": 0,  # Colombian peso — no decimals
+    "USD": 2,
+    "MXN": 2,
+    "EUR": 2,
+    "BRL": 2,
+    "PEN": 2,
+    "CLP": 0,  # Chilean peso — no decimals
+    "ARS": 2,
+}
+
+
+def format_currency_amount(amount_cents: int, currency: str = "COP") -> str:
+    """Format an amount in cents to a display string with currency symbol.
+
+    Examples:
+        format_currency_amount(150000, "COP") -> "$1,500"
+        format_currency_amount(2599, "USD") -> "US$25.99"
+        format_currency_amount(0, "COP") -> "$0"
+    """
+    symbol = _CURRENCY_SYMBOLS.get(currency, currency + " ")
+    decimals = _CURRENCY_DECIMALS.get(currency, 2)
+
+    if decimals == 0:
+        value = amount_cents // 100
+        formatted = f"{value:,}"
+    else:
+        value = amount_cents / 100
+        formatted = f"{value:,.{decimals}f}"
+
+    return f"{symbol}{formatted}"
+
+
 def _item_to_dict(item: InvoiceItem) -> dict[str, Any]:
     return {
         "id": str(item.id),
@@ -53,6 +99,8 @@ def _invoice_to_dict(inv: Invoice) -> dict[str, Any]:
         delta = inv.due_date - date.today()
         days_until_due = delta.days  # Can be negative if overdue
 
+    currency = getattr(inv, "currency_code", None) or "COP"
+
     return {
         "id": str(inv.id),
         "invoice_number": inv.invoice_number,
@@ -64,13 +112,18 @@ def _invoice_to_dict(inv: Invoice) -> dict[str, Any]:
         "total": inv.total,
         "amount_paid": inv.amount_paid,
         "balance": inv.balance,
+        # Pre-formatted display strings for PDF rendering and UI display
+        "subtotal_formatted": format_currency_amount(inv.subtotal, currency),
+        "total_formatted": format_currency_amount(inv.total, currency),
+        "amount_paid_formatted": format_currency_amount(inv.amount_paid, currency),
+        "balance_formatted": format_currency_amount(inv.balance, currency),
         "status": inv.status,
         "due_date": inv.due_date,
         "paid_at": inv.paid_at,
         "notes": inv.notes,
         "items": items,
         "days_until_due": days_until_due,
-        "currency_code": getattr(inv, "currency_code", "COP"),
+        "currency_code": currency,
         "exchange_rate": float(inv.exchange_rate) if getattr(inv, "exchange_rate", None) else None,
         "exchange_rate_date": inv.exchange_rate_date if getattr(inv, "exchange_rate_date", None) else None,
         "is_active": inv.is_active,
@@ -504,7 +557,8 @@ class InvoiceService:
         await db.flush()
         await db.refresh(inv)
 
-        # Enqueue email notification
+        # Enqueue email notification — use formatted currency for display
+        currency = getattr(inv, "currency_code", "COP") or "COP"
         await publish_message(
             "notifications",
             QueueMessage(
@@ -515,6 +569,8 @@ class InvoiceService:
                     "patient_id": patient_id,
                     "invoice_number": inv.invoice_number,
                     "total": inv.total,
+                    "total_formatted": format_currency_amount(inv.total, currency),
+                    "currency_code": currency,
                     "due_date": str(inv.due_date) if inv.due_date else None,
                 },
             ),

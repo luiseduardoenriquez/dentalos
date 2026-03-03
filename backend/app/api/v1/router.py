@@ -200,4 +200,26 @@ api_v1_router.include_router(periodontal_router)
 api_v1_router.include_router(convenios_router)
 api_v1_router.include_router(families_router)
 
+# Sprint 27-28: AI Treatment Advisor (VP-13)
+from app.api.v1.treatment_plans.ai_router import router as ai_treatment_router
+
+api_v1_router.include_router(ai_treatment_router)
+
+# Sprint 27-28: VP-17 Email Marketing Campaigns
+from app.api.v1.marketing.router import router as marketing_router
+from app.api.v1.marketing.tracking_router import router as email_tracking_router
+
+api_v1_router.include_router(marketing_router)
+api_v1_router.include_router(email_tracking_router)
+
+# Sprint 27-28: GAP-14 AI Natural Language Reports
+from app.api.v1.analytics.ai_router import router as ai_report_router
+
+api_v1_router.include_router(ai_report_router)
+
+# Sprint 27-28: VP-12 WhatsApp Bidirectional Chat
+from app.api.v1.whatsapp.router import router as whatsapp_chat_router
+
+api_v1_router.include_router(whatsapp_chat_router)
+
 # Sprint 15-16: Admin (included at top of file for route priority)

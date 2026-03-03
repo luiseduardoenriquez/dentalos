@@ -344,6 +344,79 @@ class ReferralProgramService:
 
         return total_applied
 
+    # -- Referral Notifications ----------------------------------------------------
+
+    async def notify_referrer_on_completion(
+        self,
+        *,
+        db: AsyncSession,
+        tenant_id: str,
+        patient_id: str,
+        event: str,  # "booked" or "completed"
+    ) -> None:
+        """Notify the referrer when their referred patient books/completes an appointment.
+
+        Looks up the referral reward for the referred patient to identify the
+        referrer, then dispatches a notification to the referrer via the
+        notifications queue.
+        """
+        referred_pid = uuid.UUID(patient_id)
+
+        stmt = (
+            select(ReferralReward)
+            .where(
+                ReferralReward.referred_patient_id == referred_pid,
+                # Only notify the actual referrer (not the self-reward row)
+                ReferralReward.referrer_patient_id != referred_pid,
+            )
+            .order_by(ReferralReward.created_at.asc())
+            .limit(1)
+        )
+        result = await db.execute(stmt)
+        referral = result.scalar_one_or_none()
+
+        if not referral:
+            return
+
+        event_label = (
+            "agendó una cita" if event == "booked" else "completó su cita"
+        )
+
+        try:
+            from app.core.queue import publish_message
+
+            await publish_message(
+                queue="notifications",
+                job_type="notification.dispatch",
+                tenant_id=tenant_id,
+                payload={
+                    "event_type": f"referral.{event}",
+                    "user_id": str(referral.referrer_patient_id),
+                    "data": {
+                        "title": "Tu referido avanzó",
+                        "body": (
+                            f"El paciente que referiste {event_label}. "
+                            "¡Gracias por confiar en nosotros!"
+                        ),
+                        "metadata": {
+                            "referral_reward_id": str(referral.id),
+                            "referred_patient_id": patient_id,
+                            "event": event,
+                        },
+                    },
+                },
+            )
+            logger.info(
+                "Referral notification sent: reward_id=%s event=%s",
+                str(referral.id)[:8],
+                event,
+            )
+        except Exception:
+            logger.warning(
+                "Failed to send referral notification: patient_id=%s",
+                patient_id[:8],
+            )
+
     # -- Stats (clinic_owner dashboard) --------------------------------------------
 
     async def get_program_stats(

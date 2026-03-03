@@ -74,6 +74,23 @@ function buildColumns(
       ),
     },
     {
+      key: "eps_status",
+      header: "EPS",
+      cell: (row) => {
+        const status = (row as PatientListItem & { eps_status?: string }).eps_status;
+        if (!status || status === "pending") {
+          return <Badge variant="outline" className="text-xs">Pendiente</Badge>;
+        }
+        if (status === "active") {
+          return <Badge variant="success" className="text-xs">Activa</Badge>;
+        }
+        if (status === "inactive") {
+          return <Badge variant="destructive" className="text-xs">Inactiva</Badge>;
+        }
+        return <Badge variant="secondary" className="text-xs">{status}</Badge>;
+      },
+    },
+    {
       key: "is_active",
       header: "Estado",
       cell: (row) =>

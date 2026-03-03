@@ -16,6 +16,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Stethoscope,
+  MessageSquare,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -86,6 +88,18 @@ const NAV_ITEMS: NavItem[] = [
     href: "/compliance",
     label: "Cumplimiento",
     icon: ShieldCheck,
+    roles: ["clinic_owner"],
+  },
+  {
+    href: "/whatsapp",
+    label: "WhatsApp",
+    icon: MessageSquare,
+    roles: ["clinic_owner", "doctor", "assistant", "receptionist"],
+  },
+  {
+    href: "/marketing",
+    label: "Marketing",
+    icon: Mail,
     roles: ["clinic_owner"],
   },
   {

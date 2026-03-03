@@ -76,4 +76,33 @@ const AvatarFallback = React.forwardRef<
 ));
 AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName;
 
-export { Avatar, AvatarImage, AvatarFallback };
+// ─── Avatar Status Indicator ─────────────────────────────────────────────────
+
+type AvatarStatusVariant = "online" | "offline" | "busy" | "away";
+
+const statusColorMap: Record<AvatarStatusVariant, string> = {
+  online: "bg-green-500",
+  offline: "bg-gray-400",
+  busy: "bg-red-500",
+  away: "bg-amber-500",
+};
+
+interface AvatarStatusProps {
+  variant: AvatarStatusVariant;
+  className?: string;
+}
+
+function AvatarStatus({ variant, className }: AvatarStatusProps) {
+  return (
+    <span
+      className={cn(
+        "absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-zinc-900",
+        statusColorMap[variant],
+        className,
+      )}
+      aria-label={variant}
+    />
+  );
+}
+
+export { Avatar, AvatarImage, AvatarFallback, AvatarStatus, type AvatarStatusVariant };

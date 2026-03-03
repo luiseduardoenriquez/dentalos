@@ -970,7 +970,7 @@ Patients pay a monthly subscription for preventive care + discounts on treatment
 - [ ] Mercado Pago recurring payment integration for auto-billing
 - [x] Membership renewal notification via existing notification dispatch
 - [x] Portal: patient can view their membership plan, benefits used, next billing date
-- [ ] Portal: patient can request cancellation (triggers staff review)
+- [x] Portal: patient can request cancellation (triggers staff review)
 - [x] FE: Membership plan management page (clinic_owner) — create/edit/archive plans
 - [x] FE: Subscribe patient flow from patient profile
 - [x] FE: Membership dashboard — active members count, revenue, churn rate
@@ -996,7 +996,7 @@ AI-driven campaigns that identify inactive patients (6+ months) and send WhatsAp
 - [x] Unsubscribe/opt-out handling (respect patient communication preferences)
 - [x] FE: Campaign builder page — patient segment filters, message template, channel selection, schedule
 - [x] FE: Campaign results dashboard — funnel visualization, ROI metrics
-- [ ] FE: Patient timeline shows recall campaign interactions
+- [x] FE: Patient timeline shows recall campaign interactions
 
 ### VP-03: Smart Digital Intake Forms
 
@@ -1008,16 +1008,16 @@ Patient completes medical history, consents, and personal data from their phone 
 - [x] `GET /api/v1/intake/templates` — List templates
 - [x] `PUT /api/v1/intake/templates/{id}` — Update template
 - [x] `POST /api/v1/public/{slug}/intake` — Patient submits form (public, no auth required for new patients)
-- [ ] `POST /api/v1/portal/intake` — Patient submits form (portal auth, existing patients)
+- [x] `POST /api/v1/portal/intake` — Patient submits form (portal auth, existing patients)
 - [x] `GET /api/v1/intake/submissions` — List submissions for review (staff)
 - [x] `POST /api/v1/intake/submissions/{id}/approve` — Approve and auto-populate records
 - [x] Auto-populate Patient + Anamnesis + Consent records from approved submission
-- [ ] Pre-appointment intake link sent via notification dispatch (24h before appointment, configurable)
-- [ ] Default intake template seeded per tenant (Colombian medical history fields)
+- [x] Pre-appointment intake link sent via notification dispatch (24h before appointment, configurable)
+- [x] Default intake template seeded per tenant (Colombian medical history fields)
 - [x] FE: Form template builder for clinic_owner (field types: text, select, date, checkbox, file upload, signature)
 - [x] FE: Mobile-optimized patient intake form (public-facing, responsive 320px+)
 - [x] FE: Intake submission review queue for staff — approve/edit/reject before saving to patient record
-- [ ] FE: Intake completion status indicator on today's appointment list
+- [x] FE: Intake completion status indicator on today's appointment list
 
 ### VP-04: Morning Huddle Dashboard (Resumen del Día)
 
@@ -1032,11 +1032,11 @@ Daily briefing that aggregates existing data into actionable insights. Dental In
 - [x] Huddle data: recall-due patients this week (no visit in 6+ months)
 - [x] Huddle data: yesterday's collection summary
 - [x] Huddle data: no-show count yesterday + today's high-risk no-shows
-- [ ] Production goal configuration per doctor/clinic (`clinic_settings` JSONB)
+- [x] Production goal configuration per doctor/clinic (`clinic_settings` JSONB)
 - [x] FE: Morning Huddle page in (dashboard) route group
 - [x] FE: Auto-refresh every 5 minutes during business hours
 - [x] FE: Printable huddle summary (PDF or print-optimized CSS) for team meetings
-- [ ] FE: Quick-action buttons (call patient, send reminder, view balance)
+- [x] FE: Quick-action buttons (call patient, send reminder, view balance)
 
 ---
 
@@ -1058,7 +1058,7 @@ Daily briefing that aggregates existing data into actionable insights. Dental In
 - [x] Auto-reconcile webhook payment with invoice (mark as paid)
 - [x] Patient portal: "Pay with Nequi" and "Pay with Daviplata" buttons on invoice
 - [x] FE: QR display component on invoice detail page (staff shows to patient)
-- [ ] FE: Payment confirmation toast/notification on successful webhook
+- [x] FE: Payment confirmation toast/notification on successful webhook
 
 ### VP-06: EPS Insurance Verification (ADRES/BDUA)
 
@@ -1070,11 +1070,11 @@ One-click verification of patient's EPS affiliation, copay level, and eligible p
 - [x] Cache verification result in Redis (TTL 24h, key pattern `...:eps:verification:{patient_id}`)
 - [x] Display verification badge on patient profile (verified/unverified/expired)
 - [x] Show coverage details: EPS name, regime, copay category, eligible procedure types
-- [ ] Alert on coverage changes or inactive affiliation
+- [x] Alert on coverage changes or inactive affiliation
 - [x] Auto-verify on patient creation if document_type is CC/TI (background job via RabbitMQ)
 - [x] FE: EPS verification badge and expandable detail panel on patient profile
 - [x] FE: Manual "Re-verify" button for staff
-- [ ] FE: EPS status column on patient list (filterable)
+- [x] FE: EPS status column on patient list (filterable)
 
 ### VP-07: RETHUS Professional Registry Verification
 
@@ -1089,7 +1089,7 @@ Automatic validation of doctor/assistant professional registration against MinSa
 - [x] Auto-verify on team member invite/onboarding (background job)
 - [x] Periodic re-verification via `maintenance` queue (monthly cron)
 - [x] Verification status badge on team member profile
-- [ ] Alert clinic_owner if any doctor's RETHUS verification fails or expires
+- [x] Alert clinic_owner if any doctor's RETHUS verification fails or expires
 - [x] FE: RETHUS badge on doctor profile and team management page
 - [x] FE: Verification trigger button and status history
 
@@ -1107,11 +1107,11 @@ Word-of-mouth is the #1 patient acquisition channel for dental clinics in Colomb
 - [x] Auto-create referral_reward record when referred patient completes first appointment
 - [x] Auto-apply referrer discount on their next invoice
 - [x] Welcome discount for referred patient on first invoice
-- [ ] Notification to referrer when their referral books + completes appointment
+- [x] Notification to referrer when their referral books + completes appointment
 - [x] `GET /api/v1/referrals/stats` — Referral program analytics (clinic_owner)
 - [x] FE: Referral program settings page (clinic_owner — configure reward rules)
 - [x] FE: Portal referral sharing page (shareable link, WhatsApp share button, QR code)
-- [ ] FE: Referral tracking dashboard (clinic_owner — top referrers, conversion rate)
+- [x] FE: Referral tracking dashboard (clinic_owner — top referrers, conversion rate)
 
 ### VP-20: Post-Operative Instructions Automation (Quick Win)
 
@@ -1220,12 +1220,12 @@ Invoice in COP/USD/EUR with automatic conversion. Growing dental tourism in Mede
 - [x] Exchange rate service: daily rates from Banco de la República API (COP) or fallback to open exchange rates (`backend/app/integrations/exchange_rates/banco_republica.py`)
 - [x] Cache exchange rates in Redis (TTL 1h) (`backend/app/services/exchange_rate_service.py`)
 - [x] Multi-currency service catalog: prices can be defined in multiple currencies (`backend/app/models/tenant/service_catalog.py` — `prices_multi_currency` JSONB)
-- [ ] Invoice PDF renders with correct currency symbol and formatting
-- [ ] Payment recording supports multi-currency (amount_paid_cents + currency)
+- [x] Invoice PDF renders with correct currency symbol and formatting (`backend/app/services/invoice_service.py` — `format_currency_amount()` helper + `*_formatted` fields in invoice dict)
+- [x] Payment recording supports multi-currency (amount_paid_cents + currency) (`backend/app/schemas/payment.py` — `currency` field; `backend/app/models/tenant/payment.py` — `currency` column; `backend/app/services/payment_service.py` + `backend/app/api/v1/payments/router.py` wired through)
 - [x] `GET /api/v1/billing/exchange-rates` — Current exchange rates (`backend/app/api/v1/billing/exchange_rate_router.py`)
 - [x] FE: Currency selector on invoice creation (`frontend/components/currency-selector.tsx`)
 - [x] FE: Exchange rate display on invoice detail (`frontend/components/exchange-rate-display.tsx`)
-- [ ] FE: Multi-currency financial reports (normalize to COP for clinic reporting)
+- [x] FE: Multi-currency financial reports (normalize to COP for clinic reporting) (`frontend/components/analytics/multi-currency-report.tsx`)
 
 ### VP-15: Patient Loyalty / Points Program
 
@@ -1307,66 +1307,66 @@ Families are the natural unit in dental — parent brings kids, pays for all. Li
 
 Unified inbox in dashboard for WhatsApp conversations with patients. Currently only sends template messages. Clinics need to answer questions, send post-op instructions, coordinate appointments.
 
-- [ ] WhatsApp Business API webhook for incoming messages
-- [ ] Design `whatsapp_conversations` table: patient_id, phone_number, status (active/archived), last_message_at, assigned_to (staff user_id)
-- [ ] Design `whatsapp_messages` table: conversation_id, direction (inbound/outbound), content, media_url, status (sent/delivered/read/failed), timestamp
-- [ ] Inbound message processing: match phone number to patient record
-- [ ] `GET /api/v1/messaging/conversations` — List active conversations (staff)
-- [ ] `GET /api/v1/messaging/conversations/{id}/messages` — Message history
-- [ ] `POST /api/v1/messaging/conversations/{id}/send` — Send message (staff)
-- [ ] Real-time updates via WebSocket or SSE for new incoming messages
-- [ ] Conversation assignment: receptionist assigns conversations to staff members
-- [ ] Quick-reply templates for common responses (appointment confirmation, directions, hours)
-- [ ] FE: WhatsApp inbox page — conversation list + message thread
-- [ ] FE: Unread message badge in navigation
-- [ ] FE: Quick-reply template selector
-- [ ] FE: Patient profile link from conversation
+- [x] WhatsApp Business API webhook for incoming messages
+- [x] Design `whatsapp_conversations` table: patient_id, phone_number, status (active/archived), last_message_at, assigned_to (staff user_id)
+- [x] Design `whatsapp_messages` table: conversation_id, direction (inbound/outbound), content, media_url, status (sent/delivered/read/failed), timestamp
+- [x] Inbound message processing: match phone number to patient record
+- [x] `GET /api/v1/messaging/conversations` — List active conversations (staff)
+- [x] `GET /api/v1/messaging/conversations/{id}/messages` — Message history
+- [x] `POST /api/v1/messaging/conversations/{id}/send` — Send message (staff)
+- [x] Real-time updates via WebSocket or SSE for new incoming messages
+- [x] Conversation assignment: receptionist assigns conversations to staff members
+- [x] Quick-reply templates for common responses (appointment confirmation, directions, hours)
+- [x] FE: WhatsApp inbox page — conversation list + message thread
+- [x] FE: Unread message badge in navigation
+- [x] FE: Quick-reply template selector
+- [x] FE: Patient profile link from conversation
 
 ### VP-13: AI Treatment Recommendation
 
 Based on odontogram conditions + patient history, AI suggests a treatment plan with procedures from the clinic's service catalog and prices. Reduces plan creation from 10-15 min to <2 min. Reuses Claude API from voice pipeline.
 
-- [ ] AI treatment advisor service: input = odontogram state + patient age/history + catalog → output = suggested procedures with rationale
-- [ ] `POST /api/v1/treatment-plans/ai-suggest` — Generate AI treatment suggestion (doctor)
-- [ ] Claude API integration: structured prompt with patient context + dental knowledge
-- [ ] Map AI suggestions to clinic's service catalog (procedure codes + prices)
-- [ ] Confidence score per suggestion (high/medium/low)
-- [ ] Doctor review flow: accept, modify, or reject each suggestion before creating plan
-- [ ] Usage metering: track AI suggestions per doctor for add-on billing
-- [ ] Add-on gating: check AI Treatment Advisor add-on is active for tenant
-- [ ] FE: "AI Suggest" button on treatment plan creation screen
-- [ ] FE: AI suggestion review panel — accept/modify/reject per procedure
-- [ ] FE: AI confidence indicators and reasoning display
+- [x] AI treatment advisor service: input = odontogram state + patient age/history + catalog → output = suggested procedures with rationale
+- [x] `POST /api/v1/treatment-plans/ai-suggest` — Generate AI treatment suggestion (doctor)
+- [x] Claude API integration: structured prompt with patient context + dental knowledge
+- [x] Map AI suggestions to clinic's service catalog (procedure codes + prices)
+- [x] Confidence score per suggestion (high/medium/low)
+- [x] Doctor review flow: accept, modify, or reject each suggestion before creating plan
+- [x] Usage metering: track AI suggestions per doctor for add-on billing
+- [x] Add-on gating: check AI Treatment Advisor add-on is active for tenant
+- [x] FE: "AI Suggest" button on treatment plan creation screen
+- [x] FE: AI suggestion review panel — accept/modify/reject per procedure
+- [x] FE: AI confidence indicators and reasoning display
 
 ### VP-17: Email Marketing Campaigns
 
 Patient segmentation + dental-specific email templates in Spanish + open/click tracking. Extends recall engine (VP-02). Pre-built Spanish templates are a competitive advantage over US-centric tools.
 
-- [ ] Design `email_campaigns` table: name, subject, template_id, segment_filters JSONB, status (draft/scheduled/sending/sent), scheduled_at, sent_count, open_count, click_count
-- [ ] Design `email_campaign_recipients` table: campaign_id, patient_id, email, status (pending/sent/opened/clicked/bounced/unsubscribed)
-- [ ] Patient segmentation engine: filter by last visit date, procedures received, age range, insurance type, membership status, balance
-- [ ] `POST /api/v1/marketing/campaigns` — Create campaign (clinic_owner)
-- [ ] `GET /api/v1/marketing/campaigns` — List campaigns with stats
-- [ ] `POST /api/v1/marketing/campaigns/{id}/send` — Send campaign
-- [ ] `POST /api/v1/marketing/campaigns/{id}/schedule` — Schedule campaign
-- [ ] Open/click tracking via tracking pixel and redirect links
-- [ ] Seed 10 dental email templates in Spanish: recall, birthday, new service, holiday, referral promo, membership promo, treatment followup, post-op care, feedback request, welcome
-- [ ] Unsubscribe handling (CAN-SPAM / Colombia Ley 1581 compliance)
-- [ ] Bundled with Patient Engagement Suite add-on (VP-02 recall + VP-17 campaigns)
-- [ ] FE: Campaign builder — template selection, segment filters, preview, schedule
-- [ ] FE: Campaign analytics dashboard — open rate, click rate, unsubscribe rate, revenue attributed
-- [ ] FE: Email template editor (basic rich text, variable interpolation: {patient_name}, {clinic_name}, etc.)
+- [x] Design `email_campaigns` table: name, subject, template_id, segment_filters JSONB, status (draft/scheduled/sending/sent), scheduled_at, sent_count, open_count, click_count
+- [x] Design `email_campaign_recipients` table: campaign_id, patient_id, email, status (pending/sent/opened/clicked/bounced/unsubscribed)
+- [x] Patient segmentation engine: filter by last visit date, procedures received, age range, insurance type, membership status, balance
+- [x] `POST /api/v1/marketing/campaigns` — Create campaign (clinic_owner)
+- [x] `GET /api/v1/marketing/campaigns` — List campaigns with stats
+- [x] `POST /api/v1/marketing/campaigns/{id}/send` — Send campaign
+- [x] `POST /api/v1/marketing/campaigns/{id}/schedule` — Schedule campaign
+- [x] Open/click tracking via tracking pixel and redirect links
+- [x] Seed 10 dental email templates in Spanish: recall, birthday, new service, holiday, referral promo, membership promo, treatment followup, post-op care, feedback request, welcome
+- [x] Unsubscribe handling (CAN-SPAM / Colombia Ley 1581 compliance)
+- [x] Bundled with Patient Engagement Suite add-on (VP-02 recall + VP-17 campaigns)
+- [x] FE: Campaign builder — template selection, segment filters, preview, schedule
+- [x] FE: Campaign analytics dashboard — open rate, click rate, unsubscribe rate, revenue attributed
+- [x] FE: Email template editor (basic rich text, variable interpolation: {patient_name}, {clinic_name}, etc.)
 
 ### GAP-14: Informes IA (Natural Language Reports)
 
 "How much revenue did Dr. Garcia generate last month?" → AI answers with charts. Low effort since Claude API is already integrated from voice pipeline. High wow factor for demos.
 
-- [ ] `POST /api/v1/analytics/ai-query` — Natural language query endpoint (doctor/clinic_owner)
-- [ ] Claude API integration: convert natural language → SQL-safe analytics query
-- [ ] Predefined safe query templates (revenue by period, appointments by doctor, top procedures, patient demographics, etc.)
-- [ ] Guardrails: only SELECT on analytics views, no raw table access, no PHI in responses
-- [ ] FE: "Ask AI" search bar on analytics dashboard
-- [ ] FE: AI response display with charts/tables
+- [x] `POST /api/v1/analytics/ai-query` — Natural language query endpoint (doctor/clinic_owner)
+- [x] Claude API integration: convert natural language → SQL-safe analytics query
+- [x] Predefined safe query templates (revenue by period, appointments by doctor, top procedures, patient demographics, etc.)
+- [x] Guardrails: only SELECT on analytics views, no raw table access, no PHI in responses
+- [x] FE: "Ask AI" search bar on analytics dashboard
+- [x] FE: AI response display with charts/tables
 
 ---
 

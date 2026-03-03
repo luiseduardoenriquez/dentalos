@@ -1,4 +1,4 @@
-"""Portal action routes — write endpoints (PP-05, PP-08, PP-09, PP-11, PP-12).
+"""Portal action routes — write endpoints (PP-05, PP-08, PP-09, PP-11, PP-12, PP-13, VP-10).
 
 Endpoint map:
   POST /portal/treatment-plans/{plan_id}/approve  — PP-05
@@ -6,6 +6,8 @@ Endpoint map:
   POST /portal/appointments/{id}/cancel            — PP-09
   POST /portal/messages                             — PP-11
   POST /portal/consents/{consent_id}/sign           — PP-12
+  POST /portal/intake                               — PP-13
+  POST /portal/membership/cancel-request            — VP-10
 """
 
 from fastapi import APIRouter, Depends
@@ -21,6 +23,7 @@ from app.schemas.portal import (
     PortalSendMessageRequest,
     PortalSignConsentRequest,
 )
+from app.schemas.portal_intake import PortalCancellationRequest, PortalIntakeSubmission
 from app.services.portal_action_service import portal_action_service
 
 router = APIRouter(prefix="/portal", tags=["portal-actions"])
@@ -108,4 +111,34 @@ async def sign_consent(
         consent_id=consent_id,
         signature_data=body.signature_data,
         acknowledged=body.acknowledged,
+    )
+
+
+@router.post("/intake")
+async def submit_intake(
+    body: PortalIntakeSubmission,
+    portal_user: PortalUser = Depends(get_current_portal_user),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> dict:
+    """Submit pre-appointment intake form from the portal (PP-13)."""
+    return await portal_action_service.submit_intake(
+        db=db,
+        patient_id=portal_user.patient_id,
+        form_data=body.form_data,
+        appointment_id=body.appointment_id,
+    )
+
+
+@router.post("/membership/cancel-request")
+async def request_cancellation(
+    body: PortalCancellationRequest,
+    portal_user: PortalUser = Depends(get_current_portal_user),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> dict:
+    """Patient requests membership cancellation (triggers staff review)."""
+    return await portal_action_service.request_membership_cancellation(
+        db=db,
+        patient_id=portal_user.patient_id,
+        tenant_id=portal_user.tenant.tenant_id,
+        reason=body.reason,
     )

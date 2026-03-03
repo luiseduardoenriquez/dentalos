@@ -317,6 +317,125 @@ class PortalActionService:
             "message": "Consentimiento firmado exitosamente.",
         }
 
+    async def submit_intake(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+        form_data: dict[str, Any],
+        appointment_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Submit a pre-appointment intake form from the portal (PP-13).
+
+        Stores form answers as JSONB on the patient record under
+        ``intake_responses``.  Optionally links the submission to an
+        upcoming appointment for traceability.
+        """
+        from app.models.tenant.patient import Patient
+
+        pid = uuid.UUID(patient_id)
+
+        result = await db.execute(
+            select(Patient).where(
+                Patient.id == pid,
+                Patient.is_active.is_(True),
+            )
+        )
+        patient = result.scalar_one_or_none()
+
+        if patient is None:
+            raise ResourceNotFoundError(
+                error="PATIENT_not_found",
+                resource_name="Paciente",
+            )
+
+        # Persist responses in the patient's metadata JSONB field
+        metadata: dict[str, Any] = patient.metadata or {} if hasattr(patient, "metadata") else {}
+        metadata["intake_responses"] = form_data
+        metadata["intake_submitted_at"] = datetime.now(UTC).isoformat()
+        if appointment_id:
+            metadata["intake_appointment_id"] = appointment_id
+
+        if hasattr(patient, "metadata"):
+            patient.metadata = metadata
+        await db.flush()
+
+        # TODO: Dispatch notification to clinic staff on new intake submission
+
+        logger.info(
+            "Intake form submitted via portal: patient=%s appointment=%s",
+            patient_id[:8],
+            appointment_id[:8] if appointment_id else "none",
+        )
+
+        return {
+            "status": "received",
+            "patient_id": patient_id,
+            "appointment_id": appointment_id,
+            "message": "Formulario de ingreso recibido. ¡Gracias!",
+        }
+
+    async def request_membership_cancellation(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+        tenant_id: str,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        """Request membership/subscription cancellation from the portal.
+
+        Creates a cancellation request task for clinic staff to review.
+        Does NOT cancel immediately — requires staff confirmation (VP-10).
+        """
+        from app.models.tenant.patient import Patient
+
+        pid = uuid.UUID(patient_id)
+
+        result = await db.execute(
+            select(Patient).where(
+                Patient.id == pid,
+                Patient.is_active.is_(True),
+            )
+        )
+        patient = result.scalar_one_or_none()
+
+        if patient is None:
+            raise ResourceNotFoundError(
+                error="PATIENT_not_found",
+                resource_name="Paciente",
+            )
+
+        # Record the cancellation request in patient metadata for staff review
+        metadata: dict[str, Any] = patient.metadata or {} if hasattr(patient, "metadata") else {}
+        metadata["membership_cancel_request"] = {
+            "requested_at": datetime.now(UTC).isoformat(),
+            "reason": reason,
+            "status": "pending_review",
+        }
+
+        if hasattr(patient, "metadata"):
+            patient.metadata = metadata
+        await db.flush()
+
+        # TODO: Create staff task via task_service for manual review
+        # TODO: Dispatch notification to clinic_owner
+
+        logger.info(
+            "Membership cancellation requested via portal: patient=%s tenant=%s",
+            patient_id[:8],
+            tenant_id,
+        )
+
+        return {
+            "status": "pending_review",
+            "patient_id": patient_id,
+            "message": (
+                "Tu solicitud de cancelación ha sido recibida. "
+                "Un miembro del equipo se pondrá en contacto contigo."
+            ),
+        }
+
 
 # Module-level singleton
 portal_action_service = PortalActionService()

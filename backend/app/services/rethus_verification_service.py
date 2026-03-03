@@ -57,6 +57,7 @@ class RETHUSVerificationService:
         db: AsyncSession,
         user_id: UUID | str,
         rethus_number: str,
+        tenant_id: str | None = None,
     ) -> dict[str, Any]:
         """Trigger a RETHUS verification for a user and persist the result.
 
@@ -67,6 +68,8 @@ class RETHUSVerificationService:
             db: Tenant-scoped async database session.
             user_id: UUID of the user to verify (str or UUID accepted).
             rethus_number: The RETHUS registry number to verify.
+            tenant_id: Tenant ID string for dispatching alert notifications
+                       (optional; pass when available from the request context).
 
         Returns:
             dict with verification status and professional details (no PHI logged).
@@ -119,12 +122,71 @@ class RETHUSVerificationService:
 
         await db.flush()
 
+        # Alert clinic_owner if verification failed and tenant_id is available.
+        if tenant_id and user.rethus_verification_status == "failed":
+            doctor_name = result.full_name if result.found and result.full_name else "Desconocido"
+            await self.alert_on_verification_failure(
+                tenant_id=tenant_id,
+                doctor_id=user_id_str,
+                doctor_name=doctor_name,
+                verification_status="failed",
+            )
+
         return self._to_dict(
             user=user,
             professional_name=result.full_name if result.found else None,
             profession=result.profession if result.found else None,
             specialty=result.specialty if result.found else None,
         )
+
+    async def alert_on_verification_failure(
+        self,
+        *,
+        tenant_id: str,
+        doctor_id: str,
+        doctor_name: str,
+        verification_status: str,
+    ) -> None:
+        """Alert clinic_owner when a doctor's RETHUS verification fails or expires."""
+        if verification_status not in ("failed", "expired"):
+            return
+
+        try:
+            from app.core.queue import publish_message
+
+            status_label = (
+                "ha fallado" if verification_status == "failed" else "ha expirado"
+            )
+            await publish_message(
+                queue="notifications",
+                job_type="notification.dispatch",
+                tenant_id=tenant_id,
+                payload={
+                    "event_type": "rethus.verification_alert",
+                    "user_id": "",  # Resolve to clinic_owner
+                    "data": {
+                        "title": "Alerta de verificación RETHUS",
+                        "body": (
+                            f"La verificación RETHUS del Dr. {doctor_name} {status_label}. "
+                            "Revisa el registro profesional."
+                        ),
+                        "metadata": {
+                            "doctor_id": doctor_id,
+                            "verification_status": verification_status,
+                        },
+                    },
+                },
+            )
+            logger.info(
+                "RETHUS alert dispatched: doctor_id=%s status=%s",
+                doctor_id[:8],
+                verification_status,
+            )
+        except Exception:
+            logger.warning(
+                "Failed to dispatch RETHUS alert: doctor_id=%s",
+                doctor_id[:8],
+            )
 
     async def check_status(
         self,

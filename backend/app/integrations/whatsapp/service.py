@@ -1,6 +1,6 @@
-"""WhatsApp Business API service -- INT-01.
+"""WhatsApp Business API service -- INT-01 + VP-12.
 
-Uses Meta Cloud API to send template messages via WhatsApp.
+Uses Meta Cloud API to send template and session messages via WhatsApp.
 PHI is NEVER included in WhatsApp messages -- only appointment IDs,
 doctor names, and clinic names are allowed.
 
@@ -39,7 +39,7 @@ def _scrub_phi(data: dict[str, Any]) -> dict[str, str]:
 
 
 class WhatsAppService:
-    """Sends template messages via Meta WhatsApp Cloud API."""
+    """Sends template and session messages via Meta WhatsApp Cloud API."""
 
     def __init__(self) -> None:
         self._client: httpx.AsyncClient | None = None
@@ -131,6 +131,53 @@ class WhatsAppService:
             msg_id,
             template_name,
         )
+
+        return result
+
+    async def send_session_message(
+        self,
+        *,
+        to_phone: str,
+        text: str,
+    ) -> dict[str, Any]:
+        """Send a free-form text message within the 24-hour session window.
+
+        Unlike template messages, session messages allow arbitrary text but
+        are only deliverable within 24 hours of the last customer-initiated
+        message.
+
+        Args:
+            to_phone: Recipient phone in E.164 format (e.g., +573001234567).
+            text: Free-form message text (max 4096 chars per Meta spec).
+
+        Returns:
+            Meta API response dict with message_id.
+
+        Raises:
+            httpx.HTTPStatusError: On API failure.
+        """
+        if not self.is_configured():
+            logger.warning("WhatsApp not configured, skipping session message send")
+            return {"status": "skipped", "reason": "not_configured"}
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to_phone,
+            "type": "text",
+            "text": {"body": text},
+        }
+
+        client = await self._get_client()
+        response = await client.post(
+            f"/{settings.whatsapp_phone_number_id}/messages",
+            json=payload,
+        )
+        response.raise_for_status()
+
+        result: dict[str, Any] = response.json()
+        # Log only message ID, never recipient phone or content (PHI)
+        msg_id = result.get("messages", [{}])[0].get("id", "unknown")
+        logger.info("WhatsApp session message sent: message_id=%s", msg_id)
 
         return result
 

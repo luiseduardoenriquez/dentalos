@@ -47,6 +47,7 @@ async def record_payment(
         invoice_id=invoice_id,
         amount=body.amount,
         payment_method=body.payment_method,
+        currency=body.currency,
         received_by=current_user.user_id,
         reference_number=body.reference_number,
         notes=body.notes,

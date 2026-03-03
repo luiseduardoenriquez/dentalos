@@ -56,8 +56,13 @@ class Payment(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
         nullable=False,
     )
 
-    # Amount — always cents (COP), must be > 0 (enforced at service level)
+    # Amount — in cents of the specified currency, must be > 0 (enforced at service level)
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # ISO 4217 currency code for this payment (default COP)
+    currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, server_default="COP"
+    )
 
     # Payment method
     payment_method: Mapped[str] = mapped_column(String(20), nullable=False)

@@ -130,6 +130,15 @@ class EPSVerificationService:
         db.add(record)
         await db.flush()
 
+        # Check for coverage change and alert if needed
+        if tenant_id:
+            await self.check_coverage_change(
+                db=db,
+                patient_id=patient_id,
+                tenant_id=tenant_id,
+                new_status=result.affiliation_status,
+            )
+
         response_dict = self._to_dict(record)
 
         # Cache the result keyed by patient_id.  Cache failures are swallowed
@@ -243,6 +252,72 @@ class EPSVerificationService:
                 patient_id_str,
                 type(exc).__name__,
             )
+
+    async def check_coverage_change(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: UUID | str,
+        tenant_id: str,
+        new_status: str,
+    ) -> None:
+        """Check if EPS coverage changed and dispatch alert if so.
+
+        Compares the new affiliation_status to the previous verification.
+        If different, publishes an alert to the notifications queue.
+        """
+        patient_id_str = str(patient_id)
+
+        # Fetch previous verification (skip the current just-inserted one)
+        stmt = (
+            select(EPSVerification)
+            .where(EPSVerification.patient_id == patient_id)
+            .order_by(desc(EPSVerification.verification_date))
+            .offset(1)  # Skip the current (just-inserted) one
+            .limit(1)
+        )
+        result = await db.execute(stmt)
+        previous = result.scalar_one_or_none()
+
+        if previous is None:
+            return  # First verification — no comparison
+
+        if previous.affiliation_status != new_status:
+            logger.info(
+                "EPS coverage changed: patient_id=%s old=%s new=%s",
+                patient_id_str,
+                previous.affiliation_status,
+                new_status,
+            )
+            try:
+                from app.core.queue import publish_message
+
+                await publish_message(
+                    queue="notifications",
+                    job_type="notification.dispatch",
+                    tenant_id=tenant_id,
+                    payload={
+                        "event_type": "eps.coverage_change",
+                        "user_id": "",  # Will be resolved to clinic_owner
+                        "data": {
+                            "title": "Cambio en cobertura EPS",
+                            "body": (
+                                f"El estado de afiliación del paciente cambió de "
+                                f"{previous.affiliation_status} a {new_status}."
+                            ),
+                            "metadata": {
+                                "patient_id": patient_id_str,
+                                "old_status": previous.affiliation_status,
+                                "new_status": new_status,
+                            },
+                        },
+                    },
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to dispatch EPS coverage change alert: patient_id=%s",
+                    patient_id_str,
+                )
 
     # ─── Private helpers ──────────────────────────────────────────────────────
 

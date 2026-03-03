@@ -95,6 +95,12 @@ class Patient(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
     # Counters
     no_show_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
+    # Email marketing
+    email_unsubscribed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    email_unsubscribed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Portal
     portal_access: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 

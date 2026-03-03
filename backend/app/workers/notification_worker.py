@@ -34,6 +34,8 @@ class NotificationWorker(BaseWorker):
             "whatsapp.send": self._handle_whatsapp,
             "notification.in_app": self._handle_in_app,
             "notification.dispatch": self._handle_dispatch,
+            "notification.intake_reminder": self._handle_intake_reminder,
+            "campaign.email.batch": self._handle_campaign_batch,
         }
         handler = handlers.get(message.job_type)
         if handler:
@@ -486,6 +488,234 @@ class NotificationWorker(BaseWorker):
             data=message.payload,
             message=message,
         )
+
+    # ── Intake reminder handler (PP-13) ──────────────────────────────────
+
+    async def _handle_intake_reminder(self, message: QueueMessage) -> None:
+        """Send pre-appointment intake link 24h before appointment.
+
+        Payload:
+            appointment_id: str
+            patient_id: str
+            patient_name: str
+            patient_email: str
+            patient_phone: str
+            appointment_date: str
+            appointment_time: str
+        """
+        try:
+            payload = message.payload
+            tenant_id = message.tenant_id
+            patient_email = payload.get("patient_email", "")
+            patient_name = payload.get("patient_name", "Paciente")
+            appointment_date = payload.get("appointment_date", "")
+            appointment_time = payload.get("appointment_time", "")
+            appointment_id = payload.get("appointment_id", "")
+
+            from app.core.config import settings as app_settings
+
+            base_url = app_settings.frontend_url
+            intake_link = f"{base_url}/portal/intake?appointment={appointment_id}"
+
+            # Send via email
+            if patient_email:
+                from app.core.email import email_service
+
+                await email_service.send_email(
+                    to_email=patient_email,
+                    to_name=patient_name,
+                    subject="Completa tu formulario antes de tu cita",
+                    template_name="intake_reminder",
+                    context={
+                        "patient_name": patient_name,
+                        "appointment_date": appointment_date,
+                        "appointment_time": appointment_time,
+                        "intake_link": intake_link,
+                    },
+                )
+
+            # Also send WhatsApp if configured
+            patient_phone = payload.get("patient_phone", "")
+            if patient_phone:
+                from app.integrations.whatsapp.service import whatsapp_service
+
+                if whatsapp_service.is_configured():
+                    await whatsapp_service.send_template_message(
+                        to_phone=patient_phone,
+                        template_name="intake_reminder",
+                        parameters={
+                            "patient_name": patient_name,
+                            "appointment_date": appointment_date,
+                            "intake_link": intake_link,
+                        },
+                    )
+
+            logger.info(
+                "Intake reminder sent: tenant=%s appointment=%s",
+                tenant_id,
+                appointment_id[:8] if appointment_id else "?",
+            )
+        except Exception:
+            logger.exception(
+                "Intake reminder failed: message_id=%s tenant=%s",
+                message.message_id,
+                message.tenant_id,
+            )
+
+    # ── Campaign email batch handler (VP-17) ─────────────────────────────
+
+    async def _handle_campaign_batch(self, message: QueueMessage) -> None:
+        """Process campaign.email.batch — send emails to campaign recipients.
+
+        Payload:
+            campaign_id: str — the campaign UUID
+            campaign_name: str — campaign name for logging
+            subject: str — email subject
+            template_html: str — HTML template with variable placeholders
+        """
+        try:
+            from app.core.database import get_tenant_session
+            from app.core.email import email_service
+            from app.models.tenant.email_campaign import (
+                EmailCampaign,
+                EmailCampaignRecipient,
+            )
+            from app.models.tenant.patient import Patient
+
+            from sqlalchemy import select, update
+            from sqlalchemy.orm import joinedload
+
+            payload = message.payload
+            campaign_id = payload.get("campaign_id", "")
+            subject = payload.get("subject", "")
+            template_html = payload.get("template_html", "")
+            tenant_id = message.tenant_id
+
+            if not campaign_id:
+                logger.warning(
+                    "Campaign batch skipped (missing campaign_id): message_id=%s",
+                    message.message_id,
+                )
+                return
+
+            async with get_tenant_session(tenant_id) as db:
+                # Fetch pending recipients with patient info
+                stmt = (
+                    select(EmailCampaignRecipient)
+                    .where(
+                        EmailCampaignRecipient.campaign_id == uuid.UUID(campaign_id),
+                        EmailCampaignRecipient.status == "pending",
+                    )
+                    .limit(500)
+                )
+                result = await db.execute(stmt)
+                recipients = result.scalars().all()
+
+                if not recipients:
+                    # All sent — update campaign to 'sent'
+                    await db.execute(
+                        update(EmailCampaign)
+                        .where(EmailCampaign.id == uuid.UUID(campaign_id))
+                        .values(status="sent", sent_at=datetime.now(UTC))
+                    )
+                    await db.commit()
+                    logger.info(
+                        "Campaign batch complete (all sent): campaign=%s tenant=%s",
+                        campaign_id[:8],
+                        tenant_id,
+                    )
+                    return
+
+                sent_count = 0
+                for recipient in recipients:
+                    # Fetch patient name for template rendering
+                    patient_stmt = select(Patient).where(
+                        Patient.id == recipient.patient_id
+                    )
+                    patient_result = await db.execute(patient_stmt)
+                    patient = patient_result.scalar_one_or_none()
+
+                    patient_name = "Paciente"
+                    if patient:
+                        patient_name = f"{patient.first_name} {patient.last_name}"
+
+                    # Render template with variables
+                    rendered_html = template_html
+                    rendered_html = rendered_html.replace("{patient_name}", patient_name)
+                    rendered_html = rendered_html.replace("{email}", recipient.email)
+
+                    # Add tracking pixel and unsubscribe link
+                    tid_short = tenant_id.replace("tn_", "")[:12]
+                    from app.core.config import settings as app_settings
+
+                    base_url = app_settings.frontend_url
+                    tracking_pixel = (
+                        f'<img src="{base_url}/api/v1/public/track/open/'
+                        f'{tenant_id}/{recipient.id}" width="1" height="1" />'
+                    )
+                    unsubscribe_link = (
+                        f'{base_url}/api/v1/public/unsubscribe/'
+                        f'{tenant_id}/{recipient.id}'
+                    )
+                    rendered_html = rendered_html.replace(
+                        "{tracking_pixel}", tracking_pixel
+                    )
+                    rendered_html = rendered_html.replace(
+                        "{unsubscribe_link}", unsubscribe_link
+                    )
+
+                    # Render subject with variables
+                    rendered_subject = subject.replace(
+                        "{patient_name}", patient_name
+                    )
+
+                    try:
+                        success = await email_service.send_email(
+                            to_email=recipient.email,
+                            to_name=patient_name,
+                            subject=rendered_subject,
+                            template_name="campaign_raw_html",
+                            context={"html_content": rendered_html},
+                        )
+                        if success:
+                            recipient.status = "sent"
+                            recipient.sent_at = datetime.now(UTC)
+                            sent_count += 1
+                        else:
+                            recipient.status = "bounced"
+                    except Exception:
+                        recipient.status = "bounced"
+                        logger.warning(
+                            "Campaign email failed for recipient=%s",
+                            str(recipient.id)[:8],
+                        )
+
+                # Update campaign counters
+                await db.execute(
+                    update(EmailCampaign)
+                    .where(EmailCampaign.id == uuid.UUID(campaign_id))
+                    .values(
+                        sent_count=EmailCampaign.sent_count + sent_count,
+                        bounce_count=EmailCampaign.bounce_count
+                        + (len(recipients) - sent_count),
+                    )
+                )
+                await db.commit()
+
+            logger.info(
+                "Campaign batch processed: campaign=%s sent=%d/%d tenant=%s",
+                campaign_id[:8],
+                sent_count,
+                len(recipients),
+                tenant_id,
+            )
+
+        except Exception:
+            logger.exception(
+                "Campaign batch failed: message_id=%s tenant=%s",
+                message.message_id,
+                message.tenant_id,
+            )
 
 
 # Module-level instance for CLI entry point

@@ -20,6 +20,8 @@ import {
   Globe,
   FileText,
   Download,
+  Bell,
+  DollarSign,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api-client";
@@ -539,6 +541,22 @@ export default function PatientDetailPage() {
               <Link href={`/patients/${patient.id}/edit`}>
                 <Edit className="mr-1.5 h-3.5 w-3.5" />
                 Editar
+              </Link>
+            </Button>
+            {/* Quick-action buttons */}
+            {patient.phone && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`tel:${patient.phone}`, "_self")}
+                title="Llamar paciente"
+              >
+                <Phone className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button variant="outline" size="sm" asChild title="Ver balance">
+              <Link href={`/patients/${patient.id}/invoices`}>
+                <DollarSign className="h-3.5 w-3.5" />
               </Link>
             </Button>
             {patient.is_active && patient.portal_access && (

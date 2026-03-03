@@ -383,6 +383,49 @@ class ExchangeRateErrors:
     SERVICE_UNAVAILABLE = "EXCHANGE_RATE_service_unavailable"
 
 
+class WhatsAppChatErrors:
+    """WHATSAPP_CHAT domain — bidirectional WhatsApp chat error codes."""
+
+    CONVERSATION_NOT_FOUND = "WHATSAPP_CHAT_conversation_not_found"
+    MESSAGE_SEND_FAILED = "WHATSAPP_CHAT_message_send_failed"
+    OUTSIDE_24H_WINDOW = "WHATSAPP_CHAT_outside_24h_window"
+    NOT_CONFIGURED = "WHATSAPP_CHAT_not_configured"
+    INVALID_PHONE = "WHATSAPP_CHAT_invalid_phone"
+
+
+class AITreatmentErrors:
+    """AI_TREATMENT domain — AI treatment advisor error codes."""
+
+    ADDON_REQUIRED = "AI_TREATMENT_addon_required"
+    GENERATION_FAILED = "AI_TREATMENT_generation_failed"
+    SUGGESTION_NOT_FOUND = "AI_TREATMENT_suggestion_not_found"
+    ALREADY_REVIEWED = "AI_TREATMENT_already_reviewed"
+    PLAN_CREATION_FAILED = "AI_TREATMENT_plan_creation_failed"
+    NO_ACTIVE_CONDITIONS = "AI_TREATMENT_no_active_conditions"
+
+
+class MarketingErrors:
+    """MARKETING domain — email marketing campaign error codes."""
+
+    CAMPAIGN_NOT_FOUND = "MARKETING_campaign_not_found"
+    NOT_DRAFT = "MARKETING_not_draft"
+    NO_RECIPIENTS = "MARKETING_no_recipients"
+    ALREADY_SENT = "MARKETING_already_sent"
+    ALREADY_CANCELLED = "MARKETING_already_cancelled"
+    TEMPLATE_NOT_FOUND = "MARKETING_template_not_found"
+    ADDON_REQUIRED = "MARKETING_addon_required"
+    RECIPIENT_NOT_FOUND = "MARKETING_recipient_not_found"
+
+
+class AIReportErrors:
+    """AI_REPORT domain — natural language analytics report error codes."""
+
+    QUERY_FAILED = "AI_REPORT_query_failed"
+    UNKNOWN_QUERY_TYPE = "AI_REPORT_unknown_query_type"
+    INVALID_PARAMETERS = "AI_REPORT_invalid_parameters"
+    GENERATION_FAILED = "AI_REPORT_generation_failed"
+
+
 class SystemErrors:
     """SYSTEM domain — infrastructure, HTTP, and platform-level error codes."""
 

@@ -70,6 +70,12 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "convenios:read", "convenios:write",
         "families:read", "families:write",
         "schedule_intelligence:read",
+        # Sprint 27-28: AI Treatment Advisor
+        "ai_treatment:read", "ai_treatment:write",
+        # Sprint 27-28: VP-12 WhatsApp Chat
+        "whatsapp:read", "whatsapp:write",
+        # Sprint 27-28: VP-17 Email Marketing
+        "marketing:read", "marketing:write",
     }),
     "doctor": frozenset({
         "patients:read", "patients:write",
@@ -105,6 +111,10 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "periodontogram:read", "periodontogram:write",
         "families:read",
         "schedule_intelligence:read",
+        # Sprint 27-28: AI Treatment Advisor
+        "ai_treatment:read", "ai_treatment:write",
+        # Sprint 27-28: VP-12 WhatsApp Chat
+        "whatsapp:read", "whatsapp:write",
     }),
     "assistant": frozenset({
         "patients:read", "patients:write",
@@ -133,6 +143,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "tasks:read",
         # Sprint 25-26
         "periodontogram:read", "periodontogram:write",
+        # Sprint 27-28: VP-12 WhatsApp Chat
+        "whatsapp:read", "whatsapp:write",
     }),
     "receptionist": frozenset({
         "patients:read", "patients:write",
@@ -158,6 +170,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "convenios:read",
         "families:read", "families:write",
         "schedule_intelligence:read",
+        # Sprint 27-28: VP-12 WhatsApp Chat
+        "whatsapp:read", "whatsapp:write",
     }),
     "patient": frozenset({
         "patients:read",

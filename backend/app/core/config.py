@@ -166,6 +166,9 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-haiku-4-5-20251001"
+    anthropic_model_treatment: str = "claude-sonnet-4-5-20250514"
+    ai_treatment_max_tokens: int = 4096
+    ai_report_max_tokens: int = 1024
     voice_max_audio_bytes: int = 10 * 1024 * 1024  # 10 MB
 
 

@@ -71,12 +71,25 @@ from app.models.tenant.expense import Expense, ExpenseCategory
 # Sprint 23-24: GAP-05 + GAP-06 Staff Tasks (delinquency + acceptance)
 from app.models.tenant.staff_task import StaffTask
 
+# Sprint 27-28: AI Treatment Advisor (VP-13)
+from app.models.tenant.ai_treatment import AITreatmentSuggestion
+
 # Sprint 25-26: Reputation, Loyalty, Periodontal, Convenios, Families
 from app.models.tenant.satisfaction_survey import SatisfactionSurvey
 from app.models.tenant.loyalty import LoyaltyPoints, LoyaltyTransaction
 from app.models.tenant.periodontal import PeriodontalMeasurement, PeriodontalRecord
 from app.models.tenant.convenio import Convenio, ConvenioPatient
 from app.models.tenant.family import FamilyGroup, FamilyMember
+
+# Sprint 27-28: VP-12 WhatsApp Bidirectional Chat
+from app.models.tenant.whatsapp import (
+    WhatsAppConversation,
+    WhatsAppMessage,
+    WhatsAppQuickReply,
+)
+
+# Sprint 27-28: VP-17 Email Marketing Campaigns
+from app.models.tenant.email_campaign import EmailCampaign, EmailCampaignRecipient
 
 __all__ = [
     "AuditLog",
@@ -158,6 +171,8 @@ __all__ = [
     "Expense",
     # Sprint 23-24: GAP-05 + GAP-06
     "StaffTask",
+    # Sprint 27-28: VP-13
+    "AITreatmentSuggestion",
     # Sprint 25-26
     "SatisfactionSurvey",
     "LoyaltyPoints",
@@ -168,4 +183,11 @@ __all__ = [
     "ConvenioPatient",
     "FamilyGroup",
     "FamilyMember",
+    # Sprint 27-28: VP-12 WhatsApp Chat
+    "WhatsAppConversation",
+    "WhatsAppMessage",
+    "WhatsAppQuickReply",
+    # Sprint 27-28: VP-17 Email Marketing
+    "EmailCampaign",
+    "EmailCampaignRecipient",
 ]

@@ -32,6 +32,7 @@ def _payment_to_dict(p: Payment) -> dict[str, Any]:
         "invoice_id": str(p.invoice_id),
         "patient_id": str(p.patient_id),
         "amount": p.amount,
+        "currency": getattr(p, "currency", "COP") or "COP",
         "payment_method": p.payment_method,
         "reference_number": p.reference_number,
         "received_by": str(p.received_by),
@@ -89,6 +90,7 @@ class PaymentService:
         invoice_id: str,
         amount: int,
         payment_method: str,
+        currency: str = "COP",
         received_by: str,
         reference_number: str | None = None,
         notes: str | None = None,
@@ -136,11 +138,12 @@ class PaymentService:
                 status_code=409,
             )
 
-        # Create payment
+        # Create payment — store currency alongside amount for multi-currency support
         payment = Payment(
             invoice_id=iid,
             patient_id=pid,
             amount=amount,
+            currency=currency,
             payment_method=payment_method,
             reference_number=reference_number,
             received_by=uuid.UUID(received_by),
@@ -163,6 +166,7 @@ class PaymentService:
                     "invoice_id": invoice_id,
                     "patient_id": patient_id,
                     "amount": amount,
+                    "currency": currency,
                     "payment_method": payment_method,
                     "invoice_number": inv.invoice_number,
                     "balance": inv.balance,
