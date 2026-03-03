@@ -16,6 +16,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import TenantBase, TimestampMixin, UUIDPrimaryKeyMixin
@@ -55,6 +56,10 @@ class ServiceCatalog(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
 
     # Classification
     category: Mapped[str] = mapped_column(String(50), nullable=False)
+
+    # Multi-currency pricing (Sprint 25-26)
+    # JSONB: {"USD": 5000, "EUR": 4500} — prices in cents per currency
+    prices_multi_currency: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

@@ -1183,94 +1183,94 @@ Treatment plan acceptance is directly tied to revenue. Clinics report 40-60% of 
 
 Post-appointment auto-survey that routes satisfied patients to Google Reviews and unsatisfied patients to private feedback. 77% of patients check reviews before choosing a dentist. Google Maps reviews are critical for discovery in LATAM.
 
-- [ ] Design `satisfaction_surveys` table: patient_id, appointment_id, score (1-5), feedback_text, channel_sent, sent_at, responded_at, routed_to (google_review/private_feedback)
-- [ ] Design `reputation_config` in tenant settings JSONB: enabled, min_score_for_review_routing (default 4), google_review_url, survey_delay_hours (default 2), channels
-- [ ] `POST /api/v1/reputation/surveys/send` — Manually trigger survey for appointment
-- [ ] Event listener: auto-send survey X hours after appointment completion
-- [ ] Survey response handler: score >= threshold → redirect to Google Reviews link; score < threshold → save as private feedback
-- [ ] `GET /api/v1/reputation/dashboard` — Reputation analytics (avg score, response rate, review count, NPS)
-- [ ] `GET /api/v1/reputation/feedback` — List private feedback (clinic_owner)
-- [ ] WhatsApp/SMS/email survey delivery via notification engine
-- [ ] FE: Reputation dashboard — score trends, review volume, feedback queue
-- [ ] FE: Reputation settings page (Google Review URL, threshold, channels)
-- [ ] FE: Patient-facing survey form (mobile-optimized, 1-tap star rating)
+- [x] Design `satisfaction_surveys` table: patient_id, appointment_id, score (1-5), feedback_text, channel_sent, sent_at, responded_at, routed_to (google_review/private_feedback) (`backend/app/models/tenant/satisfaction_survey.py`, `012_sprint25_reputation_intelligence.py`)
+- [x] Design `reputation_config` in tenant settings JSONB: enabled, min_score_for_review_routing (default 4), google_review_url, survey_delay_hours (default 2), channels (`backend/app/services/reputation_service.py`)
+- [x] `POST /api/v1/reputation/surveys/send` — Manually trigger survey for appointment (`backend/app/api/v1/reputation/router.py`)
+- [x] Event listener: auto-send survey X hours after appointment completion (`backend/app/workers/maintenance_worker.py` — `survey.auto_send`)
+- [x] Survey response handler: score >= threshold → redirect to Google Reviews link; score < threshold → save as private feedback (`backend/app/services/reputation_service.py`)
+- [x] `GET /api/v1/reputation/dashboard` — Reputation analytics (avg score, response rate, review count, NPS) (`backend/app/api/v1/reputation/router.py`)
+- [x] `GET /api/v1/reputation/feedback` — List private feedback (clinic_owner) (`backend/app/api/v1/reputation/router.py`)
+- [x] WhatsApp/SMS/email survey delivery via notification engine (`backend/app/services/reputation_service.py` — enqueues via publish_message)
+- [x] FE: Reputation dashboard — score trends, review volume, feedback queue (`frontend/app/(dashboard)/reputation/page.tsx`)
+- [x] FE: Reputation settings page (Google Review URL, threshold, channels) (`frontend/app/(dashboard)/settings/reputation/page.tsx`)
+- [x] FE: Patient-facing survey form (mobile-optimized, 1-tap star rating) (`frontend/app/(public)/survey/[token]/page.tsx`)
 
 ### VP-10: Intelligent Schedule Optimization
 
 AI analyzes appointment patterns to suggest fill strategies, predict no-shows, and recommend optimal scheduling. +10-15% chair utilization. All data already exists in appointments module.
 
-- [ ] `GET /api/v1/analytics/schedule-intelligence` — Schedule optimization insights
-- [ ] No-show prediction model: based on patient history, day of week, time, procedure type, weather (future)
-- [ ] Gap analysis: identify unfilled slots and suggest patients from waitlist or recall list
-- [ ] Overbooking recommendations: for high no-show slots, suggest double-booking threshold
-- [ ] Optimal scheduling patterns: analyze which procedure sequences maximize production
-- [ ] Chair utilization metrics: actual vs potential production per chair/doctor
-- [ ] `GET /api/v1/appointments/suggested-fills` — AI-suggested patients for empty slots
-- [ ] Alert: same-day unfilled slot notification to receptionist with suggested patients
-- [ ] FE: Schedule intelligence panel on agenda sidebar
-- [ ] FE: No-show risk indicator on appointment cards (low/medium/high)
-- [ ] FE: Suggested fill actions (one-click send invite to suggested patient)
+- [x] `GET /api/v1/analytics/schedule-intelligence` — Schedule optimization insights (`backend/app/api/v1/analytics/schedule_intelligence_router.py`)
+- [x] No-show prediction model: based on patient history, day of week, time, procedure type, weather (future) (`backend/app/services/schedule_intelligence_service.py`)
+- [x] Gap analysis: identify unfilled slots and suggest patients from waitlist or recall list (`backend/app/services/schedule_intelligence_service.py`)
+- [x] Overbooking recommendations: for high no-show slots, suggest double-booking threshold (`backend/app/services/schedule_intelligence_service.py`)
+- [x] Optimal scheduling patterns: analyze which procedure sequences maximize production (`backend/app/services/schedule_intelligence_service.py`)
+- [x] Chair utilization metrics: actual vs potential production per chair/doctor (`backend/app/services/schedule_intelligence_service.py`)
+- [x] `GET /api/v1/appointments/suggested-fills` — AI-suggested patients for empty slots (`backend/app/api/v1/analytics/schedule_intelligence_router.py`)
+- [x] Alert: same-day unfilled slot notification to receptionist with suggested patients (`backend/app/workers/maintenance_worker.py` — `schedule.unfilled_alert`)
+- [x] FE: Schedule intelligence panel on agenda sidebar (`frontend/components/schedule-intelligence-panel.tsx`)
+- [x] FE: No-show risk indicator on appointment cards (low/medium/high) (`frontend/components/no-show-risk-badge.tsx`)
+- [x] FE: Suggested fill actions (one-click send invite to suggested patient) (`frontend/components/suggested-fill-card.tsx`)
 
 ### VP-14: Multi-Currency Billing
 
 Invoice in COP/USD/EUR with automatic conversion. Growing dental tourism in Medellín/Cartagena. Border clinics (Cúcuta) serve Venezuelan patients. Plan-gated to Clínica+ tier.
 
-- [ ] Add `currency` field to invoice model (default COP, options: COP/USD/EUR/MXN)
-- [ ] Add `exchange_rate` and `exchange_rate_date` fields to invoice
-- [ ] Exchange rate service: daily rates from Banco de la República API (COP) or fallback to open exchange rates
-- [ ] Cache exchange rates in Redis (TTL 1h)
-- [ ] Multi-currency service catalog: prices can be defined in multiple currencies
+- [x] Add `currency` field to invoice model (default COP, options: COP/USD/EUR/MXN) (`backend/app/models/tenant/invoice.py`, `012_sprint25_reputation_intelligence.py`)
+- [x] Add `exchange_rate` and `exchange_rate_date` fields to invoice (`backend/app/models/tenant/invoice.py`)
+- [x] Exchange rate service: daily rates from Banco de la República API (COP) or fallback to open exchange rates (`backend/app/integrations/exchange_rates/banco_republica.py`)
+- [x] Cache exchange rates in Redis (TTL 1h) (`backend/app/services/exchange_rate_service.py`)
+- [x] Multi-currency service catalog: prices can be defined in multiple currencies (`backend/app/models/tenant/service_catalog.py` — `prices_multi_currency` JSONB)
 - [ ] Invoice PDF renders with correct currency symbol and formatting
 - [ ] Payment recording supports multi-currency (amount_paid_cents + currency)
-- [ ] `GET /api/v1/billing/exchange-rates` — Current exchange rates
-- [ ] FE: Currency selector on invoice creation
-- [ ] FE: Exchange rate display on invoice detail
+- [x] `GET /api/v1/billing/exchange-rates` — Current exchange rates (`backend/app/api/v1/billing/exchange_rate_router.py`)
+- [x] FE: Currency selector on invoice creation (`frontend/components/currency-selector.tsx`)
+- [x] FE: Exchange rate display on invoice detail (`frontend/components/exchange-rate-display.tsx`)
 - [ ] FE: Multi-currency financial reports (normalize to COP for clinic reporting)
 
 ### VP-15: Patient Loyalty / Points Program
 
 Points for completed appointments, on-time payments, referrals. Redeemable for discounts. +15-20% retention. Multiplies effect of memberships (VP-01) and referrals (VP-08).
 
-- [ ] Design `loyalty_config` in tenant settings JSONB: enabled, points_per_appointment, points_per_referral, points_per_ontime_payment, points_to_currency_ratio
-- [ ] Design `loyalty_points` table: patient_id, points_balance, lifetime_points_earned, lifetime_points_redeemed
-- [ ] Design `loyalty_transactions` table: patient_id, type (earned/redeemed/expired/adjusted), points, reason, reference_id, created_at
-- [ ] Award points on: appointment completion, on-time payment, referral completion, membership renewal
-- [ ] `GET /api/v1/portal/loyalty` — Patient views points balance and history
-- [ ] `POST /api/v1/loyalty/redeem` — Redeem points for discount on next invoice (staff action)
-- [ ] Points expiration: configurable TTL (default 12 months of inactivity)
-- [ ] `GET /api/v1/loyalty/leaderboard` — Top patients by points (gamification)
-- [ ] FE: Portal loyalty page — balance, history, available rewards
-- [ ] FE: Points redemption flow at checkout (staff applies patient points)
-- [ ] FE: Loyalty program settings page (clinic_owner)
+- [x] Design `loyalty_config` in tenant settings JSONB: enabled, points_per_appointment, points_per_referral, points_per_ontime_payment, points_to_currency_ratio (`backend/app/services/loyalty_service.py`)
+- [x] Design `loyalty_points` table: patient_id, points_balance, lifetime_points_earned, lifetime_points_redeemed (`backend/app/models/tenant/loyalty.py`, `012_sprint25_reputation_intelligence.py`)
+- [x] Design `loyalty_transactions` table: patient_id, type (earned/redeemed/expired/adjusted), points, reason, reference_id, created_at (`backend/app/models/tenant/loyalty.py`)
+- [x] Award points on: appointment completion, on-time payment, referral completion, membership renewal (`backend/app/workers/maintenance_worker.py` — loyalty handlers)
+- [x] `GET /api/v1/portal/loyalty` — Patient views points balance and history (`backend/app/api/v1/portal/loyalty_router.py`)
+- [x] `POST /api/v1/loyalty/redeem` — Redeem points for discount on next invoice (staff action) (`backend/app/api/v1/loyalty/router.py`)
+- [x] Points expiration: configurable TTL (default 12 months of inactivity) (`backend/app/services/loyalty_service.py`, `maintenance_worker.py`)
+- [x] `GET /api/v1/loyalty/leaderboard` — Top patients by points (gamification) (`backend/app/api/v1/loyalty/router.py`)
+- [x] FE: Portal loyalty page — balance, history, available rewards (`frontend/app/(portal)/loyalty/page.tsx`)
+- [x] FE: Points redemption flow at checkout (staff applies patient points) (`frontend/components/loyalty-redemption-dialog.tsx`)
+- [x] FE: Loyalty program settings page (clinic_owner) (`frontend/app/(dashboard)/settings/loyalty/page.tsx`)
 
 ### GAP-01: Periodontograma (Periodontal Charting)
 
 ~30% of adult patients need perio treatment. Clinics doing perio work CANNOT use DentalOS without this. Interactive periodontal charting with pocket depths, bleeding, recession, mobility, and furcation per tooth. Table stakes for any complete dental SaaS.
 
-- [ ] Design `periodontal_records` table: patient_id, recorded_by, recorded_at, dentition_type, notes
-- [ ] Design `periodontal_measurements` table: record_id, tooth_number (FDI), site (mesial_buccal, buccal, distal_buccal, mesial_lingual, lingual, distal_lingual), pocket_depth, recession, clinical_attachment_level, bleeding_on_probing (bool), plaque_index, mobility (0-3), furcation (0-3)
-- [ ] `POST /api/v1/patients/{patient_id}/periodontal-records` — Create record with measurements (doctor/assistant)
-- [ ] `GET /api/v1/patients/{patient_id}/periodontal-records` — List records
-- [ ] `GET /api/v1/patients/{patient_id}/periodontal-records/{id}` — Get with all measurements
-- [ ] `GET /api/v1/patients/{patient_id}/periodontal-records/compare` — Compare two records (improvement tracking)
-- [ ] Voice-to-periodontogram: extend V-01 pipeline to parse "18 mesial 4, bleeding" → structured perio data
-- [ ] FE: Periodontal charting view (6-site measurement grid per tooth, color-coded depths)
-- [ ] FE: Perio comparison view (before/after with color diff)
-- [ ] FE: Voice recording button on perio charting screen
+- [x] Design `periodontal_records` table: patient_id, recorded_by, recorded_at, dentition_type, notes (`backend/app/models/tenant/periodontal.py`, `012_sprint25_reputation_intelligence.py`)
+- [x] Design `periodontal_measurements` table: record_id, tooth_number (FDI), site (mesial_buccal, buccal, distal_buccal, mesial_lingual, lingual, distal_lingual), pocket_depth, recession, clinical_attachment_level, bleeding_on_probing (bool), plaque_index, mobility (0-3), furcation (0-3) (`backend/app/models/tenant/periodontal.py`)
+- [x] `POST /api/v1/patients/{patient_id}/periodontal-records` — Create record with measurements (doctor/assistant) (`backend/app/api/v1/periodontal/router.py`)
+- [x] `GET /api/v1/patients/{patient_id}/periodontal-records` — List records (`backend/app/api/v1/periodontal/router.py`)
+- [x] `GET /api/v1/patients/{patient_id}/periodontal-records/{id}` — Get with all measurements (`backend/app/api/v1/periodontal/router.py`)
+- [x] `GET /api/v1/patients/{patient_id}/periodontal-records/compare` — Compare two records (improvement tracking) (`backend/app/api/v1/periodontal/router.py`)
+- [x] Voice-to-periodontogram: extend V-01 pipeline to parse "18 mesial 4, bleeding" → structured perio data (`backend/app/services/perio_voice_parser.py`)
+- [x] FE: Periodontal charting view (6-site measurement grid per tooth, color-coded depths) (`frontend/app/(dashboard)/patients/[id]/periodontal/page.tsx`, `frontend/components/perio-measurement-grid.tsx`)
+- [x] FE: Perio comparison view (before/after with color diff) (`frontend/components/perio-comparison-view.tsx`)
+- [x] FE: Voice recording button on perio charting screen (`frontend/components/perio-voice-recorder.tsx`)
 
 ### GAP-04: Gestión de Convenios (Corporate Agreements / Discount Plans)
 
 Many clinics in Colombia have agreements with empresas, universidades, fondos de empleados. Auto-apply discounts when patient is linked to a convenio — eliminates manual calculation errors.
 
-- [ ] Design `convenios` table: company_name, contact_info JSONB, discount_rules JSONB, valid_from, valid_until, is_active
-- [ ] Design `convenio_patients` table: convenio_id, patient_id, employee_id (company internal)
-- [ ] `POST /api/v1/convenios` — Create convenio (clinic_owner)
-- [ ] `GET /api/v1/convenios` — List convenios
-- [ ] `PUT /api/v1/convenios/{id}` — Update convenio
-- [ ] `POST /api/v1/patients/{id}/convenio` — Link patient to convenio
-- [ ] Auto-apply convenio discount on invoice creation (hook into billing service)
-- [ ] FE: Convenio management page (clinic_owner)
-- [ ] FE: Patient convenio badge and discount display on invoice
+- [x] Design `convenios` table: company_name, contact_info JSONB, discount_rules JSONB, valid_from, valid_until, is_active (`backend/app/models/tenant/convenio.py`, `backend/alembic_tenant/versions/012_sprint25_reputation_intelligence.py`)
+- [x] Design `convenio_patients` table: convenio_id, patient_id, employee_id (company internal) (`backend/app/models/tenant/convenio.py`, `backend/alembic_tenant/versions/012_sprint25_reputation_intelligence.py`)
+- [x] `POST /api/v1/convenios` — Create convenio (clinic_owner) (`backend/app/api/v1/convenios/router.py`)
+- [x] `GET /api/v1/convenios` — List convenios (`backend/app/api/v1/convenios/router.py`)
+- [x] `PUT /api/v1/convenios/{id}` — Update convenio (`backend/app/api/v1/convenios/router.py`)
+- [x] `POST /api/v1/patients/{id}/convenio` — Link patient to convenio (`backend/app/api/v1/convenios/router.py`)
+- [x] Auto-apply convenio discount on invoice creation (hook into billing service) (`backend/app/services/invoice_service.py` step 2b, `backend/app/services/convenio_service.py`)
+- [x] FE: Convenio management page (clinic_owner) (`frontend/app/(dashboard)/convenios/page.tsx`)
+- [x] FE: Patient convenio badge and discount display on invoice (`frontend/components/convenio-patient-badge.tsx`)
 
 ### GAP-08: Gestión de Tareas (Internal Task Management)
 
@@ -1280,22 +1280,22 @@ Clinics currently use WhatsApp groups for task coordination — messy and untrac
 - [x] `POST /api/v1/tasks` — Create task (any staff role) (`backend/app/api/v1/tasks/router.py`)
 - [x] `GET /api/v1/tasks` — List tasks (filterable by assignee, status, type) (`backend/app/api/v1/tasks/router.py`)
 - [x] `PUT /api/v1/tasks/{id}` — Update task with validated status transitions (`backend/app/api/v1/tasks/router.py`)
-- [ ] Notification on task assignment
+- [x] Notification on task assignment (`backend/app/services/staff_task_service.py` — dispatches `notification.dispatch` with `type='task_assigned'`)
 - [x] FE: Task list/board view with filters
-- [ ] FE: Quick-add task from patient profile, invoice, appointment
+- [x] FE: Quick-add task from patient profile, invoice, appointment (`frontend/components/quick-add-task-button.tsx`)
 
 ### GAP-10: Super Familias (Family Grouping)
 
 Families are the natural unit in dental — parent brings kids, pays for all. Link patients into family groups for consolidated billing, family discounts, and unified communication.
 
-- [ ] Design `family_groups` table: name, primary_contact_patient_id
-- [ ] Design `family_members` table: family_group_id, patient_id, relationship (parent/child/spouse/sibling)
-- [ ] `POST /api/v1/families` — Create family group
-- [ ] `GET /api/v1/families/{id}` — Get family with members
-- [ ] `POST /api/v1/families/{id}/members` — Add member
-- [ ] Consolidated family billing view (all invoices for family members)
-- [ ] FE: Family group management on patient profile
-- [ ] FE: Family billing summary view
+- [x] Design `family_groups` table: name, primary_contact_patient_id (`backend/app/models/tenant/family.py`, `backend/alembic_tenant/versions/012_sprint25_reputation_intelligence.py`)
+- [x] Design `family_members` table: family_group_id, patient_id, relationship (parent/child/spouse/sibling) (`backend/app/models/tenant/family.py`, `backend/alembic_tenant/versions/012_sprint25_reputation_intelligence.py`)
+- [x] `POST /api/v1/families` — Create family group (`backend/app/api/v1/families/router.py`)
+- [x] `GET /api/v1/families/{id}` — Get family with members (`backend/app/api/v1/families/router.py`)
+- [x] `POST /api/v1/families/{id}/members` — Add member (`backend/app/api/v1/families/router.py`)
+- [x] Consolidated family billing view (all invoices for family members) (`backend/app/services/family_service.py`, `backend/app/api/v1/families/router.py`)
+- [x] FE: Family group management on patient profile (`frontend/app/(dashboard)/patients/[id]/family/page.tsx`)
+- [x] FE: Family billing summary view (`frontend/components/family-billing-summary.tsx`)
 
 ---
 
@@ -1725,8 +1725,8 @@ Each sprint must meet these criteria before sign-off:
 | 17-18 | 9 | -- | Bug fixes + Optimizations | Bug fixes + UX polish | Security audit + Load tests | In Progress (32/36) |
 | 19-20 | 10 | -- | Production deploy + Monitoring | Marketing site | Final validation | In Progress (26/38) |
 | 21-22 | 11 | ~52 | Memberships + Recall + Intake + Huddle | Membership + Campaign + Intake + Huddle pages | Module tests | Complete (48/52) |
-| 23-24 | 12 | ~44 | Nequi/Daviplata + EPS + RETHUS + Referrals + Post-Op + **Cash Register + Expenses + Delinquency/Acceptance Tasks** | Payment QR + EPS badge + Referral portal + Cash register + Expense mgmt | Integration tests | Not Started |
-| 25-26 | 13 | ~47 | Reputation + Schedule AI + Multi-Currency + Loyalty + **Periodontogram + Convenios + Tasks + Families** | Reviews + Intelligence + Loyalty + Perio chart + Convenios + Task board + Family groups | Analytics + perio tests | Not Started |
+| 23-24 | 12 | ~44 | Nequi/Daviplata + EPS + RETHUS + Referrals + Post-Op + **Cash Register + Expenses + Delinquency/Acceptance Tasks** | Payment QR + EPS badge + Referral portal + Cash register + Expense mgmt | Integration tests | Complete (78/84) |
+| 25-26 | 13 | ~47 | Reputation + Schedule AI + Multi-Currency + Loyalty + **Periodontogram + Convenios + Tasks + Families** | Reviews + Intelligence + Loyalty + Perio chart + Convenios + Task board + Family groups | Analytics + perio tests | Complete (71/73) |
 | 27-28 | 14 | ~20 | WhatsApp Chat + AI Treatment + Email Marketing + **AI Reports** | Inbox + AI panel + Campaign builder + AI query bar | AI + messaging tests | Not Started |
 | 29-30 | 15 | ~21 | Financing + Chatbot + NPS/CSAT + **Telemedicine** | Financing flow + Bot config + NPS dashboard + Video calls | Chatbot + survey + video tests | Not Started |
 | 31-32 | 16 | ~10 | VoIP + EPS Claims + Lab Orders | Screen pop + Claims mgmt + Lab tracking | VoIP + claims tests | Not Started |

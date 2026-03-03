@@ -328,6 +328,61 @@ class PostopErrors:
     SEND_FAILED = "POSTOP_send_failed"
 
 
+class ReputationErrors:
+    """REPUTATION domain — satisfaction survey and reputation management error codes."""
+
+    SURVEY_NOT_FOUND = "REPUTATION_survey_not_found"
+    SURVEY_ALREADY_RESPONDED = "REPUTATION_survey_already_responded"
+    SURVEY_EXPIRED = "REPUTATION_survey_expired"
+    INVALID_TOKEN = "REPUTATION_invalid_token"
+    SEND_FAILED = "REPUTATION_send_failed"
+
+
+class LoyaltyErrors:
+    """LOYALTY domain — loyalty points program error codes."""
+
+    INSUFFICIENT_POINTS = "LOYALTY_insufficient_points"
+    PROGRAM_DISABLED = "LOYALTY_program_disabled"
+    PATIENT_NOT_ENROLLED = "LOYALTY_patient_not_enrolled"
+    INVALID_REDEMPTION = "LOYALTY_invalid_redemption"
+
+
+class PeriodontalErrors:
+    """PERIODONTAL domain — periodontal charting error codes."""
+
+    RECORD_NOT_FOUND = "PERIODONTAL_record_not_found"
+    INVALID_TOOTH_NUMBER = "PERIODONTAL_invalid_tooth_number"
+    INVALID_SITE = "PERIODONTAL_invalid_site"
+    INVALID_MEASUREMENT = "PERIODONTAL_invalid_measurement"
+    COMPARISON_REQUIRES_TWO = "PERIODONTAL_comparison_requires_two"
+
+
+class ConvenioErrors:
+    """CONVENIO domain — corporate agreement error codes."""
+
+    NOT_FOUND = "CONVENIO_not_found"
+    PATIENT_ALREADY_LINKED = "CONVENIO_patient_already_linked"
+    EXPIRED = "CONVENIO_expired"
+    INACTIVE = "CONVENIO_inactive"
+
+
+class FamilyErrors:
+    """FAMILY domain — family group error codes."""
+
+    NOT_FOUND = "FAMILY_not_found"
+    ALREADY_IN_FAMILY = "FAMILY_already_in_family"
+    PRIMARY_CONTACT_REQUIRED = "FAMILY_primary_contact_required"
+    MEMBER_NOT_FOUND = "FAMILY_member_not_found"
+
+
+class ExchangeRateErrors:
+    """EXCHANGE_RATE domain — currency exchange rate error codes."""
+
+    RATE_NOT_AVAILABLE = "EXCHANGE_RATE_not_available"
+    UNSUPPORTED_CURRENCY = "EXCHANGE_RATE_unsupported_currency"
+    SERVICE_UNAVAILABLE = "EXCHANGE_RATE_service_unavailable"
+
+
 class SystemErrors:
     """SYSTEM domain — infrastructure, HTTP, and platform-level error codes."""
 

@@ -16,6 +16,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -85,6 +86,15 @@ class Invoice(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
     paid_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+    # Multi-currency (Sprint 25-26)
+    currency_code: Mapped[str] = mapped_column(
+        String(3), nullable=False, server_default="COP"
+    )
+    exchange_rate: Mapped[float | None] = mapped_column(
+        Numeric(precision=12, scale=6), nullable=True
+    )
+    exchange_rate_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     # Notes
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

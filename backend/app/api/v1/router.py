@@ -178,4 +178,26 @@ from app.api.v1.tasks.router import router as tasks_router
 
 api_v1_router.include_router(tasks_router)
 
+# Sprint 25-26: Reputation, Schedule Intelligence, Multi-Currency, Loyalty,
+# Periodontal, Convenios, Families
+from app.api.v1.reputation.router import router as reputation_router
+from app.api.v1.reputation.public_router import router as public_survey_router
+from app.api.v1.analytics.schedule_intelligence_router import router as schedule_intelligence_router
+from app.api.v1.billing.exchange_rate_router import router as exchange_rate_router
+from app.api.v1.loyalty.router import router as loyalty_router
+from app.api.v1.portal.loyalty_router import router as portal_loyalty_router
+from app.api.v1.periodontal.router import router as periodontal_router
+from app.api.v1.convenios.router import router as convenios_router
+from app.api.v1.families.router import router as families_router
+
+api_v1_router.include_router(reputation_router)
+api_v1_router.include_router(public_survey_router)
+api_v1_router.include_router(schedule_intelligence_router)
+api_v1_router.include_router(exchange_rate_router)
+api_v1_router.include_router(loyalty_router)
+api_v1_router.include_router(portal_loyalty_router)
+api_v1_router.include_router(periodontal_router)
+api_v1_router.include_router(convenios_router)
+api_v1_router.include_router(families_router)
+
 # Sprint 15-16: Admin (included at top of file for route priority)

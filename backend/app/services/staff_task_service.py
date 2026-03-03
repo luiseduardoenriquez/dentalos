@@ -83,6 +83,29 @@ class StaffTaskService:
             task_type,
             priority,
         )
+
+        # Sprint 25-26 (GAP-08): Notify on task assignment
+        if assigned_to is not None:
+            try:
+                from app.core.queue import publish_message
+                from app.schemas.queue import QueueMessage
+
+                await publish_message(
+                    "notifications",
+                    QueueMessage(
+                        tenant_id="",  # Will be set by caller context
+                        job_type="notification.dispatch",
+                        payload={
+                            "type": "task_assigned",
+                            "task_id": str(task.id),
+                            "assigned_to": str(assigned_to),
+                            "title": title,
+                        },
+                    ),
+                )
+            except Exception:
+                logger.debug("Task assignment notification skipped")
+
         return self._task_to_dict(task)
 
     async def list_tasks(
@@ -178,7 +201,30 @@ class StaffTaskService:
         if assigned_to is not None:
             if isinstance(assigned_to, str):
                 assigned_to = uuid.UUID(assigned_to)
+            old_assignee = task.assigned_to
             task.assigned_to = assigned_to
+
+            # Sprint 25-26 (GAP-08): Notify on reassignment
+            if old_assignee != assigned_to:
+                try:
+                    from app.core.queue import publish_message
+                    from app.schemas.queue import QueueMessage
+
+                    await publish_message(
+                        "notifications",
+                        QueueMessage(
+                            tenant_id="",
+                            job_type="notification.dispatch",
+                            payload={
+                                "type": "task_assigned",
+                                "task_id": str(task.id),
+                                "assigned_to": str(assigned_to),
+                                "title": task.title,
+                            },
+                        ),
+                    )
+                except Exception:
+                    logger.debug("Task reassignment notification skipped")
 
         await db.flush()
         await db.refresh(task)

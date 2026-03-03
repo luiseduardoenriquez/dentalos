@@ -70,6 +70,9 @@ def _invoice_to_dict(inv: Invoice) -> dict[str, Any]:
         "notes": inv.notes,
         "items": items,
         "days_until_due": days_until_due,
+        "currency_code": getattr(inv, "currency_code", "COP"),
+        "exchange_rate": float(inv.exchange_rate) if getattr(inv, "exchange_rate", None) else None,
+        "exchange_rate_date": inv.exchange_rate_date if getattr(inv, "exchange_rate_date", None) else None,
         "is_active": inv.is_active,
         "created_at": inv.created_at,
         "updated_at": inv.updated_at,
@@ -89,6 +92,7 @@ class InvoiceService:
         items: list[dict[str, Any]] | None = None,
         due_date: date | None = None,
         notes: str | None = None,
+        currency_code: str = "COP",
     ) -> dict[str, Any]:
         """Create a new invoice from a quotation or manual items.
 
@@ -177,16 +181,30 @@ class InvoiceService:
             await membership_service.get_active_membership_discount(db=db, patient_id=pid)
         )
 
-        # Calculate totals
+        # Sprint 25-26: Get convenio discount for per-item application (step 2b)
+        from app.services.convenio_service import convenio_service
+
+        convenio_discount_pct, convenio_id = (
+            await convenio_service.get_active_convenio_discount(db=db, patient_id=pid)
+        )
+
+        # Calculate totals (step 2a: membership, step 2b: convenio)
         subtotal = 0
         total_membership_discount_cents = 0
+        total_convenio_discount_cents = 0
         for ii in invoice_items:
-            # Apply membership discount on top of any existing per-item discount
+            base = ii["unit_price"] * ii["quantity"]
+            # Step 2a: Apply membership discount first
             if membership_discount_pct > 0:
-                base = ii["unit_price"] * ii["quantity"]
                 membership_disc = base * membership_discount_pct // 100
                 ii["discount"] = ii["discount"] + membership_disc
                 total_membership_discount_cents += membership_disc
+            # Step 2b: Apply convenio discount on remaining (after membership)
+            if convenio_discount_pct > 0:
+                remaining = base - ii["discount"]
+                convenio_disc = remaining * convenio_discount_pct // 100
+                ii["discount"] = ii["discount"] + convenio_disc
+                total_convenio_discount_cents += convenio_disc
             line_total = (ii["unit_price"] * ii["quantity"]) - ii["discount"]
             ii["line_total"] = max(line_total, 0)
             subtotal += ii["line_total"]
@@ -194,6 +212,17 @@ class InvoiceService:
         # Tax: CO = 0% for dental
         tax = 0
         total = subtotal + tax
+
+        # Sprint 25-26: Fetch exchange rate for multi-currency invoices (step 3)
+        exchange_rate_val = None
+        exchange_rate_date_val = None
+        if currency_code != "COP":
+            from app.services.exchange_rate_service import exchange_rate_service
+
+            rate_info = await exchange_rate_service.get_rate_for_invoice(currency_code)
+            if rate_info:
+                exchange_rate_val = rate_info["rate"]
+                exchange_rate_date_val = rate_info["rate_date"]
 
         # Create invoice
         invoice = Invoice(
@@ -210,6 +239,9 @@ class InvoiceService:
             due_date=due_date,
             notes=notes,
             is_active=True,
+            currency_code=currency_code,
+            exchange_rate=exchange_rate_val,
+            exchange_rate_date=exchange_rate_date_val,
         )
         db.add(invoice)
         await db.flush()
@@ -267,6 +299,38 @@ class InvoiceService:
                 invoice.status = "paid"
             await db.flush()
             await db.refresh(invoice)
+
+        # Sprint 25-26: Apply loyalty points redemption (step 4b — VP-15)
+        # Only applies if loyalty is enabled and patient has redeemable points
+        try:
+            from app.services.loyalty_service import loyalty_service
+
+            if invoice.balance > 0:
+                loyalty_balance = await loyalty_service.get_balance(
+                    db=db, patient_id=pid,
+                )
+                if loyalty_balance and loyalty_balance["points_balance"] > 0:
+                    ratio = await loyalty_service.get_points_to_currency_ratio(db=db)
+                    max_points = invoice.balance // ratio  # Max points that make sense
+                    redeemable = min(loyalty_balance["points_balance"], max_points)
+                    if redeemable > 0:
+                        result = await loyalty_service.redeem_points(
+                            db=db,
+                            patient_id=pid,
+                            points=redeemable,
+                            reason="Auto-redeem on invoice creation",
+                            performed_by=None,
+                        )
+                        loyalty_discount = result.get("discount_cents", 0)
+                        if loyalty_discount > 0:
+                            invoice.total = max(invoice.total - loyalty_discount, 0)
+                            invoice.balance = max(invoice.balance - loyalty_discount, 0)
+                            if invoice.balance == 0:
+                                invoice.status = "paid"
+                            await db.flush()
+                            await db.refresh(invoice)
+        except Exception:
+            logger.debug("Loyalty redemption skipped — service unavailable or disabled")
 
         logger.info("Invoice created: number=%s patient=%s", invoice_number, patient_id[:8])
 

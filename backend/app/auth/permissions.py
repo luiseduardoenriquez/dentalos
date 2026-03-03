@@ -63,6 +63,13 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "tasks:read", "tasks:write",
         "postop:read", "postop:write",
         "referral_program:read",
+        # Sprint 25-26
+        "reputation:read", "reputation:write",
+        "loyalty:read", "loyalty:write",
+        "periodontogram:read", "periodontogram:write",
+        "convenios:read", "convenios:write",
+        "families:read", "families:write",
+        "schedule_intelligence:read",
     }),
     "doctor": frozenset({
         "patients:read", "patients:write",
@@ -92,6 +99,12 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         # Sprint 23-24
         "postop:read", "postop:write",
         "tasks:read",
+        # Sprint 25-26
+        "reputation:read",
+        "loyalty:read",
+        "periodontogram:read", "periodontogram:write",
+        "families:read",
+        "schedule_intelligence:read",
     }),
     "assistant": frozenset({
         "patients:read", "patients:write",
@@ -118,6 +131,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         # Sprint 23-24
         "postop:read", "postop:write",
         "tasks:read",
+        # Sprint 25-26
+        "periodontogram:read", "periodontogram:write",
     }),
     "receptionist": frozenset({
         "patients:read", "patients:write",
@@ -138,6 +153,11 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "cash_register:read", "cash_register:write",
         "expenses:read", "expenses:write",
         "tasks:read", "tasks:write",
+        # Sprint 25-26
+        "loyalty:read", "loyalty:write",
+        "convenios:read",
+        "families:read", "families:write",
+        "schedule_intelligence:read",
     }),
     "patient": frozenset({
         "patients:read",

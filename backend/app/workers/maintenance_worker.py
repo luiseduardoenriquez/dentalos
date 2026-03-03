@@ -43,6 +43,14 @@ class MaintenanceWorker(BaseWorker):
             "eps.auto_verify": self._handle_eps_auto_verify,
             # Sprint 23-24: Post-op auto-dispatch
             "postop.auto_dispatch": self._handle_postop_auto_dispatch,
+            # Sprint 25-26: Reputation, Loyalty, Schedule Intelligence
+            "survey.auto_send": self._handle_survey_auto_send,
+            "loyalty.award_appointment": self._handle_loyalty_award,
+            "loyalty.award_ontime_payment": self._handle_loyalty_award,
+            "loyalty.award_referral": self._handle_loyalty_award,
+            "loyalty.award_membership_renewal": self._handle_loyalty_award,
+            "loyalty.expire_inactive": self._handle_loyalty_expire,
+            "schedule.unfilled_alert": self._handle_unfilled_alert,
         }
         handler = handlers.get(message.job_type)
         if handler:
@@ -575,6 +583,151 @@ class MaintenanceWorker(BaseWorker):
                 )
         except Exception:
             logger.exception("Postop auto-dispatch failed: tenant=%s", tenant_id)
+            raise
+
+
+    # ── Sprint 25-26: Reputation Handler ──────────────────────────────────
+
+    async def _handle_survey_auto_send(self, message: QueueMessage) -> None:
+        """Auto-send satisfaction survey after appointment completion."""
+        tenant_id = message.tenant_id
+        payload = message.payload
+        appointment_id = payload.get("appointment_id")
+        patient_id = payload.get("patient_id")
+        channel = payload.get("channel", "whatsapp")
+        if not appointment_id or not patient_id:
+            logger.warning(
+                "survey.auto_send missing required fields: %s",
+                message.message_id,
+            )
+            return
+        try:
+            from app.core.database import get_tenant_session
+            from app.services.reputation_service import reputation_service
+
+            async with get_tenant_session(tenant_id) as db:
+                await reputation_service.send_survey(
+                    db=db,
+                    patient_id=patient_id,
+                    appointment_id=appointment_id,
+                    channel=channel,
+                    tenant_id=tenant_id,
+                )
+                await db.commit()
+                logger.info(
+                    "Survey auto-sent: tenant=%s appointment=%s",
+                    tenant_id[:8],
+                    appointment_id[:8],
+                )
+        except Exception:
+            logger.exception("Survey auto-send failed: tenant=%s", tenant_id)
+            raise
+
+    # ── Sprint 25-26: Loyalty Handlers ────────────────────────────────────
+
+    async def _handle_loyalty_award(self, message: QueueMessage) -> None:
+        """Award loyalty points for various triggers."""
+        tenant_id = message.tenant_id
+        payload = message.payload
+        patient_id = payload.get("patient_id")
+        points = payload.get("points")
+        reason = payload.get("reason", message.job_type)
+        reference_id = payload.get("reference_id")
+        reference_type = payload.get("reference_type")
+        if not patient_id or not points:
+            logger.warning(
+                "loyalty.award missing required fields: %s",
+                message.message_id,
+            )
+            return
+        try:
+            import uuid
+
+            from app.core.database import get_tenant_session
+            from app.services.loyalty_service import loyalty_service
+
+            async with get_tenant_session(tenant_id) as db:
+                await loyalty_service.award_points(
+                    db=db,
+                    patient_id=uuid.UUID(patient_id),
+                    points=int(points),
+                    reason=reason,
+                    reference_id=uuid.UUID(reference_id) if reference_id else None,
+                    reference_type=reference_type,
+                )
+                await db.commit()
+                logger.info(
+                    "Loyalty points awarded: tenant=%s patient=%s points=%d",
+                    tenant_id[:8],
+                    patient_id[:8],
+                    int(points),
+                )
+        except Exception:
+            logger.exception("Loyalty award failed: tenant=%s", tenant_id)
+            raise
+
+    async def _handle_loyalty_expire(self, message: QueueMessage) -> None:
+        """Expire inactive loyalty points (monthly cron)."""
+        tenant_id = message.tenant_id
+        payload = message.payload
+        expiry_months = payload.get("expiry_months", 12)
+        try:
+            from app.core.database import get_tenant_session
+            from app.services.loyalty_service import loyalty_service
+
+            async with get_tenant_session(tenant_id) as db:
+                count = await loyalty_service.expire_inactive(
+                    db=db, expiry_months=expiry_months,
+                )
+                await db.commit()
+                logger.info(
+                    "Loyalty expiration: tenant=%s expired=%d",
+                    tenant_id[:8],
+                    count,
+                )
+        except Exception:
+            logger.exception("Loyalty expiration failed: tenant=%s", tenant_id)
+            raise
+
+    # ── Sprint 25-26: Schedule Intelligence Handler ───────────────────────
+
+    async def _handle_unfilled_alert(self, message: QueueMessage) -> None:
+        """8 AM daily alert: notify receptionist of unfilled slots."""
+        tenant_id = message.tenant_id
+        try:
+            from datetime import date
+
+            from app.core.database import get_tenant_session
+            from app.core.queue import publish_message
+            from app.services.schedule_intelligence_service import (
+                schedule_intelligence_service,
+            )
+
+            async with get_tenant_session(tenant_id) as db:
+                intelligence = await schedule_intelligence_service.get_intelligence(
+                    db=db, target_date=date.today(),
+                )
+                gaps = intelligence.get("gaps", [])
+                if gaps:
+                    await publish_message(
+                        "notifications",
+                        QueueMessage(
+                            tenant_id=tenant_id,
+                            job_type="notification.dispatch",
+                            payload={
+                                "type": "unfilled_slots_alert",
+                                "gap_count": len(gaps),
+                                "date": date.today().isoformat(),
+                            },
+                        ),
+                    )
+                logger.info(
+                    "Unfilled alert: tenant=%s gaps=%d",
+                    tenant_id[:8],
+                    len(gaps),
+                )
+        except Exception:
+            logger.exception("Unfilled alert failed: tenant=%s", tenant_id)
             raise
 
 

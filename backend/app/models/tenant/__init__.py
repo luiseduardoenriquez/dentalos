@@ -71,6 +71,13 @@ from app.models.tenant.expense import Expense, ExpenseCategory
 # Sprint 23-24: GAP-05 + GAP-06 Staff Tasks (delinquency + acceptance)
 from app.models.tenant.staff_task import StaffTask
 
+# Sprint 25-26: Reputation, Loyalty, Periodontal, Convenios, Families
+from app.models.tenant.satisfaction_survey import SatisfactionSurvey
+from app.models.tenant.loyalty import LoyaltyPoints, LoyaltyTransaction
+from app.models.tenant.periodontal import PeriodontalMeasurement, PeriodontalRecord
+from app.models.tenant.convenio import Convenio, ConvenioPatient
+from app.models.tenant.family import FamilyGroup, FamilyMember
+
 __all__ = [
     "AuditLog",
     "Anamnesis",
@@ -151,4 +158,14 @@ __all__ = [
     "Expense",
     # Sprint 23-24: GAP-05 + GAP-06
     "StaffTask",
+    # Sprint 25-26
+    "SatisfactionSurvey",
+    "LoyaltyPoints",
+    "LoyaltyTransaction",
+    "PeriodontalRecord",
+    "PeriodontalMeasurement",
+    "Convenio",
+    "ConvenioPatient",
+    "FamilyGroup",
+    "FamilyMember",
 ]

@@ -152,6 +152,10 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
 
+    # ─── Exchange Rate API (Banco de la República) ──────────
+    exchange_rate_api_url: str = "https://www.datos.gov.co/resource/32sa-8pi3.json"
+    exchange_rate_api_key: str = ""
+
     # ─── Voice AI (STT + NLP) ─────────────────────────────
     voice_stt_provider: str = "local"  # "local" | "openai"
     voice_nlp_provider: str = "local"  # "local" | "anthropic"

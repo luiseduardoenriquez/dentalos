@@ -116,6 +116,18 @@ To avoid circular imports when service A calls service B:
 - QR codes: use `api.qrserver.com` public API (no npm dep needed)
 - `PaymentQRDisplay` re-exported from NequiPayButton.tsx so Daviplata can import it without circular dep
 
+## Sprint 25-26 VP-14 Multi-Currency Billing (2026-03-03)
+- Integration adapters: `integrations/exchange_rates/` — base.py (ABC), banco_republica.py (prod), mock_service.py
+- Banco de la Republica: datos.gov.co Socrata API, X-App-Token auth, field "valor" for TRM rate
+- Mock rates: USD/COP=4150, EUR/COP=4520, MXN/COP=240 (derive cross via COP)
+- Schema: `schemas/exchange_rate.py` — CurrencyInfo, ExchangeRateResponse, ExchangeRatesListResponse
+- Service: `services/exchange_rate_service.py` — singleton `exchange_rate_service`, auto-fallback prod->mock
+- Cache: `dentalos:shared:exchange_rates:{from}_{to}` TTL 3600s, uses `get_cached`/`set_cached` from `app.core.cache`
+- Router: `api/v1/billing/exchange_rate_router.py` — GET /billing/exchange-rates, billing:read
+- Config: `exchange_rate_api_url`, `exchange_rate_api_key` in settings
+- Error codes: ExchangeRateErrors in error_codes.py (already existed)
+- Supported currencies: COP, USD, EUR, MXN
+
 ## Common Pitfalls
 - `backend/app/models/tenant/__init__.py` is modified by linters between reads — use Bash write fallback when Edit tool fails
 - `selectinload` must come from `sqlalchemy.orm` for eager loading in async sessions
