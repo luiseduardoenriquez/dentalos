@@ -1,1 +1,1 @@
-"""Payment gateway integrations."""
+"""Payment gateway integrations — Mercado Pago (INT-07)."""

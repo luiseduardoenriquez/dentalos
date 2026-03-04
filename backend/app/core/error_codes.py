@@ -426,6 +426,42 @@ class AIReportErrors:
     GENERATION_FAILED = "AI_REPORT_generation_failed"
 
 
+class FinancingErrors:
+    """FINANCING domain — patient financing error codes."""
+
+    NOT_ELIGIBLE = "FINANCING_not_eligible"
+    PROVIDER_UNAVAILABLE = "FINANCING_provider_unavailable"
+    APPLICATION_NOT_FOUND = "FINANCING_application_not_found"
+    ALREADY_FINANCED = "FINANCING_already_financed"
+    AMOUNT_OUT_OF_RANGE = "FINANCING_amount_out_of_range"
+
+
+class ChatbotErrors:
+    """CHATBOT domain — AI virtual receptionist error codes."""
+
+    CONVERSATION_NOT_FOUND = "CHATBOT_conversation_not_found"
+    INTENT_UNCLEAR = "CHATBOT_intent_unclear"
+    ESCALATION_FAILED = "CHATBOT_escalation_failed"
+    RATE_LIMITED = "CHATBOT_rate_limited"
+
+
+class SurveyErrors:
+    """SURVEY domain — NPS/CSAT survey error codes."""
+
+    ALREADY_RESPONDED = "SURVEY_already_responded"
+    TOKEN_EXPIRED = "SURVEY_token_expired"
+    INVALID_SCORE = "SURVEY_invalid_score"
+
+
+class TelemedicineErrors:
+    """TELEMEDICINE domain — video consultation error codes."""
+
+    SESSION_NOT_FOUND = "TELEMEDICINE_session_not_found"
+    PROVIDER_ERROR = "TELEMEDICINE_provider_error"
+    SESSION_ALREADY_ACTIVE = "TELEMEDICINE_session_already_active"
+    ADD_ON_REQUIRED = "TELEMEDICINE_add_on_required"
+
+
 class SystemErrors:
     """SYSTEM domain — infrastructure, HTTP, and platform-level error codes."""
 

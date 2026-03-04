@@ -186,3 +186,9 @@ class ComplianceError(DentalOSError):
     """Base class for compliance errors (RIPS, RDA, e-invoicing)."""
 
     pass
+
+
+class TelemedicineError(DentalOSError):
+    """Base class for telemedicine video session errors."""
+
+    pass

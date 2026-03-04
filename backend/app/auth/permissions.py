@@ -76,6 +76,11 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "whatsapp:read", "whatsapp:write",
         # Sprint 27-28: VP-17 Email Marketing
         "marketing:read", "marketing:write",
+        # Sprint 29-30: Financing, Chatbot, Surveys, Telemedicine
+        "financing:read", "financing:write",
+        "chatbot:read", "chatbot:write",
+        "surveys:read", "surveys:write",
+        "telemedicine:read", "telemedicine:write",
     }),
     "doctor": frozenset({
         "patients:read", "patients:write",
@@ -115,6 +120,11 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "ai_treatment:read", "ai_treatment:write",
         # Sprint 27-28: VP-12 WhatsApp Chat
         "whatsapp:read", "whatsapp:write",
+        # Sprint 29-30: Financing, Chatbot, Surveys, Telemedicine
+        "financing:read",
+        "chatbot:read",
+        "surveys:read",
+        "telemedicine:read", "telemedicine:write",
     }),
     "assistant": frozenset({
         "patients:read", "patients:write",
@@ -145,6 +155,9 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "periodontogram:read", "periodontogram:write",
         # Sprint 27-28: VP-12 WhatsApp Chat
         "whatsapp:read", "whatsapp:write",
+        # Sprint 29-30: Chatbot, Surveys
+        "chatbot:read",
+        "surveys:read",
     }),
     "receptionist": frozenset({
         "patients:read", "patients:write",
@@ -172,6 +185,10 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "schedule_intelligence:read",
         # Sprint 27-28: VP-12 WhatsApp Chat
         "whatsapp:read", "whatsapp:write",
+        # Sprint 29-30: Financing, Chatbot, Surveys
+        "financing:read", "financing:write",
+        "chatbot:read",
+        "surveys:read",
     }),
     "patient": frozenset({
         "patients:read",

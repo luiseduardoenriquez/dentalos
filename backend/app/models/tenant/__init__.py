@@ -91,6 +91,18 @@ from app.models.tenant.whatsapp import (
 # Sprint 27-28: VP-17 Email Marketing Campaigns
 from app.models.tenant.email_campaign import EmailCampaign, EmailCampaignRecipient
 
+# Sprint 29-30: VP-11 Patient Financing
+from app.models.tenant.financing import FinancingApplication, FinancingPayment
+
+# Sprint 29-30: VP-16 AI Chatbot
+from app.models.tenant.chatbot import ChatbotConversation, ChatbotMessage
+
+# Sprint 29-30: VP-21 NPS Surveys
+from app.models.tenant.nps_survey import NPSSurveyResponse
+
+# Sprint 29-30: GAP-09 Telemedicine
+from app.models.tenant.video_session import VideoSession
+
 __all__ = [
     "AuditLog",
     "Anamnesis",
@@ -190,4 +202,14 @@ __all__ = [
     # Sprint 27-28: VP-17 Email Marketing
     "EmailCampaign",
     "EmailCampaignRecipient",
+    # Sprint 29-30: VP-11 Patient Financing
+    "FinancingApplication",
+    "FinancingPayment",
+    # Sprint 29-30: VP-16 AI Chatbot
+    "ChatbotConversation",
+    "ChatbotMessage",
+    # Sprint 29-30: VP-21 NPS Surveys
+    "NPSSurveyResponse",
+    # Sprint 29-30: GAP-09 Telemedicine
+    "VideoSession",
 ]

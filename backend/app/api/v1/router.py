@@ -159,6 +159,11 @@ from app.integrations.daviplata.webhook_router import router as daviplata_webhoo
 api_v1_router.include_router(nequi_webhook_router)
 api_v1_router.include_router(daviplata_webhook_router)
 
+# Sprint 29-30: Mercado Pago IPN webhook (INT-07)
+from app.integrations.payments.mercadopago_webhook import router as mercadopago_webhook_router
+
+api_v1_router.include_router(mercadopago_webhook_router)
+
 # Sprint 23-24: GAP-02 Cash Register + GAP-03 Expenses
 from app.api.v1.cash_registers.router import router as cash_registers_router
 from app.api.v1.expenses.router import router as expenses_router
@@ -221,5 +226,31 @@ api_v1_router.include_router(ai_report_router)
 from app.api.v1.whatsapp.router import router as whatsapp_chat_router
 
 api_v1_router.include_router(whatsapp_chat_router)
+
+# Sprint 29-30: VP-21 NPS/CSAT Surveys
+from app.api.v1.surveys.router import router as nps_surveys_router
+from app.api.v1.surveys.public_router import router as public_nps_surveys_router
+
+api_v1_router.include_router(nps_surveys_router)
+api_v1_router.include_router(public_nps_surveys_router)
+
+# Sprint 29-30: VP-16 AI Virtual Receptionist (Chatbot)
+from app.api.v1.chatbot.router import router as chatbot_router
+from app.api.v1.chatbot.widget_router import router as chatbot_widget_router
+
+api_v1_router.include_router(chatbot_router)
+api_v1_router.include_router(chatbot_widget_router)
+
+# Sprint 29-30: VP-11 Patient Financing (Addi + Sistecrédito)
+from app.api.v1.financing.router import router as financing_router
+from app.integrations.financing.webhook_router import router as financing_webhook_router
+
+api_v1_router.include_router(financing_router)
+api_v1_router.include_router(financing_webhook_router)
+
+# Sprint 29-30: GAP-09 Telemedicine (Daily.co video sessions)
+from app.api.v1.telemedicine.router import router as telemedicine_router
+
+api_v1_router.include_router(telemedicine_router)
 
 # Sprint 15-16: Admin (included at top of file for route priority)

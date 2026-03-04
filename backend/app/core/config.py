@@ -171,5 +171,20 @@ class Settings(BaseSettings):
     ai_report_max_tokens: int = 1024
     voice_max_audio_bytes: int = 10 * 1024 * 1024  # 10 MB
 
+    # ─── S29-30: Financing ──────────────────────────────────
+    addi_api_key: str = ""
+    addi_api_url: str = "https://api.addi.com/v1"
+    sistecredito_api_key: str = ""
+    sistecredito_api_url: str = "https://api.sistecredito.com/v1"
+    mercadopago_webhook_secret: str = ""
+
+    # ─── S29-30: Chatbot ────────────────────────────────────
+    chatbot_model: str = "claude-haiku-4-5-20251001"
+    chatbot_max_tokens: int = 512
+
+    # ─── S29-30: Telemedicine ───────────────────────────────
+    daily_api_key: str = ""
+    daily_api_url: str = "https://api.daily.co/v1"
+
 
 settings = Settings()
