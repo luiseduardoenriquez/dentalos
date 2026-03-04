@@ -385,7 +385,7 @@ def _print_skip(msg: str) -> None:
 
 
 async def seed_plans(db: AsyncSession) -> dict[str, Plan]:
-    """Create Free and Starter plans if they don't exist. Returns slug -> Plan."""
+    """Create or update plans. Returns slug -> Plan."""
     _print_section("Plans")
     result: dict[str, Plan] = {}
 
@@ -395,7 +395,12 @@ async def seed_plans(db: AsyncSession) -> dict[str, Plan]:
         existing = (await db.execute(stmt)).scalar_one_or_none()
 
         if existing:
-            _print_skip(f"Plan '{existing.name}' (slug={slug})")
+            # Update existing plan with latest canonical data
+            for key, value in plan_data.items():
+                if key != "slug":
+                    setattr(existing, key, value)
+            await db.flush()
+            _print_ok(f"Updated plan '{existing.name}' (slug={slug})")
             result[slug] = existing
             continue
 
