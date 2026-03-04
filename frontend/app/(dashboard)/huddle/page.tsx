@@ -218,19 +218,18 @@ export default function HuddlePage() {
 
   if (isLoading) return <HuddleSkeleton />;
 
-  if (isError || !data) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <AlertTriangle className="h-8 w-8 text-orange-500" />
-        <p className="text-sm text-[hsl(var(--muted-foreground))]">
-          No se pudo cargar el resumen del día.
-        </p>
-        <Button variant="outline" onClick={() => refetch()}>
-          Reintentar
-        </Button>
-      </div>
-    );
-  }
+  // Gracefully degrade to empty state when API is unavailable
+  const huddle: HuddleData = data ?? {
+    today_appointments: [],
+    production_goals: { daily_target: 0, daily_actual: 0, weekly_target: 0, weekly_actual: 0, monthly_target: 0, monthly_actual: 0 },
+    incomplete_plans: [],
+    outstanding_balances: [],
+    birthday_patients: [],
+    recall_due_patients: [],
+    yesterday_collections: 0,
+    no_show_count: 0,
+    no_show_rate: 0,
+  };
 
   return (
     <div className="space-y-6 print:space-y-4">
@@ -266,8 +265,8 @@ export default function HuddlePage() {
 
       <div className="grid gap-4 md:grid-cols-2 print:grid-cols-2">
         {/* ─── 1. Citas de hoy ──────────────────────────────────────────── */}
-        <Section icon={CalendarDays} title={`Citas de hoy (${data.today_appointments.length})`}>
-          {data.today_appointments.length === 0 ? (
+        <Section icon={CalendarDays} title={`Citas de hoy (${huddle.today_appointments.length})`}>
+          {huddle.today_appointments.length === 0 ? (
             <p className="text-sm text-[hsl(var(--muted-foreground))] text-center py-4">
               No hay citas programadas para hoy.
             </p>
@@ -282,7 +281,7 @@ export default function HuddlePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.today_appointments.map((appt) => {
+                {huddle.today_appointments.map((appt) => {
                   const time = new Date(appt.start_time).toLocaleTimeString("es-CO", {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -322,25 +321,25 @@ export default function HuddlePage() {
           <div className="space-y-4">
             <GoalBar
               label="Diaria"
-              actual={data.production_goals.daily_actual}
-              target={data.production_goals.daily_target}
+              actual={huddle.production_goals.daily_actual}
+              target={huddle.production_goals.daily_target}
             />
             <GoalBar
               label="Semanal"
-              actual={data.production_goals.weekly_actual}
-              target={data.production_goals.weekly_target}
+              actual={huddle.production_goals.weekly_actual}
+              target={huddle.production_goals.weekly_target}
             />
             <GoalBar
               label="Mensual"
-              actual={data.production_goals.monthly_actual}
-              target={data.production_goals.monthly_target}
+              actual={huddle.production_goals.monthly_actual}
+              target={huddle.production_goals.monthly_target}
             />
           </div>
         </Section>
 
         {/* ─── 3. Planes incompletos ────────────────────────────────────── */}
         <Section icon={Clock} title="Planes de tratamiento pendientes (top 10)">
-          {data.incomplete_plans.length === 0 ? (
+          {huddle.incomplete_plans.length === 0 ? (
             <p className="text-sm text-[hsl(var(--muted-foreground))] text-center py-4">
               No hay planes de tratamiento pendientes.
             </p>
@@ -354,7 +353,7 @@ export default function HuddlePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.incomplete_plans.slice(0, 10).map((plan) => (
+                {huddle.incomplete_plans.slice(0, 10).map((plan) => (
                   <TableRow key={plan.id}>
                     <TableCell className="text-sm">
                       <Link
@@ -382,7 +381,7 @@ export default function HuddlePage() {
 
         {/* ─── 4. Saldos pendientes ─────────────────────────────────────── */}
         <Section icon={DollarSign} title="Saldos pendientes (top 10)">
-          {data.outstanding_balances.length === 0 ? (
+          {huddle.outstanding_balances.length === 0 ? (
             <p className="text-sm text-[hsl(var(--muted-foreground))] text-center py-4">
               No hay saldos pendientes.
             </p>
@@ -396,7 +395,7 @@ export default function HuddlePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.outstanding_balances.slice(0, 10).map((bal) => (
+                {huddle.outstanding_balances.slice(0, 10).map((bal) => (
                   <TableRow key={bal.patient_id}>
                     <TableCell className="text-sm">
                       <Link
@@ -428,14 +427,14 @@ export default function HuddlePage() {
         </Section>
 
         {/* ─── 5. Cumpleaños ────────────────────────────────────────────── */}
-        <Section icon={Gift} title={`Cumpleaños hoy (${data.birthday_patients.length})`}>
-          {data.birthday_patients.length === 0 ? (
+        <Section icon={Gift} title={`Cumpleaños hoy (${huddle.birthday_patients.length})`}>
+          {huddle.birthday_patients.length === 0 ? (
             <p className="text-sm text-[hsl(var(--muted-foreground))] text-center py-4">
               No hay cumpleaños hoy.
             </p>
           ) : (
             <ul className="space-y-2">
-              {data.birthday_patients.map((p) => (
+              {huddle.birthday_patients.map((p) => (
                 <li key={p.patient_id} className="flex items-center justify-between text-sm">
                   <Link
                     href={`/patients/${p.patient_id}`}
@@ -456,14 +455,14 @@ export default function HuddlePage() {
         </Section>
 
         {/* ─── 6. Recall vencido ────────────────────────────────────────── */}
-        <Section icon={Users} title={`Pacientes por recordar (${data.recall_due_patients.length})`}>
-          {data.recall_due_patients.length === 0 ? (
+        <Section icon={Users} title={`Pacientes por recordar (${huddle.recall_due_patients.length})`}>
+          {huddle.recall_due_patients.length === 0 ? (
             <p className="text-sm text-[hsl(var(--muted-foreground))] text-center py-4">
               No hay pacientes con recall vencido.
             </p>
           ) : (
             <ul className="space-y-2">
-              {data.recall_due_patients.slice(0, 10).map((p) => (
+              {huddle.recall_due_patients.slice(0, 10).map((p) => (
                 <li key={p.patient_id} className="flex items-center justify-between text-sm">
                   <Link
                     href={`/patients/${p.patient_id}`}
@@ -490,7 +489,7 @@ export default function HuddlePage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold tabular-nums text-green-600">
-              {formatCurrency(data.yesterday_collections)}
+              {formatCurrency(huddle.yesterday_collections)}
             </p>
             <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
               Total recaudado el día anterior.
@@ -508,17 +507,17 @@ export default function HuddlePage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold tabular-nums">
-              {data.no_show_count}
+              {huddle.no_show_count}
             </p>
             <p className="text-sm mt-1">
               Tasa de inasistencia:{" "}
               <span
                 className={cn(
                   "font-semibold",
-                  data.no_show_rate > 15 ? "text-red-600" : "text-foreground",
+                  huddle.no_show_rate > 15 ? "text-red-600" : "text-foreground",
                 )}
               >
-                {data.no_show_rate.toFixed(1)}%
+                {huddle.no_show_rate.toFixed(1)}%
               </span>
             </p>
             <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">

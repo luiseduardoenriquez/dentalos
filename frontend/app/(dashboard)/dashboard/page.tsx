@@ -277,7 +277,7 @@ export default function DashboardPage() {
 
   // ── Role-based welcome subtitle ──────────────────────────────────────────
   let welcomeSubtitle: React.ReactNode;
-  const clinicName = tenant?.name ?? "tu clínica";
+  const clinicName = tenant?.name || "tu clínica";
   if (role === "clinic_owner") {
     welcomeSubtitle = (
       <>

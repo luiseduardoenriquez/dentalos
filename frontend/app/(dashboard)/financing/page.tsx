@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Users,
   RefreshCw,
-  AlertCircle,
 } from "lucide-react";
 import { apiGet } from "@/lib/api-client";
 import {
@@ -27,7 +26,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { FinancingStatusBadge } from "@/components/billing/financing-status-badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -106,7 +104,6 @@ export default function FinancingPage() {
   const {
     data: report,
     isLoading: isLoadingReport,
-    isError: isReportError,
     refetch: refetchReport,
   } = useQuery({
     queryKey: ["financing-report"],
@@ -130,20 +127,15 @@ export default function FinancingPage() {
 
   if (isLoading) return <PageSkeleton />;
 
-  if (isReportError || !report) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-        <AlertCircle className="h-8 w-8 text-red-500" />
-        <p className="text-sm font-medium text-red-600 dark:text-red-400">
-          No se pudo cargar el reporte de financiamiento.
-        </p>
-        <Button variant="outline" size="sm" onClick={() => refetchReport()}>
-          <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-          Reintentar
-        </Button>
-      </div>
-    );
-  }
+  // Gracefully degrade to empty state when API is unavailable
+  const financingReport: FinancingReport = report ?? {
+    total_applications: 0,
+    total_amount_cents: 0,
+    approved_count: 0,
+    approval_rate: 0,
+    by_provider: [],
+    by_status: [],
+  };
 
   const applications = applicationsData?.items ?? [];
   const totalPages = applicationsData ? Math.ceil(applicationsData.total / pageSize) : 1;
@@ -177,7 +169,7 @@ export default function FinancingPage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold tabular-nums text-foreground">
-              {report.total_applications.toLocaleString("es-CO")}
+              {financingReport.total_applications.toLocaleString("es-CO")}
             </p>
             <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
               Acumulado total
@@ -194,7 +186,7 @@ export default function FinancingPage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold tabular-nums text-foreground">
-              {formatCurrency(report.total_amount_cents, "COP")}
+              {formatCurrency(financingReport.total_amount_cents, "COP")}
             </p>
             <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
               En todas las solicitudes
@@ -211,7 +203,7 @@ export default function FinancingPage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold tabular-nums text-foreground">
-              {report.approved_count.toLocaleString("es-CO")}
+              {financingReport.approved_count.toLocaleString("es-CO")}
             </p>
             <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
               Solicitudes aprobadas
@@ -228,7 +220,7 @@ export default function FinancingPage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold tabular-nums text-green-600 dark:text-green-400">
-              {report.approval_rate.toFixed(0)}%
+              {financingReport.approval_rate.toFixed(0)}%
             </p>
             <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
               Del total de solicitudes
@@ -246,7 +238,7 @@ export default function FinancingPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {report.by_provider.length === 0 ? (
+          {financingReport.by_provider.length === 0 ? (
             <p className="py-6 text-center text-sm text-[hsl(var(--muted-foreground))]">
               Sin datos de proveedores todavía.
             </p>
@@ -261,7 +253,7 @@ export default function FinancingPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {report.by_provider.map((row) => (
+                {financingReport.by_provider.map((row) => (
                   <TableRow key={row.provider}>
                     <TableCell className="font-medium text-foreground">
                       {PROVIDER_LABELS[row.provider] ?? row.provider}
@@ -302,16 +294,16 @@ export default function FinancingPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {report.by_status.length === 0 ? (
+          {financingReport.by_status.length === 0 ? (
             <p className="py-6 text-center text-sm text-[hsl(var(--muted-foreground))]">
               Sin datos de estados todavía.
             </p>
           ) : (
             <div className="space-y-3">
-              {report.by_status.map((row) => {
+              {financingReport.by_status.map((row) => {
                 const pct =
-                  report.total_applications > 0
-                    ? (row.count / report.total_applications) * 100
+                  financingReport.total_applications > 0
+                    ? (row.count / financingReport.total_applications) * 100
                     : 0;
                 return (
                   <div key={row.status} className="flex items-center gap-3">
