@@ -181,6 +181,8 @@ async def get_plan_limits(
         )
 
     result = {
+        "plan_name": plan.name,
+        "plan_price_monthly_cents": plan.price_cents,
         "max_patients": plan.max_patients,
         "max_doctors": plan.max_doctors,
         "max_users": plan.max_users,

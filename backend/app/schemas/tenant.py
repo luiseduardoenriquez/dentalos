@@ -205,6 +205,8 @@ class PlanUsageResponse(BaseModel):
 class PlanLimitsResponse(BaseModel):
     """Plan limits and feature flags for the current tenant."""
 
+    plan_name: str
+    plan_price_monthly_cents: int
     max_patients: int
     max_doctors: int
     max_users: int

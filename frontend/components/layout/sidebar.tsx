@@ -29,8 +29,10 @@ import {
   Handshake,
   Wallet,
   Bot,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/hooks/use-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,6 +54,10 @@ interface NavItem {
   disabled?: boolean;
   /** When true, use exact match for active state instead of startsWith */
   exact?: boolean;
+  /** Feature flag key required for this item. If not enabled, shows as locked. */
+  requiredFeature?: string;
+  /** Label for the minimum plan (e.g. "Pro", "Clínica") — shown when locked. */
+  minimumPlanLabel?: string;
 }
 
 export interface SidebarProps {
@@ -94,102 +100,136 @@ const NAV_ITEMS: NavItem[] = [
     label: "Facturación",
     icon: Receipt,
     roles: ["clinic_owner", "receptionist"],
+    requiredFeature: "billing",
+    minimumPlanLabel: "Starter",
   },
   {
     href: "/compliance",
     label: "Cumplimiento",
     icon: ShieldCheck,
     roles: ["clinic_owner"],
+    requiredFeature: "rips_reporting",
+    minimumPlanLabel: "Pro",
   },
   {
     href: "/whatsapp",
     label: "WhatsApp",
     icon: MessageSquare,
     roles: ["clinic_owner", "doctor", "assistant", "receptionist"],
+    requiredFeature: "whatsapp_notifications",
+    minimumPlanLabel: "Pro",
   },
   {
     href: "/marketing",
     label: "Marketing",
     icon: Mail,
     roles: ["clinic_owner"],
+    requiredFeature: "whatsapp_notifications",
+    minimumPlanLabel: "Pro",
   },
   {
     href: "/analytics",
     label: "Analíticas",
     icon: BarChart3,
     roles: ["clinic_owner", "doctor"],
+    requiredFeature: "analytics_basic",
+    minimumPlanLabel: "Starter",
   },
   {
     href: "/calls",
     label: "Llamadas",
     icon: Phone,
     roles: ["clinic_owner", "doctor", "assistant", "receptionist"],
+    requiredFeature: "billing",
+    minimumPlanLabel: "Starter",
   },
   {
     href: "/lab-orders",
     label: "Laboratorio",
     icon: FlaskConical,
     roles: ["clinic_owner", "doctor", "assistant", "receptionist"],
+    requiredFeature: "billing",
+    minimumPlanLabel: "Starter",
   },
   {
     href: "/telemedicine",
     label: "Telemedicina",
     icon: Video,
     roles: ["clinic_owner", "doctor"],
+    requiredFeature: "telehealth",
+    minimumPlanLabel: "Enterprise",
   },
   {
     href: "/inventory",
     label: "Inventario",
     icon: Package,
     roles: ["clinic_owner", "assistant"],
+    requiredFeature: "inventory_module",
+    minimumPlanLabel: "Clínica",
   },
   {
     href: "/huddle",
     label: "Huddle",
     icon: Sunrise,
     roles: ["clinic_owner", "doctor"],
+    requiredFeature: "analytics_basic",
+    minimumPlanLabel: "Starter",
   },
   {
     href: "/memberships",
     label: "Membresías",
     icon: CreditCard,
     roles: ["clinic_owner"],
+    requiredFeature: "billing",
+    minimumPlanLabel: "Starter",
   },
   {
     href: "/intake",
     label: "Intake",
     icon: ClipboardList,
     roles: ["clinic_owner", "receptionist"],
+    requiredFeature: "patient_portal",
+    minimumPlanLabel: "Pro",
   },
   {
     href: "/recall",
     label: "Recall",
     icon: RefreshCcw,
     roles: ["clinic_owner"],
+    requiredFeature: "patient_portal",
+    minimumPlanLabel: "Pro",
   },
   {
     href: "/reputation",
     label: "Reputación",
     icon: Star,
     roles: ["clinic_owner"],
+    requiredFeature: "patient_portal",
+    minimumPlanLabel: "Pro",
   },
   {
     href: "/convenios",
     label: "Convenios",
     icon: Handshake,
     roles: ["clinic_owner"],
+    requiredFeature: "billing",
+    minimumPlanLabel: "Starter",
   },
   {
     href: "/financing",
     label: "Financiamiento",
     icon: Wallet,
     roles: ["clinic_owner"],
+    requiredFeature: "billing",
+    minimumPlanLabel: "Starter",
   },
   {
     href: "/chatbot",
     label: "Chatbot",
     icon: Bot,
     roles: ["clinic_owner"],
+    requiredFeature: "whatsapp_notifications",
+    minimumPlanLabel: "Pro",
   },
   {
     href: "/settings",
@@ -204,15 +244,21 @@ function canSeeItem(item: NavItem, role: UserRole): boolean {
   return item.roles.includes(role);
 }
 
+function isFeatureLocked(item: NavItem, hasFeature: (flag: string) => boolean): boolean {
+  if (!item.requiredFeature) return false;
+  return !hasFeature(item.requiredFeature);
+}
+
 // ─── NavLink ──────────────────────────────────────────────────────────────────
 
 interface NavLinkProps {
   item: NavItem;
   collapsed: boolean;
   pathname: string;
+  locked?: boolean;
 }
 
-function NavLink({ item, collapsed, pathname }: NavLinkProps) {
+function NavLink({ item, collapsed, pathname, locked = false }: NavLinkProps) {
   const isActive = item.exact
     ? pathname === item.href
     : pathname === item.href || pathname.startsWith(item.href + "/");
@@ -238,6 +284,29 @@ function NavLink({ item, collapsed, pathname }: NavLinkProps) {
           <>
             <span>{item.label}</span>
             <span className="ml-auto text-[10px] text-[hsl(var(--muted-foreground))]">(Próx.)</span>
+          </>
+        )}
+      </span>
+    );
+  }
+
+  if (locked) {
+    return (
+      <span
+        className={cn(
+          sharedClasses,
+          "opacity-40 cursor-not-allowed select-none",
+        )}
+        title={collapsed ? `${item.label} (${item.minimumPlanLabel})` : `Requiere plan ${item.minimumPlanLabel}`}
+      >
+        <Icon className={cn("shrink-0 opacity-50", collapsed ? "h-5 w-5" : "h-4 w-4")} />
+        {!collapsed && (
+          <>
+            <span>{item.label}</span>
+            <span className="ml-auto flex items-center gap-1 text-[10px] text-[hsl(var(--muted-foreground))]">
+              <Lock className="h-3 w-3" />
+              {item.minimumPlanLabel}
+            </span>
           </>
         )}
       </span>
@@ -280,6 +349,7 @@ export function Sidebar({
   className,
 }: SidebarProps) {
   const pathname = usePathname();
+  const { has_feature } = useAuth();
   const visibleItems = NAV_ITEMS.filter((item) => canSeeItem(item, role));
 
   const sidebarContent = (
@@ -337,7 +407,13 @@ export function Sidebar({
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-2 space-y-1">
         {visibleItems.map((item) => (
-          <NavLink key={item.href} item={item} collapsed={collapsed} pathname={pathname} />
+          <NavLink
+            key={item.href}
+            item={item}
+            collapsed={collapsed}
+            pathname={pathname}
+            locked={isFeatureLocked(item, has_feature)}
+          />
         ))}
       </nav>
 

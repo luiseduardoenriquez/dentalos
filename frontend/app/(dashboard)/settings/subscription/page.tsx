@@ -95,22 +95,24 @@ function UsageBar({ icon: Icon, label, current, max, unit = "" }: UsageBarProps)
 // ─── Plan Features ────────────────────────────────────────────────────────────
 
 const FEATURE_LABELS: Record<string, string> = {
-  odontogram: "Odontograma digital",
-  clinical_records: "Historial clínico",
+  odontogram_classic: "Odontograma clásico",
+  odontogram_anatomic: "Odontograma anatómico",
+  clinical_records: "Historia clínica",
   treatment_plans: "Planes de tratamiento",
+  consents_digital: "Consentimientos digitales",
+  prescriptions: "Recetas digitales",
   appointments: "Agenda",
   billing: "Facturación",
-  portal: "Portal del paciente",
-  rips: "Generación de RIPS",
-  dian: "Facturación DIAN",
-  voice_dictation: "Dictado por voz",
-  radiograph_ai: "IA para radiografías",
+  patient_portal: "Portal del paciente",
+  whatsapp_notifications: "Notificaciones WhatsApp",
+  analytics_basic: "Analíticas básicas",
+  analytics_advanced: "Analíticas avanzadas",
+  rips_reporting: "Generación de RIPS",
+  electronic_invoicing: "Facturación electrónica DIAN",
+  inventory_module: "Inventario y esterilización",
   multi_location: "Multi-sede",
-  analytics: "Analíticas avanzadas",
-  inventory: "Inventario y esterilización",
-  messaging: "Mensajería interna",
-  prescriptions: "Recetas digitales",
-  consents: "Consentimientos informados",
+  api_access: "API de integración",
+  telehealth: "Telemedicina",
 };
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
