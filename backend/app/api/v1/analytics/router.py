@@ -447,8 +447,92 @@ async def profit_loss(
     """
     from app.services.expense_service import expense_service
 
+    # Default to current month if no dates provided
+    if date_from is None:
+        from datetime import date as dt_date
+        today = dt_date.today()
+        date_from = today.replace(day=1)
+    if date_to is None:
+        from datetime import date as dt_date
+        date_to = dt_date.today()
+
     return await expense_service.get_profit_loss(
         db=db,
         date_from=date_from,
         date_to=date_to,
     )
+
+
+# ─── NPS Analytics ─────────────────────────────────────────────────────────
+
+
+def _parse_range_to_dates(range_param: str) -> tuple[date | None, date | None]:
+    """Convert '7d', '30d', '90d' range strings to (start_date, end_date)."""
+    import re
+    from datetime import timedelta
+
+    today = date.today()
+    match = re.match(r"^(\d+)d$", range_param)
+    if match:
+        days = int(match.group(1))
+        return today - timedelta(days=days), today
+    return None, today
+
+
+@router.get("/nps")
+async def nps_dashboard(
+    range: str = Query(default="30d", description="Date range: 7d, 30d, 90d"),
+    current_user: AuthenticatedUser = Depends(require_permission("analytics:read")),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> dict:
+    """NPS dashboard with score, breakdown, and monthly trend."""
+    from app.services.nps_survey_service import nps_survey_service
+
+    start_date, end_date = _parse_range_to_dates(range)
+    data = await nps_survey_service.get_nps_dashboard(
+        db=db, start_date=start_date, end_date=end_date,
+    )
+
+    # Total surveys sent (including unanswered) for response rate
+    total_sent = data.get("total_sent", 0)
+    total_responses = data.get("total_responses", 0)
+    response_rate = (total_responses / total_sent * 100) if total_sent > 0 else 0.0
+
+    return {
+        "nps_score": data.get("nps_score", 0),
+        "total_responses": total_responses,
+        "promoters_count": data.get("promoters", 0),
+        "passives_count": data.get("passives", 0),
+        "detractors_count": data.get("detractors", 0),
+        "response_rate": round(response_rate, 1),
+        "trend": data.get("trend", []),
+    }
+
+
+@router.get("/nps/by-doctor")
+async def nps_by_doctor(
+    range: str = Query(default="30d", description="Date range: 7d, 30d, 90d"),
+    current_user: AuthenticatedUser = Depends(require_permission("analytics:read")),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> dict:
+    """NPS breakdown per doctor."""
+    from app.services.nps_survey_service import nps_survey_service
+
+    start_date, end_date = _parse_range_to_dates(range)
+    data = await nps_survey_service.get_nps_by_doctor(
+        db=db, start_date=start_date, end_date=end_date,
+    )
+
+    # Map field names to match frontend expectations
+    items = []
+    for row in data.get("items", []):
+        items.append({
+            "doctor_id": row.get("doctor_id", ""),
+            "doctor_name": row.get("doctor_name", "Desconocido"),
+            "nps_score": row.get("nps_score", 0),
+            "total_responses": row.get("total", 0),
+            "promoters": row.get("promoters", 0),
+            "detractors": row.get("detractors", 0),
+        })
+
+    return {"items": items}

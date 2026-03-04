@@ -22,30 +22,36 @@ interface CampaignStatsProps {
 // ─── CampaignStats ────────────────────────────────────────────────────────────
 
 export function CampaignStats({ stats }: CampaignStatsProps) {
+  const totalSent = stats.total_sent ?? 0;
+  const totalOpened = stats.total_opened ?? 0;
+  const totalClicked = stats.total_clicked ?? 0;
+  const totalBounced = stats.total_bounced ?? 0;
+  const totalUnsubscribed = stats.total_unsubscribed ?? 0;
+
   const openRate =
-    stats.total_sent > 0
-      ? (stats.total_opened / stats.total_sent) * 100
+    totalSent > 0
+      ? (totalOpened / totalSent) * 100
       : 0;
 
   const clickRate =
-    stats.total_sent > 0
-      ? (stats.total_clicked / stats.total_sent) * 100
+    totalSent > 0
+      ? (totalClicked / totalSent) * 100
       : 0;
 
   const bounceRate =
-    stats.total_sent > 0
-      ? (stats.total_bounced / stats.total_sent) * 100
+    totalSent > 0
+      ? (totalBounced / totalSent) * 100
       : 0;
 
   const unsubRate =
-    stats.total_sent > 0
-      ? (stats.total_unsubscribed / stats.total_sent) * 100
+    totalSent > 0
+      ? (totalUnsubscribed / totalSent) * 100
       : 0;
 
   const statCards: StatCardConfig[] = [
     {
       label: "Enviados",
-      value: stats.total_sent.toLocaleString("es-CO"),
+      value: totalSent.toLocaleString("es-CO"),
       icon: Send,
       iconClass: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30",
       rate: null,
@@ -53,7 +59,7 @@ export function CampaignStats({ stats }: CampaignStatsProps) {
     },
     {
       label: "Abiertos",
-      value: stats.total_opened.toLocaleString("es-CO"),
+      value: totalOpened.toLocaleString("es-CO"),
       icon: Eye,
       iconClass: "text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30",
       rate: openRate,
@@ -61,7 +67,7 @@ export function CampaignStats({ stats }: CampaignStatsProps) {
     },
     {
       label: "Clics",
-      value: stats.total_clicked.toLocaleString("es-CO"),
+      value: totalClicked.toLocaleString("es-CO"),
       icon: MousePointerClick,
       iconClass: "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30",
       rate: clickRate,
@@ -69,7 +75,7 @@ export function CampaignStats({ stats }: CampaignStatsProps) {
     },
     {
       label: "Rebotados",
-      value: stats.total_bounced.toLocaleString("es-CO"),
+      value: totalBounced.toLocaleString("es-CO"),
       icon: AlertTriangle,
       iconClass: "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30",
       rate: bounceRate,
@@ -77,7 +83,7 @@ export function CampaignStats({ stats }: CampaignStatsProps) {
     },
     {
       label: "Desuscritos",
-      value: stats.total_unsubscribed.toLocaleString("es-CO"),
+      value: totalUnsubscribed.toLocaleString("es-CO"),
       icon: UserMinus,
       iconClass: "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30",
       rate: unsubRate,

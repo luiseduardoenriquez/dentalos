@@ -201,12 +201,15 @@ export default function ProfitLossPage() {
 
   if (!data) return null;
 
+  const revenueList = Array.isArray(data.revenue_by_payment_method) ? data.revenue_by_payment_method : [];
+  const expenseList = Array.isArray(data.expenses_by_category) ? data.expenses_by_category : [];
+
   const maxRevenue = Math.max(
-    ...(data.revenue_by_payment_method?.map((m) => m.amount_cents) ?? [1]),
+    ...(revenueList.map((m) => m.amount_cents ?? 0)),
     1,
   );
   const maxExpense = Math.max(
-    ...(data.expenses_by_category?.map((c) => c.amount_cents) ?? [1]),
+    ...(expenseList.map((c) => c.amount_cents ?? 0)),
     1,
   );
 
@@ -304,13 +307,13 @@ export default function ProfitLossPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {(data.revenue_by_payment_method ?? []).length === 0 ? (
+                {revenueList.length === 0 ? (
                   <p className="text-sm text-[hsl(var(--muted-foreground))] text-center py-6">
                     Sin datos de ingresos.
                   </p>
                 ) : (
                   <div className="space-y-4">
-                    {(data.revenue_by_payment_method ?? []).map((row) => (
+                    {revenueList.map((row) => (
                       <div key={row.method} className="space-y-1.5">
                         <div className="flex items-center justify-between text-sm">
                           <span className="font-medium text-foreground">
@@ -346,13 +349,13 @@ export default function ProfitLossPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {(data.expenses_by_category ?? []).length === 0 ? (
+                {expenseList.length === 0 ? (
                   <p className="text-sm text-[hsl(var(--muted-foreground))] text-center py-6">
                     Sin datos de egresos.
                   </p>
                 ) : (
                   <div className="space-y-4">
-                    {(data.expenses_by_category ?? []).map((row) => (
+                    {expenseList.map((row) => (
                       <div key={row.category_id} className="space-y-1.5">
                         <div className="flex items-center justify-between text-sm">
                           <span className="font-medium text-foreground">
@@ -463,7 +466,7 @@ export default function ProfitLossPage() {
                             : "text-red-600",
                         )}
                       >
-                        {data.profit_margin_percent?.toFixed(1)}%
+                        {(data.profit_margin_percent ?? 0).toFixed(1)}%
                       </TableCell>
                     </TableRow>
                   </TableBody>

@@ -144,7 +144,11 @@ class ExpenseService:
         # ── Revenue from payments ────────────────────────────────────────────
         revenue_rows = (
             await db.execute(
-                select(Payment.payment_method, func.coalesce(func.sum(Payment.amount), 0))
+                select(
+                    Payment.payment_method,
+                    func.count(Payment.id),
+                    func.coalesce(func.sum(Payment.amount), 0),
+                )
                 .where(
                     func.date(Payment.payment_date) >= date_from,
                     func.date(Payment.payment_date) <= date_to,
@@ -153,33 +157,53 @@ class ExpenseService:
             )
         ).all()
 
-        revenue_by_method: dict[str, int] = {row[0]: row[1] for row in revenue_rows}
-        total_revenue = sum(revenue_by_method.values())
+        revenue_by_payment_method = [
+            {"method": row[0] or "other", "count": row[1], "amount_cents": row[2]}
+            for row in revenue_rows
+        ]
+        total_revenue = sum(r["amount_cents"] for r in revenue_by_payment_method)
 
         # ── Expenses by category ─────────────────────────────────────────────
         expense_rows = (
             await db.execute(
-                select(ExpenseCategory.name, func.coalesce(func.sum(Expense.amount_cents), 0))
+                select(
+                    ExpenseCategory.id,
+                    ExpenseCategory.name,
+                    func.count(Expense.id),
+                    func.coalesce(func.sum(Expense.amount_cents), 0),
+                )
                 .join(ExpenseCategory, Expense.category_id == ExpenseCategory.id)
                 .where(
                     Expense.is_active.is_(True),
                     Expense.expense_date >= date_from,
                     Expense.expense_date <= date_to,
                 )
-                .group_by(ExpenseCategory.name)
+                .group_by(ExpenseCategory.id, ExpenseCategory.name)
             )
         ).all()
 
-        expenses_by_category: dict[str, int] = {row[0]: row[1] for row in expense_rows}
-        total_expenses = sum(expenses_by_category.values())
+        expenses_by_category = [
+            {
+                "category_id": str(row[0]),
+                "category_name": row[1],
+                "transaction_count": row[2],
+                "amount_cents": row[3],
+            }
+            for row in expense_rows
+        ]
+        total_expenses = sum(e["amount_cents"] for e in expenses_by_category)
+
+        net_profit = total_revenue - total_expenses
+        profit_margin = (net_profit / total_revenue * 100) if total_revenue > 0 else 0.0
 
         return {
-            "period_start": date_from,
-            "period_end": date_to,
+            "date_from": date_from.isoformat() if date_from else None,
+            "date_to": date_to.isoformat() if date_to else None,
             "total_revenue_cents": total_revenue,
             "total_expenses_cents": total_expenses,
-            "net_profit_cents": total_revenue - total_expenses,
-            "revenue_by_method": revenue_by_method,
+            "net_profit_cents": net_profit,
+            "profit_margin_percent": round(profit_margin, 2),
+            "revenue_by_payment_method": revenue_by_payment_method,
             "expenses_by_category": expenses_by_category,
         }
 

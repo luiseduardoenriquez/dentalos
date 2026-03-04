@@ -100,7 +100,14 @@ class IntakeService:
         self, *, db: AsyncSession, status: str | None = None,
         page: int = 1, page_size: int = 20,
     ) -> dict[str, Any]:
-        """List intake submissions with optional status filter."""
+        """List intake submissions with optional status filter.
+
+        Returns enriched data with patient name, template name, phone, and
+        structured responses for the staff-facing dashboard.
+        """
+        from app.models.tenant.intake_form import IntakeFormTemplate
+        from app.models.tenant.patient import Patient
+
         offset = (page - 1) * page_size
         conditions = [IntakeSubmission.is_active.is_(True)]
         if status:
@@ -119,8 +126,39 @@ class IntakeService:
         )
         submissions = result.scalars().all()
 
+        # Batch-load related templates and patients
+        template_ids = {s.template_id for s in submissions}
+        patient_ids = {s.patient_id for s in submissions if s.patient_id}
+
+        templates_map: dict[str, str] = {}
+        if template_ids:
+            tmpl_result = await db.execute(
+                select(IntakeFormTemplate.id, IntakeFormTemplate.name, IntakeFormTemplate.fields)
+                .where(IntakeFormTemplate.id.in_(template_ids))
+            )
+            for row in tmpl_result.all():
+                templates_map[str(row[0])] = {"name": row[1], "fields": row[2]}
+
+        patients_map: dict[str, dict] = {}
+        if patient_ids:
+            pat_result = await db.execute(
+                select(Patient.id, Patient.first_name, Patient.last_name, Patient.phone, Patient.email)
+                .where(Patient.id.in_(patient_ids))
+            )
+            for row in pat_result.all():
+                patients_map[str(row[0])] = {
+                    "name": f"{row[1]} {row[2]}",
+                    "phone": row[3],
+                    "email": row[4],
+                }
+
+        items = []
+        for sub in submissions:
+            enriched = self._submission_to_enriched_dict(sub, templates_map, patients_map)
+            items.append(enriched)
+
         return {
-            "items": [self._submission_to_dict(s) for s in submissions],
+            "items": items,
             "total": total,
             "page": page,
             "page_size": page_size,
@@ -274,6 +312,53 @@ class IntakeService:
             "is_active": sub.is_active,
             "created_at": sub.created_at,
             "updated_at": sub.updated_at,
+        }
+
+    def _submission_to_enriched_dict(
+        self,
+        sub: IntakeSubmission,
+        templates_map: dict[str, dict],
+        patients_map: dict[str, dict],
+    ) -> dict[str, Any]:
+        """Enriched submission dict for the staff dashboard list view."""
+        data = sub.data or {}
+        template_info = templates_map.get(str(sub.template_id), {})
+        template_name = template_info.get("name", "")
+        template_fields = template_info.get("fields", [])
+
+        patient_info = patients_map.get(str(sub.patient_id), {}) if sub.patient_id else {}
+        # Patient name from linked patient, or from submission data
+        patient_name = patient_info.get("name", "")
+        if not patient_name:
+            first = data.get("first_name", "")
+            last = data.get("last_name", "")
+            patient_name = f"{first} {last}".strip()
+
+        patient_phone = patient_info.get("phone") or data.get("phone", "")
+        patient_email = patient_info.get("email") or data.get("email")
+
+        # Build responses from template fields + submission data
+        responses: list[dict[str, str]] = []
+        if isinstance(template_fields, list):
+            for field in template_fields:
+                if isinstance(field, dict):
+                    field_name = field.get("name", "")
+                    label = field.get("label", field_name)
+                    value = data.get(field_name, "")
+                    if isinstance(value, (list, dict)):
+                        value = str(value)
+                    responses.append({"label": label, "value": str(value) if value else ""})
+
+        return {
+            "id": str(sub.id),
+            "template_name": template_name,
+            "patient_name": patient_name,
+            "patient_email": patient_email,
+            "patient_phone": patient_phone,
+            "submitted_at": sub.submitted_at,
+            "status": sub.status,
+            "responses": responses,
+            "matched_patient_id": str(sub.patient_id) if sub.patient_id else None,
         }
 
 

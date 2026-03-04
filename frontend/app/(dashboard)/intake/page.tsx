@@ -49,7 +49,7 @@ interface IntakeSubmission {
   patient_phone: string;
   submitted_at: string;
   status: "pending" | "approved" | "rejected";
-  responses: Array<{ label: string; value: string }>;
+  responses: Array<{ label: string; value: string }> | null;
   matched_patient_id: string | null;
 }
 
@@ -127,12 +127,12 @@ function SubmissionDetailDialog({
           </div>
 
           {/* Responses */}
-          {submission.responses.length > 0 && (
+          {(submission.responses ?? []).length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase tracking-wide">
                 Respuestas
               </p>
-              {submission.responses.map((r, idx) => (
+              {(submission.responses ?? []).map((r, idx) => (
                 <div key={idx} className="text-sm">
                   <p className="text-xs text-[hsl(var(--muted-foreground))]">{r.label}</p>
                   <p className="font-medium">{r.value || "—"}</p>
@@ -272,13 +272,13 @@ export default function IntakeSubmissionsPage() {
                   {data.items.map((sub) => (
                     <TableRow key={sub.id}>
                       <TableCell className="text-sm font-medium">
-                        {sub.patient_name}
+                        {sub.patient_name || <span className="text-[hsl(var(--muted-foreground))] italic">Sin nombre</span>}
                       </TableCell>
                       <TableCell className="text-sm text-[hsl(var(--muted-foreground))]">
-                        {sub.template_name}
+                        {sub.template_name || "—"}
                       </TableCell>
                       <TableCell className="text-sm text-[hsl(var(--muted-foreground))]">
-                        {sub.patient_phone}
+                        {sub.patient_phone || "—"}
                       </TableCell>
                       <TableCell className="text-sm text-[hsl(var(--muted-foreground))]">
                         {formatDate(sub.submitted_at)}

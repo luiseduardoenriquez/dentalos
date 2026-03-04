@@ -206,19 +206,28 @@ export default function LabOrderDetailPage() {
   // Try to display specifications
   let specificationsDisplay: React.ReactNode = null;
   if (order.specifications) {
-    try {
-      const parsed = JSON.parse(order.specifications);
+    // specifications can be a JSONB object or a plain string
+    if (typeof order.specifications === "object") {
       specificationsDisplay = (
         <pre className="text-xs font-mono bg-[hsl(var(--muted))] rounded p-3 overflow-auto max-h-48 whitespace-pre-wrap">
-          {JSON.stringify(parsed, null, 2)}
+          {JSON.stringify(order.specifications, null, 2)}
         </pre>
       );
-    } catch {
-      specificationsDisplay = (
-        <p className="text-sm text-foreground whitespace-pre-wrap">
-          {order.specifications}
-        </p>
-      );
+    } else {
+      try {
+        const parsed = JSON.parse(order.specifications);
+        specificationsDisplay = (
+          <pre className="text-xs font-mono bg-[hsl(var(--muted))] rounded p-3 overflow-auto max-h-48 whitespace-pre-wrap">
+            {JSON.stringify(parsed, null, 2)}
+          </pre>
+        );
+      } catch {
+        specificationsDisplay = (
+          <p className="text-sm text-foreground whitespace-pre-wrap">
+            {order.specifications}
+          </p>
+        );
+      }
     }
   }
 

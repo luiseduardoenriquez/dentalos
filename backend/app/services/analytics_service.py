@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Date, String, case, cast, func, literal_column, select
+from sqlalchemy import Date, Integer, String, case, cast, func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.context import AuthenticatedUser
@@ -550,7 +550,7 @@ class AnalyticsService:
                 func.count(Patient.id).label("cnt"),
             )
             .where(Patient.is_active.is_(True))
-            .group_by(func.coalesce(Patient.gender, "unknown"))
+            .group_by(literal_column('1'))
         )
         return [
             DemographicBucket(label=row.gender, count=row.cnt).model_dump()
@@ -576,7 +576,7 @@ class AnalyticsService:
                 func.count(Patient.id).label("cnt"),
             )
             .where(Patient.is_active.is_(True))
-            .group_by(bucket_expr)
+            .group_by(literal_column('1'))
         )
         return [
             DemographicBucket(label=row.bucket, count=row.cnt).model_dump()
@@ -590,7 +590,7 @@ class AnalyticsService:
                 func.count(Patient.id).label("cnt"),
             )
             .where(Patient.is_active.is_(True))
-            .group_by(func.coalesce(Patient.city, "Sin ciudad"))
+            .group_by(literal_column('1'))
             .order_by(func.count(Patient.id).desc())
             .limit(10)
         )
@@ -612,8 +612,8 @@ class AnalyticsService:
                 cast(Patient.created_at, Date) >= d_from,
                 cast(Patient.created_at, Date) <= d_to,
             )
-            .group_by(func.date_trunc("month", Patient.created_at))
-            .order_by(func.date_trunc("month", Patient.created_at))
+            .group_by(literal_column('1'))
+            .order_by(literal_column('1'))
         )
         return [
             AcquisitionPoint(
@@ -743,8 +743,8 @@ class AnalyticsService:
                 ).label("no_show"),
             )
             .where(*filters)
-            .group_by(cast(Appointment.start_time, Date))
-            .order_by(cast(Appointment.start_time, Date))
+            .group_by(literal_column('1'))
+            .order_by(literal_column('1'))
         )
         return [
             UtilizationPoint(
@@ -783,13 +783,9 @@ class AnalyticsService:
                 func.count(Appointment.id).label("cnt"),
             )
             .where(*filters)
-            .group_by(
-                func.extract("hour", Appointment.start_time),
-                func.extract("dow", Appointment.start_time),
-            )
+            .group_by(literal_column('1'), literal_column('2'))
             .order_by(func.count(Appointment.id).desc())
         )
-        from sqlalchemy import Integer as SAInteger
 
         return [
             PeakHour(
@@ -824,8 +820,8 @@ class AnalyticsService:
                 ).label("no_show"),
             )
             .where(*filters)
-            .group_by(func.date_trunc("week", Appointment.start_time))
-            .order_by(func.date_trunc("week", Appointment.start_time))
+            .group_by(literal_column('1'))
+            .order_by(literal_column('1'))
         )
         return [
             NoShowTrendPoint(
@@ -926,8 +922,8 @@ class AnalyticsService:
                 func.coalesce(func.sum(Payment.amount), 0).label("total"),
             )
             .where(*filters)
-            .group_by(func.date_trunc("month", Payment.payment_date))
-            .order_by(func.date_trunc("month", Payment.payment_date))
+            .group_by(literal_column('1'))
+            .order_by(literal_column('1'))
         )
         return [
             RevenueTrendPoint(

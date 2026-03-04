@@ -143,8 +143,10 @@ export default function NpsDashboardPage() {
     );
   }
 
-  const totalResponded =
-    npsData.promoters_count + npsData.passives_count + npsData.detractors_count;
+  const promotersCount = npsData.promoters_count ?? 0;
+  const passivesCount = npsData.passives_count ?? 0;
+  const detractorsCount = npsData.detractors_count ?? 0;
+  const totalResponded = promotersCount + passivesCount + detractorsCount;
   const doctors = byDoctorData?.items ?? [];
 
   return (
@@ -230,10 +232,10 @@ export default function NpsDashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-4xl font-bold tabular-nums text-foreground">
-              {npsData.total_responses.toLocaleString("es-CO")}
+              {(npsData.total_responses ?? 0).toLocaleString("es-CO")}
             </p>
             <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-              Tasa: {npsData.response_rate.toFixed(0)}%
+              Tasa: {(npsData.response_rate ?? 0).toFixed(0)}%
             </p>
           </CardContent>
         </Card>
@@ -248,11 +250,11 @@ export default function NpsDashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-4xl font-bold tabular-nums text-green-600 dark:text-green-400">
-              {npsData.promoters_count.toLocaleString("es-CO")}
+              {promotersCount.toLocaleString("es-CO")}
             </p>
             <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
               {totalResponded > 0
-                ? `${((npsData.promoters_count / totalResponded) * 100).toFixed(0)}% del total`
+                ? `${((promotersCount / totalResponded) * 100).toFixed(0)}% del total`
                 : "—"}
             </p>
           </CardContent>
@@ -268,11 +270,11 @@ export default function NpsDashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-4xl font-bold tabular-nums text-red-600 dark:text-red-400">
-              {npsData.detractors_count.toLocaleString("es-CO")}
+              {detractorsCount.toLocaleString("es-CO")}
             </p>
             <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
               {totalResponded > 0
-                ? `${((npsData.detractors_count / totalResponded) * 100).toFixed(0)}% del total`
+                ? `${((detractorsCount / totalResponded) * 100).toFixed(0)}% del total`
                 : "—"}
             </p>
           </CardContent>
@@ -293,19 +295,19 @@ export default function NpsDashboardPage() {
             {[
               {
                 label: "Promotores",
-                count: npsData.promoters_count,
+                count: promotersCount,
                 colorBar: "bg-green-500",
                 colorText: "text-green-600 dark:text-green-400",
               },
               {
                 label: "Pasivos",
-                count: npsData.passives_count,
+                count: passivesCount,
                 colorBar: "bg-yellow-400",
                 colorText: "text-yellow-600 dark:text-yellow-400",
               },
               {
                 label: "Detractores",
-                count: npsData.detractors_count,
+                count: detractorsCount,
                 colorBar: "bg-red-500",
                 colorText: "text-red-600 dark:text-red-400",
               },
@@ -333,7 +335,7 @@ export default function NpsDashboardPage() {
           </div>
 
           {/* Trend chart */}
-          {npsData.trend.length > 0 && (
+          {(npsData.trend ?? []).length > 0 && (
             <div className="mt-4 pt-4 border-t border-[hsl(var(--border))]">
               <p className="text-sm font-medium text-foreground mb-3">Tendencia mensual</p>
               <NpsChart trend={npsData.trend} />
