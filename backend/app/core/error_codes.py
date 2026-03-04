@@ -462,6 +462,33 @@ class TelemedicineErrors:
     ADD_ON_REQUIRED = "TELEMEDICINE_add_on_required"
 
 
+class CallLogErrors:
+    """CALL_LOG domain — VoIP call logging error codes."""
+
+    NOT_FOUND = "CALL_LOG_not_found"
+    TWILIO_NOT_CONFIGURED = "CALL_LOG_twilio_not_configured"
+    WEBHOOK_SIGNATURE_INVALID = "CALL_LOG_webhook_signature_invalid"
+
+
+class EPSClaimErrors:
+    """EPS_CLAIM domain — EPS claims management error codes."""
+
+    NOT_FOUND = "EPS_CLAIM_not_found"
+    INVALID_STATUS_TRANSITION = "EPS_CLAIM_invalid_status_transition"
+    PROVIDER_UNAVAILABLE = "EPS_CLAIM_provider_unavailable"
+    ALREADY_SUBMITTED = "EPS_CLAIM_already_submitted"
+    PATIENT_NOT_EPS_VERIFIED = "EPS_CLAIM_patient_not_eps_verified"
+
+
+class LabOrderErrors:
+    """LAB_ORDER domain — dental lab order error codes."""
+
+    NOT_FOUND = "LAB_ORDER_not_found"
+    LAB_NOT_FOUND = "LAB_ORDER_lab_not_found"
+    INVALID_STATUS_TRANSITION = "LAB_ORDER_invalid_status_transition"
+    ALREADY_DELIVERED = "LAB_ORDER_already_delivered"
+
+
 class SystemErrors:
     """SYSTEM domain — infrastructure, HTTP, and platform-level error codes."""
 

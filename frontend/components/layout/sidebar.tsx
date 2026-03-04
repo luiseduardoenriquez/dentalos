@@ -18,6 +18,9 @@ import {
   Stethoscope,
   MessageSquare,
   Mail,
+  Phone,
+  FlaskConical,
+  Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -106,6 +109,24 @@ const NAV_ITEMS: NavItem[] = [
     href: "/analytics",
     label: "Analíticas",
     icon: BarChart3,
+    roles: ["clinic_owner", "doctor"],
+  },
+  {
+    href: "/calls",
+    label: "Llamadas",
+    icon: Phone,
+    roles: ["clinic_owner", "doctor", "assistant", "receptionist"],
+  },
+  {
+    href: "/lab-orders",
+    label: "Laboratorio",
+    icon: FlaskConical,
+    roles: ["clinic_owner", "doctor", "assistant", "receptionist"],
+  },
+  {
+    href: "/telemedicine",
+    label: "Telemedicina",
+    icon: Video,
     roles: ["clinic_owner", "doctor"],
   },
   {

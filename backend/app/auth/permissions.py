@@ -81,6 +81,10 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "chatbot:read", "chatbot:write",
         "surveys:read", "surveys:write",
         "telemedicine:read", "telemedicine:write",
+        # Sprint 31-32: VoIP, EPS Claims, Lab Orders
+        "calls:read", "calls:write",
+        "eps_claims:read", "eps_claims:write",
+        "lab_orders:read", "lab_orders:write",
     }),
     "doctor": frozenset({
         "patients:read", "patients:write",
@@ -125,6 +129,10 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "chatbot:read",
         "surveys:read",
         "telemedicine:read", "telemedicine:write",
+        # Sprint 31-32: VoIP, EPS Claims, Lab Orders
+        "calls:read",
+        "eps_claims:read",
+        "lab_orders:read", "lab_orders:write",
     }),
     "assistant": frozenset({
         "patients:read", "patients:write",
@@ -158,6 +166,9 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         # Sprint 29-30: Chatbot, Surveys
         "chatbot:read",
         "surveys:read",
+        # Sprint 31-32: VoIP, Lab Orders
+        "calls:read",
+        "lab_orders:read",
     }),
     "receptionist": frozenset({
         "patients:read", "patients:write",
@@ -189,6 +200,10 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "financing:read", "financing:write",
         "chatbot:read",
         "surveys:read",
+        # Sprint 31-32: VoIP, EPS Claims, Lab Orders
+        "calls:read", "calls:write",
+        "eps_claims:read", "eps_claims:write",
+        "lab_orders:read",
     }),
     "patient": frozenset({
         "patients:read",

@@ -36,6 +36,8 @@ class NotificationWorker(BaseWorker):
             "notification.dispatch": self._handle_dispatch,
             "notification.intake_reminder": self._handle_intake_reminder,
             "campaign.email.batch": self._handle_campaign_batch,
+            "lab_order.ready": self._handle_lab_order_ready,
+            "lab_order.overdue": self._handle_lab_order_overdue,
         }
         handler = handlers.get(message.job_type)
         if handler:
@@ -716,6 +718,35 @@ class NotificationWorker(BaseWorker):
                 message.message_id,
                 message.tenant_id,
             )
+
+
+    # ── Lab Order notification handlers (VP-22) ──────────────────────────
+
+    async def _handle_lab_order_ready(self, message: QueueMessage) -> None:
+        """Notify clinic staff when a lab order is ready for pickup."""
+        payload = message.payload
+        order_id = payload.get("order_id", "?")
+        patient_id = payload.get("patient_id", "?")
+        order_type = payload.get("order_type", "lab order")
+        logger.info(
+            "Lab order ready: order=%s patient=%s type=%s tenant=%s",
+            order_id[:8] if len(order_id) > 8 else order_id,
+            patient_id[:8] if len(patient_id) > 8 else patient_id,
+            order_type,
+            message.tenant_id,
+        )
+
+    async def _handle_lab_order_overdue(self, message: QueueMessage) -> None:
+        """Alert clinic staff about overdue lab orders."""
+        payload = message.payload
+        order_id = payload.get("order_id", "?")
+        due_date = payload.get("due_date", "?")
+        logger.info(
+            "Lab order overdue: order=%s due_date=%s tenant=%s",
+            order_id[:8] if len(order_id) > 8 else order_id,
+            due_date,
+            message.tenant_id,
+        )
 
 
 # Module-level instance for CLI entry point

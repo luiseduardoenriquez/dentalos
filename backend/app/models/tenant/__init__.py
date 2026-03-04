@@ -103,6 +103,15 @@ from app.models.tenant.nps_survey import NPSSurveyResponse
 # Sprint 29-30: GAP-09 Telemedicine
 from app.models.tenant.video_session import VideoSession
 
+# Sprint 31-32: VP-18 VoIP
+from app.models.tenant.call_log import CallLog
+
+# Sprint 31-32: VP-19 EPS Claims
+from app.models.tenant.eps_claim import EPSClaim
+
+# Sprint 31-32: VP-22 Lab Orders
+from app.models.tenant.lab_order import DentalLab, LabOrder
+
 __all__ = [
     "AuditLog",
     "Anamnesis",
@@ -212,4 +221,11 @@ __all__ = [
     "NPSSurveyResponse",
     # Sprint 29-30: GAP-09 Telemedicine
     "VideoSession",
+    # Sprint 31-32: VP-18 VoIP
+    "CallLog",
+    # Sprint 31-32: VP-19 EPS Claims
+    "EPSClaim",
+    # Sprint 31-32: VP-22 Lab Orders
+    "DentalLab",
+    "LabOrder",
 ]

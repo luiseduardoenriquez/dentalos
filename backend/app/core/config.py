@@ -186,5 +186,13 @@ class Settings(BaseSettings):
     daily_api_key: str = ""
     daily_api_url: str = "https://api.daily.co/v1"
 
+    # ─── S31-32: VoIP / Twilio Voice ───────────────────────
+    twilio_voice_number: str = ""
+    twilio_voice_webhook_url: str = ""
+
+    # ─── S31-32: EPS Claims ────────────────────────────────
+    eps_claims_api_url: str = ""
+    eps_claims_api_key: str = ""
+
 
 settings = Settings()

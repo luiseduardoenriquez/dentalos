@@ -1452,49 +1452,49 @@ Post-COVID, teleodontología is growing. Built-in video consultation capability 
 
 When receiving a phone call, the patient's profile automatically appears on screen. Weave built a billion-dollar company on this. Lower impact in LATAM (WhatsApp > phone calls) but valuable for clinics with high call volume.
 
-- [ ] VoIP provider integration (Twilio Voice or local provider)
-- [ ] Caller ID → patient phone number matching service
-- [ ] `GET /api/v1/calls/screen-pop/{phone}` — Lookup patient by phone number
-- [ ] WebSocket push: incoming call notification with patient data to receptionist's browser
-- [ ] Call logging: design `call_log` table — patient_id, phone_number, direction, duration, staff_id, notes
-- [ ] `GET /api/v1/calls/log` — Call history with patient links
-- [ ] FE: Screen pop notification component (appears on incoming call)
-- [ ] FE: Call log page with patient links and note-taking
-- [ ] FE: Click-to-call from patient profile
+- [x] VoIP provider integration (Twilio Voice or local provider)
+- [x] Caller ID → patient phone number matching service
+- [x] `GET /api/v1/calls/screen-pop/{phone}` — Lookup patient by phone number
+- [x] WebSocket push: incoming call notification with patient data to receptionist's browser
+- [x] Call logging: design `call_log` table — patient_id, phone_number, direction, duration, staff_id, notes
+- [x] `GET /api/v1/calls/log` — Call history with patient links
+- [x] FE: Screen pop notification component (appears on incoming call)
+- [x] FE: Call log page with patient links and note-taking
+- [x] FE: Click-to-call from patient profile
 
 ### VP-19: EPS Claims Management (Gestión de Recobros)
 
 Generate and track electronic claims to EPS insurers. High complexity — each EPS has different portals. Only for clinics with high EPS patient volume.
 
-- [ ] Design `eps_claims` table: patient_id, eps_code, claim_type, procedures JSONB, total_amount_cents, status (draft/submitted/acknowledged/paid/rejected/appealed), submitted_at, response_at
-- [ ] Claim generation service: compile patient + procedures + diagnoses into standardized claim format
-- [ ] `POST /api/v1/billing/eps-claims` — Create EPS claim (clinic_owner/billing staff)
-- [ ] `GET /api/v1/billing/eps-claims` — List claims with status filters
-- [ ] `PUT /api/v1/billing/eps-claims/{id}` — Update claim status
-- [ ] Claim status tracking workflow: draft → submitted → acknowledged → paid/rejected
-- [ ] Rejection handling: reason codes, resubmission flow
-- [ ] Aging report: claims by age bucket (30/60/90+ days)
-- [ ] FE: EPS claims management page — create, submit, track
-- [ ] FE: Claims aging dashboard
-- [ ] FE: Claim detail page with status history and documents
+- [x] Design `eps_claims` table: patient_id, eps_code, claim_type, procedures JSONB, total_amount_cents, status (draft/submitted/acknowledged/paid/rejected/appealed), submitted_at, response_at
+- [x] Claim generation service: compile patient + procedures + diagnoses into standardized claim format
+- [x] `POST /api/v1/billing/eps-claims` — Create EPS claim (clinic_owner/billing staff)
+- [x] `GET /api/v1/billing/eps-claims` — List claims with status filters
+- [x] `PUT /api/v1/billing/eps-claims/{id}` — Update claim status
+- [x] Claim status tracking workflow: draft → submitted → acknowledged → paid/rejected
+- [x] Rejection handling: reason codes, resubmission flow
+- [x] Aging report: claims by age bucket (30/60/90+ days)
+- [x] FE: EPS claims management page — create, submit, track
+- [x] FE: Claims aging dashboard
+- [x] FE: Claim detail page with status history and documents
 
 ### VP-22: Dental Lab Order Management
 
 Track orders to external dental laboratories with patient-order traceability. Lab coordination (5-15 day turnaround) is a common pain point currently managed via WhatsApp.
 
-- [ ] Design `lab_orders` table: patient_id, treatment_plan_id, lab_id, order_type (corona, puente, protesis, ferula, modelo, etc.), specifications JSONB, status (draft/sent/in_progress/ready/delivered/rejected), due_date, sent_at, completed_at
-- [ ] Design `dental_labs` table (tenant): name, contact_info JSONB, phone, email, address, is_active
-- [ ] `POST /api/v1/lab-orders` — Create lab order (doctor)
-- [ ] `GET /api/v1/lab-orders` — List orders with status filters
-- [ ] `PUT /api/v1/lab-orders/{id}` — Update order status
-- [ ] `POST /api/v1/lab-orders/{id}/send` — Send order to lab (generates PDF or email)
-- [ ] Status update notifications: alert doctor when lab marks order as ready
-- [ ] Overdue order alerts: notify when order passes due_date
-- [ ] Link lab order to patient's treatment plan and appointment (schedule delivery appointment)
-- [ ] FE: Lab order management page — create, track, filter by status/lab/patient
-- [ ] FE: Lab directory management (clinic_owner)
-- [ ] FE: Lab order detail with specifications and status timeline
-- [ ] FE: Overdue orders alert on dashboard
+- [x] Design `lab_orders` table: patient_id, treatment_plan_id, lab_id, order_type (corona, puente, protesis, ferula, modelo, etc.), specifications JSONB, status (draft/sent/in_progress/ready/delivered/rejected), due_date, sent_at, completed_at
+- [x] Design `dental_labs` table (tenant): name, contact_info JSONB, phone, email, address, is_active
+- [x] `POST /api/v1/lab-orders` — Create lab order (doctor)
+- [x] `GET /api/v1/lab-orders` — List orders with status filters
+- [x] `PUT /api/v1/lab-orders/{id}` — Update order status
+- [x] `POST /api/v1/lab-orders/{id}/send` — Send order to lab (generates PDF or email)
+- [x] Status update notifications: alert doctor when lab marks order as ready
+- [x] Overdue order alerts: notify when order passes due_date
+- [x] Link lab order to patient's treatment plan and appointment (schedule delivery appointment)
+- [x] FE: Lab order management page — create, track, filter by status/lab/patient
+- [x] FE: Lab directory management (clinic_owner)
+- [x] FE: Lab order detail with specifications and status timeline
+- [x] FE: Overdue orders alert on dashboard
 
 ---
 
@@ -1731,7 +1731,7 @@ Each sprint must meet these criteria before sign-off:
 | 25-26 | 13 | ~47 | Reputation + Schedule AI + Multi-Currency + Loyalty + **Periodontogram + Convenios + Tasks + Families** | Reviews + Intelligence + Loyalty + Perio chart + Convenios + Task board + Family groups | Analytics + perio tests | Complete (71/73) |
 | 27-28 | 14 | ~20 | WhatsApp Chat + AI Treatment + Email Marketing + **AI Reports** | Inbox + AI panel + Campaign builder + AI query bar | AI + messaging tests | Not Started |
 | 29-30 | 15 | ~21 | Financing + Chatbot + NPS/CSAT + **Telemedicine** | Financing flow + Bot config + NPS dashboard + Video calls | Chatbot + survey + video tests | Not Started |
-| 31-32 | 16 | ~10 | VoIP + EPS Claims + Lab Orders | Screen pop + Claims mgmt + Lab tracking | VoIP + claims tests | Not Started |
+| 31-32 | 16 | ~10 | VoIP + EPS Claims + Lab Orders | Screen pop + Claims mgmt + Lab tracking | VoIP + claims tests | Complete |
 | **Total** | **16** | **~530** | | | | |
 
 ---

@@ -252,39 +252,61 @@ def upgrade() -> None:
     op.create_index("idx_video_sessions_status", "video_sessions", ["status"])
 
     # ── 7. ALTER clinic_settings: add JSONB config columns ────────────────
-    op.add_column(
-        "clinic_settings",
-        sa.Column(
-            "chatbot_config",
-            postgresql.JSONB(),
-            server_default=sa.text("'{}'::jsonb"),
-            nullable=False,
-        ),
+    # Guard: clinic_settings may not exist yet if tenant was provisioned before
+    # the settings migration ran. Safely skip these ALTERs in that case.
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+            "WHERE table_name = 'clinic_settings' "
+            "AND table_schema = current_schema())"
+        )
     )
-    op.add_column(
-        "clinic_settings",
-        sa.Column(
-            "financing_config",
-            postgresql.JSONB(),
-            server_default=sa.text("'{}'::jsonb"),
-            nullable=False,
-        ),
-    )
-    op.add_column(
-        "clinic_settings",
-        sa.Column(
-            "telemedicine_config",
-            postgresql.JSONB(),
-            server_default=sa.text("'{}'::jsonb"),
-            nullable=False,
-        ),
-    )
+    has_clinic_settings = result.scalar()
+
+    if has_clinic_settings:
+        op.add_column(
+            "clinic_settings",
+            sa.Column(
+                "chatbot_config",
+                postgresql.JSONB(),
+                server_default=sa.text("'{}'::jsonb"),
+                nullable=False,
+            ),
+        )
+        op.add_column(
+            "clinic_settings",
+            sa.Column(
+                "financing_config",
+                postgresql.JSONB(),
+                server_default=sa.text("'{}'::jsonb"),
+                nullable=False,
+            ),
+        )
+        op.add_column(
+            "clinic_settings",
+            sa.Column(
+                "telemedicine_config",
+                postgresql.JSONB(),
+                server_default=sa.text("'{}'::jsonb"),
+                nullable=False,
+            ),
+        )
 
 
 def downgrade() -> None:
-    op.drop_column("clinic_settings", "telemedicine_config")
-    op.drop_column("clinic_settings", "financing_config")
-    op.drop_column("clinic_settings", "chatbot_config")
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+            "WHERE table_name = 'clinic_settings' "
+            "AND table_schema = current_schema())"
+        )
+    )
+    if result.scalar():
+        op.drop_column("clinic_settings", "telemedicine_config")
+        op.drop_column("clinic_settings", "financing_config")
+        op.drop_column("clinic_settings", "chatbot_config")
     op.drop_table("video_sessions")
     op.drop_table("nps_survey_responses")
     op.drop_table("chatbot_messages")

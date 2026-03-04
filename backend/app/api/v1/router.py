@@ -253,4 +253,21 @@ from app.api.v1.telemedicine.router import router as telemedicine_router
 
 api_v1_router.include_router(telemedicine_router)
 
+# Sprint 31-32: VP-18 VoIP Screen Pop
+from app.api.v1.calls.router import router as calls_router
+from app.integrations.twilio_voice.webhook_router import router as twilio_voice_webhook_router
+
+api_v1_router.include_router(calls_router)
+api_v1_router.include_router(twilio_voice_webhook_router)
+
+# Sprint 31-32: VP-19 EPS Claims
+from app.api.v1.billing.eps_claims_router import router as eps_claims_router
+
+api_v1_router.include_router(eps_claims_router)
+
+# Sprint 31-32: VP-22 Lab Orders
+from app.api.v1.lab_orders.router import router as lab_orders_router
+
+api_v1_router.include_router(lab_orders_router)
+
 # Sprint 15-16: Admin (included at top of file for route priority)
