@@ -24,7 +24,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -32,6 +32,8 @@ from app.core.error_codes import TelemedicineErrors
 from app.core.exceptions import DentalOSError, ResourceNotFoundError
 from app.integrations.telemedicine.base import TelemedicineProviderBase
 from app.models.tenant.appointment import Appointment
+from app.models.tenant.patient import Patient
+from app.models.tenant.user import User
 from app.models.tenant.video_session import VideoSession
 
 logger = logging.getLogger("dentalos.telemedicine")
@@ -105,6 +107,103 @@ class TelemedicineService:
                 ),
                 status_code=402,
             )
+
+    # ── List sessions ────────────────────────────────────────────────────────
+
+    async def list_sessions(
+        self,
+        *,
+        db: AsyncSession,
+        page: int = 1,
+        page_size: int = 20,
+        status_filter: str | None = None,
+    ) -> dict[str, Any]:
+        """Return a paginated list of video sessions with joined patient/doctor names.
+
+        Joins video_sessions → appointments → patients + users to derive:
+          - patient_name: patients.first_name || ' ' || patients.last_name
+          - doctor_name: users.name (via appointments.doctor_id)
+          - scheduled_at: appointments.start_time
+          - duration_minutes: video_sessions.duration_seconds / 60
+
+        Args:
+            db: Tenant-scoped async DB session.
+            page: 1-based page number.
+            page_size: Items per page (max 100).
+            status_filter: Optional status to filter by (created/waiting/active/ended).
+
+        Returns:
+            Dict with items, total, page, page_size.
+        """
+        # Base filter
+        conditions = []
+        if status_filter:
+            conditions.append(VideoSession.status == status_filter)
+
+        # Count query
+        count_q = (
+            select(func.count(VideoSession.id))
+            .select_from(VideoSession)
+        )
+        for cond in conditions:
+            count_q = count_q.where(cond)
+
+        total_result = await db.execute(count_q)
+        total = total_result.scalar_one()
+
+        # Data query with JOINs
+        data_q = (
+            select(
+                VideoSession.id,
+                VideoSession.appointment_id,
+                (Patient.first_name + " " + Patient.last_name).label("patient_name"),
+                User.name.label("doctor_name"),
+                Appointment.start_time.label("scheduled_at"),
+                VideoSession.status,
+                VideoSession.duration_seconds,
+                VideoSession.created_at,
+                VideoSession.join_url_doctor,
+            )
+            .join(Appointment, VideoSession.appointment_id == Appointment.id)
+            .join(Patient, Appointment.patient_id == Patient.id)
+            .join(User, Appointment.doctor_id == User.id)
+        )
+        for cond in conditions:
+            data_q = data_q.where(cond)
+
+        data_q = (
+            data_q
+            .order_by(VideoSession.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+
+        result = await db.execute(data_q)
+        rows = result.all()
+
+        items = []
+        for row in rows:
+            duration_minutes = None
+            if row.duration_seconds is not None:
+                duration_minutes = round(row.duration_seconds / 60)
+            items.append({
+                "id": str(row.id),
+                "appointment_id": str(row.appointment_id),
+                "patient_name": row.patient_name,
+                "doctor_name": row.doctor_name,
+                "scheduled_at": row.scheduled_at,
+                "status": row.status,
+                "duration_minutes": duration_minutes,
+                "created_at": row.created_at,
+                "join_url_doctor": row.join_url_doctor,
+            })
+
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+        }
 
     # ── Create session ────────────────────────────────────────────────────────
 

@@ -39,13 +39,14 @@ from app.core.exceptions import DentalOSError
 from app.schemas.video_session import (
     VideoSessionCreate,
     VideoSessionJoinResponse,
+    VideoSessionListResponse,
     VideoSessionResponse,
 )
 from app.services.telemedicine_service import telemedicine_service
 
 logger = logging.getLogger("dentalos.api.telemedicine")
 
-router = APIRouter(tags=["telemedicine"])
+router = APIRouter(prefix="/telemedicine", tags=["telemedicine"])
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -69,6 +70,29 @@ async def _get_tenant_settings(db: AsyncSession) -> dict:
 
 
 # ── Staff endpoints ───────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/sessions",
+    response_model=VideoSessionListResponse,
+    summary="Listar sesiones de telemedicina",
+    description="Retorna una lista paginada de sesiones de video con datos del paciente y doctor.",
+)
+async def list_video_sessions(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: str | None = Query(None, description="Filtrar por estado: created, waiting, active, ended"),
+    current_user: AuthenticatedUser = Depends(require_permission("telemedicine:read")),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> VideoSessionListResponse:
+    """List all video sessions with patient/doctor names for the telemedicine dashboard."""
+    result = await telemedicine_service.list_sessions(
+        db=db,
+        page=page,
+        page_size=page_size,
+        status_filter=status,
+    )
+    return VideoSessionListResponse(**result)
 
 
 @router.post(

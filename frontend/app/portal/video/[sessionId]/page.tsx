@@ -47,7 +47,7 @@ export default function PortalVideoPage() {
   const { data: session, isLoading, isError, refetch } = useQuery({
     queryKey: ["portal-video-session", sessionId],
     queryFn: () =>
-      apiGet<VideoSessionJoin>(`/portal/video-sessions/${sessionId}/join`),
+      apiGet<VideoSessionJoin>(`/telemedicine/portal/video-sessions/${sessionId}/join`),
     retry: false,
     staleTime: 5 * 60_000,
   });

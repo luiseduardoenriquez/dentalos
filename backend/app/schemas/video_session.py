@@ -75,6 +75,41 @@ class VideoSessionResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class VideoSessionListItem(BaseModel):
+    """Single item in the paginated video session list.
+
+    Includes joined data from appointments, patients and users (doctor)
+    that the frontend needs to display the telemedicine sessions table.
+    """
+
+    id: uuid.UUID
+    appointment_id: uuid.UUID
+    patient_name: str = Field(..., description="Patient full name (first + last)")
+    doctor_name: str = Field(..., description="Doctor display name from users.name")
+    scheduled_at: datetime | None = Field(
+        default=None,
+        description="Appointment start_time (used as scheduled_at in the UI)",
+    )
+    status: str = Field(..., description="Session status: created | waiting | active | ended")
+    duration_minutes: int | None = Field(
+        default=None,
+        description="Session duration in minutes (derived from duration_seconds)",
+    )
+    created_at: datetime
+    join_url_doctor: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class VideoSessionListResponse(BaseModel):
+    """Paginated list of video sessions for the telemedicine dashboard."""
+
+    items: list[VideoSessionListItem]
+    total: int
+    page: int
+    page_size: int
+
+
 class VideoSessionJoinResponse(BaseModel):
     """Minimal response returned to the patient portal for joining a session.
 

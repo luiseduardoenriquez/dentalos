@@ -39,7 +39,7 @@ export function VideoCallButton({
   const { data: existingSession, isLoading: isCheckingSession } = useQuery({
     queryKey: ["video-session", appointmentId],
     queryFn: () =>
-      apiGet<VideoSession>(`/appointments/${appointmentId}/video-session`),
+      apiGet<VideoSession>(`/telemedicine/appointments/${appointmentId}/video-session`),
     retry: false,
     staleTime: 5 * 60_000,
   });
@@ -55,7 +55,7 @@ export function VideoCallButton({
   // Create new session mutation
   const { mutate: createSession, isPending: isCreating } = useMutation({
     mutationFn: () =>
-      apiPost<VideoSession>(`/appointments/${appointmentId}/video-session`),
+      apiPost<VideoSession>(`/telemedicine/appointments/${appointmentId}/video-session`),
     onSuccess: (data) => {
       setSessionUrl(data.join_url_doctor);
       setSessionReady(true);
