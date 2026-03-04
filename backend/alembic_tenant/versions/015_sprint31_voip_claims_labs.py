@@ -133,6 +133,8 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
+        sa.Column("is_active", sa.Boolean, nullable=False, server_default=sa.text("true")),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.CheckConstraint(
             "claim_type IN ('outpatient', 'emergency', 'hospitalization', 'dental')",
             name="chk_eps_claims_claim_type",
@@ -145,6 +147,7 @@ def upgrade() -> None:
     op.create_index("idx_eps_claims_patient", "eps_claims", ["patient_id"])
     op.create_index("idx_eps_claims_status", "eps_claims", ["status"])
     op.create_index("idx_eps_claims_submitted_at", "eps_claims", ["submitted_at"])
+    op.create_index("idx_eps_claims_is_active", "eps_claims", ["is_active"])
 
     # ── 3. dental_labs (VP-22 Lab Order Management) ─────────────────────
     op.create_table(

@@ -240,7 +240,7 @@ class PortalDataService:
         """List treatment plans with progress (PP-04)."""
         pid = uuid.UUID(patient_id)
 
-        conditions = [TreatmentPlan.patient_id == pid]
+        conditions = [TreatmentPlan.patient_id == pid, TreatmentPlan.is_active.is_(True)]
 
         if cursor:
             cursor_dt, cursor_id = _decode_cursor(cursor)
@@ -280,10 +280,9 @@ class PortalDataService:
                     Quotation.treatment_plan_id,
                     func.coalesce(func.sum(Invoice.amount_paid), 0).label("paid"),
                 )
-                .join(Invoice, Invoice.id == Quotation.invoice_id)
+                .join(Invoice, Invoice.quotation_id == Quotation.id)
                 .where(
                     Quotation.treatment_plan_id.in_(plan_ids),
-                    Quotation.invoice_id.isnot(None),
                 )
                 .group_by(Quotation.treatment_plan_id)
             )
@@ -304,7 +303,7 @@ class PortalDataService:
                     "name": item.cups_description,
                     "status": item.status,
                     "cost": item.estimated_cost,
-                    "tooth_number": item.tooth_number if hasattr(item, "tooth_number") else None,
+                    "tooth_number": str(item.tooth_number) if hasattr(item, "tooth_number") and item.tooth_number is not None else None,
                 }
                 for item in plan_items
             ]

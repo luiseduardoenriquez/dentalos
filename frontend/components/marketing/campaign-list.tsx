@@ -131,14 +131,20 @@ export function CampaignList({
         </TableHeader>
         <TableBody>
           {campaigns.map((campaign) => {
-            const statusCfg = STATUS_CONFIG[campaign.status];
+            const statusCfg = STATUS_CONFIG[campaign.status] ?? {
+              label: campaign.status ?? "Desconocido",
+              className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+            };
+            const totalSent = campaign.total_sent ?? 0;
+            const totalOpened = campaign.total_opened ?? 0;
+            const totalClicked = campaign.total_clicked ?? 0;
             const openRate =
-              campaign.total_sent > 0
-                ? ((campaign.total_opened / campaign.total_sent) * 100).toFixed(1)
+              totalSent > 0
+                ? ((totalOpened / totalSent) * 100).toFixed(1)
                 : null;
             const clickRate =
-              campaign.total_sent > 0
-                ? ((campaign.total_clicked / campaign.total_sent) * 100).toFixed(1)
+              totalSent > 0
+                ? ((totalClicked / totalSent) * 100).toFixed(1)
                 : null;
 
             return (
@@ -170,14 +176,14 @@ export function CampaignList({
 
                 {/* Sent count */}
                 <TableCell className="text-right tabular-nums text-sm">
-                  {campaign.total_sent.toLocaleString("es-CO")}
+                  {totalSent.toLocaleString("es-CO")}
                 </TableCell>
 
                 {/* Open rate */}
                 <TableCell className="text-right text-sm">
                   {openRate !== null ? (
                     <span>
-                      {campaign.total_opened.toLocaleString("es-CO")}{" "}
+                      {totalOpened.toLocaleString("es-CO")}{" "}
                       <span className="text-xs text-[hsl(var(--muted-foreground))]">
                         ({openRate}%)
                       </span>
@@ -191,7 +197,7 @@ export function CampaignList({
                 <TableCell className="text-right text-sm">
                   {clickRate !== null ? (
                     <span>
-                      {campaign.total_clicked.toLocaleString("es-CO")}{" "}
+                      {totalClicked.toLocaleString("es-CO")}{" "}
                       <span className="text-xs text-[hsl(var(--muted-foreground))]">
                         ({clickRate}%)
                       </span>

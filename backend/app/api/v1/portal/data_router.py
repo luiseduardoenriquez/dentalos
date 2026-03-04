@@ -8,6 +8,7 @@ Endpoint map:
   GET  /portal/documents            — PP-07: Document list
   GET  /portal/messages             — PP-10: Message threads
   GET  /portal/odontogram           — PP-13: Read-only odontogram
+  GET  /portal/postop               — Post-operative instructions (stub)
 """
 
 from fastapi import APIRouter, Depends, Query
@@ -154,6 +155,18 @@ async def get_portal_membership(
     )
     subscription = subs["items"][0] if subs["items"] else None
     return {"has_membership": True, "subscription": subscription}
+
+
+@router.get("/postop")
+async def get_portal_postop(
+    portal_user: PortalUser = Depends(get_current_portal_user),
+) -> dict:
+    """Get post-operative instructions for the patient.
+
+    Stub endpoint — returns empty list until PostopInstruction model
+    is implemented to track sent instructions.
+    """
+    return {"items": [], "total": 0}
 
 
 @router.get("/odontogram", response_model=PortalOdontogramResponse)

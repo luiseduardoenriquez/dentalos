@@ -59,8 +59,10 @@ class LeaderboardEntry(BaseModel):
 class PortalLoyaltyResponse(BaseModel):
     """Patient portal view of loyalty balance and recent transactions."""
 
-    balance: PointsBalance
-    recent_transactions: list[TransactionResponse]
+    points_balance: int
+    lifetime_points_earned: int
+    lifetime_points_redeemed: int
+    transactions: list[TransactionResponse]
 
 
 class LeaderboardResponse(BaseModel):

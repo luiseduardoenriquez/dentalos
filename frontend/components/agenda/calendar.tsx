@@ -45,7 +45,12 @@ export interface CalendarProps {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function toISODate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
 function addDays(date: Date, days: number): Date {

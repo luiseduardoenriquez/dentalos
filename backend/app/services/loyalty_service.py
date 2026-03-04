@@ -202,8 +202,10 @@ class LoyaltyService:
         transactions = result.scalars().all()
 
         return {
-            "balance": balance,
-            "recent_transactions": [
+            "points_balance": balance.get("points_balance", 0),
+            "lifetime_points_earned": balance.get("lifetime_earned", 0),
+            "lifetime_points_redeemed": balance.get("lifetime_redeemed", 0),
+            "transactions": [
                 self._transaction_to_dict(t) for t in transactions
             ],
         }

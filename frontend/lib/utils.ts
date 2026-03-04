@@ -34,6 +34,7 @@ export function formatCurrency(cents: number, currency = "COP"): string {
 export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOptions): string {
   return new Intl.DateTimeFormat("es-CO", {
     dateStyle: "medium",
+    timeZone: "America/Bogota",
     ...options,
   }).format(new Date(date));
 }
@@ -47,6 +48,7 @@ export function formatDateTime(date: string | Date): string {
   return new Intl.DateTimeFormat("es-CO", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "America/Bogota",
   }).format(new Date(date));
 }
 
@@ -58,6 +60,7 @@ export function formatDateTime(date: string | Date): string {
 export function formatTime(date: string | Date): string {
   return new Intl.DateTimeFormat("es-CO", {
     timeStyle: "short",
+    timeZone: "America/Bogota",
   }).format(new Date(date));
 }
 

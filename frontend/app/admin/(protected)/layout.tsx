@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminShell } from "@/components/layout/admin-shell";
 import { useAdminAuthStore, clearAdminToken } from "@/lib/hooks/use-admin-auth";
@@ -85,13 +85,23 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { admin, is_authenticated, is_loading, clear_admin_auth } =
     useAdminAuthStore();
+  const [hasMounted, setHasMounted] = useState(false);
 
-  // Redirect to login when the store is empty (page reload or expired session)
   useEffect(() => {
-    if (!is_loading && !is_authenticated) {
+    setHasMounted(true);
+  }, []);
+
+  // Redirect to login when the store is empty (page reload or expired session).
+  // Wait for mount to avoid spurious redirect during client-side navigation.
+  // Clear the session cookie BEFORE redirecting so the middleware doesn't
+  // bounce us back to /admin/dashboard (cookie exists → middleware redirects
+  // /admin/login → /admin/dashboard → layout sees empty store → loop).
+  useEffect(() => {
+    if (hasMounted && !is_loading && !is_authenticated) {
+      clearAdminToken();
       router.replace("/admin/login");
     }
-  }, [is_loading, is_authenticated, router]);
+  }, [hasMounted, is_loading, is_authenticated, router]);
 
   function handleSignOut() {
     clearAdminToken();
@@ -99,8 +109,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     router.replace("/admin/login");
   }
 
-  // Show skeleton during brief state transitions
-  if (is_loading) {
+  // Show skeleton until mounted and during brief state transitions
+  if (!hasMounted || is_loading) {
     return <AdminLoadingSkeleton />;
   }
 

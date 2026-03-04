@@ -179,7 +179,16 @@ export function TimeGrid({
  */
 export function getTopOffset(isoDatetime: string, startHour = 7): number {
   const date = new Date(isoDatetime);
-  const hours = date.getHours() + date.getMinutes() / 60;
+  const cotFormatter = new Intl.DateTimeFormat("es-CO", {
+    timeZone: "America/Bogota",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  });
+  const parts = cotFormatter.formatToParts(date);
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const m = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  const hours = h + m / 60;
   const offset_from_start = hours - startHour;
   return Math.max(0, offset_from_start * HOUR_HEIGHT_PX);
 }

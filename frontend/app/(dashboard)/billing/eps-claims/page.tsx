@@ -114,22 +114,22 @@ export default function EPSClaimsPage() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <AgingCard
             label="0–30 días"
-            amount={aging.buckets_0_30}
+            amount={aging["0_30"]}
             colorClass="text-green-600 dark:text-green-400"
           />
           <AgingCard
             label="31–60 días"
-            amount={aging.buckets_31_60}
+            amount={aging["31_60"]}
             colorClass="text-yellow-600 dark:text-yellow-400"
           />
           <AgingCard
             label="61–90 días"
-            amount={aging.buckets_61_90}
+            amount={aging["61_90"]}
             colorClass="text-orange-600 dark:text-orange-400"
           />
           <AgingCard
             label="+90 días"
-            amount={aging.buckets_90_plus}
+            amount={aging["90_plus"]}
             colorClass="text-red-600 dark:text-red-400"
           />
         </div>

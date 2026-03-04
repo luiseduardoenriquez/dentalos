@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import DentalOSError, ResourceNotFoundError
 from app.models.tenant.chatbot import ChatbotConversation, ChatbotMessage
+from app.models.tenant.patient import Patient
 from app.services.chatbot_engine import chatbot_engine
 
 logger = logging.getLogger("dentalos.chatbot")
@@ -31,16 +32,36 @@ def _conversation_to_dict(
     c: ChatbotConversation,
     include_messages: bool = False,
     messages: list[ChatbotMessage] | None = None,
+    patient_name: str | None = None,
+    patient_phone: str | None = None,
+    message_count: int = 0,
 ) -> dict[str, Any]:
     """Convert a ChatbotConversation ORM object to a serialisable dict."""
+    intent_history = c.intent_history if c.intent_history else []
+    last_intent = intent_history[-1] if intent_history else None
+    # Extract last intent string — may be a dict or plain string
+    last_intent_str = None
+    intent_confidence = None
+    if isinstance(last_intent, dict):
+        last_intent_str = last_intent.get("intent")
+        intent_confidence = last_intent.get("confidence")
+    elif isinstance(last_intent, str):
+        last_intent_str = last_intent
+
     result: dict[str, Any] = {
         "id": str(c.id),
         "channel": c.channel,
         "patient_id": str(c.patient_id) if c.patient_id else None,
+        "patient_name": patient_name,
+        "patient_phone": patient_phone,
         "status": c.status,
-        "intent_history": c.intent_history if c.intent_history else [],
+        "last_intent": last_intent_str,
+        "intent_confidence": intent_confidence,
+        "intent_history": intent_history,
         "started_at": c.started_at,
+        "updated_at": c.resolved_at or c.started_at,
         "resolved_at": c.resolved_at,
+        "message_count": message_count,
     }
     if include_messages and messages is not None:
         result["messages"] = [_message_to_dict(m) for m in messages]
@@ -336,9 +357,17 @@ class ChatbotService:
             count_q = count_q.where(*conditions)
         total = (await db.execute(count_q)).scalar_one()
 
-        # Fetch page
+        # Fetch page with patient info via LEFT JOIN
         offset = (page - 1) * page_size
-        query = select(ChatbotConversation)
+        query = (
+            select(
+                ChatbotConversation,
+                Patient.first_name,
+                Patient.last_name,
+                Patient.phone,
+            )
+            .outerjoin(Patient, Patient.id == ChatbotConversation.patient_id)
+        )
         if conditions:
             query = query.where(*conditions)
         query = (
@@ -347,10 +376,38 @@ class ChatbotService:
             .offset(offset)
             .limit(page_size)
         )
-        rows = (await db.execute(query)).scalars().all()
+        rows = (await db.execute(query)).all()
+
+        # Get message counts per conversation
+        conv_ids = [row[0].id for row in rows]
+        msg_counts: dict[uuid.UUID, int] = {}
+        if conv_ids:
+            count_result = await db.execute(
+                select(
+                    ChatbotMessage.conversation_id,
+                    func.count(ChatbotMessage.id).label("cnt"),
+                )
+                .where(ChatbotMessage.conversation_id.in_(conv_ids))
+                .group_by(ChatbotMessage.conversation_id)
+            )
+            msg_counts = {r.conversation_id: r.cnt for r in count_result.all()}
+
+        items = []
+        for row in rows:
+            conv = row[0]
+            first_name = row[1]
+            last_name = row[2]
+            phone = row[3]
+            patient_name = f"{first_name} {last_name}" if first_name else None
+            items.append(_conversation_to_dict(
+                conv,
+                patient_name=patient_name,
+                patient_phone=phone,
+                message_count=msg_counts.get(conv.id, 0),
+            ))
 
         return {
-            "items": [_conversation_to_dict(c) for c in rows],
+            "items": items,
             "total": total,
             "page": page,
             "page_size": page_size,

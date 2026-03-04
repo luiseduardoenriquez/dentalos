@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "@/lib/api-client";
+import { portalApiGet } from "@/lib/portal-api-client";
 import {
   Card,
   CardContent,
@@ -58,7 +58,7 @@ const TRANSACTION_CONFIG: Record<
 export default function PortalLoyaltyPage() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["portal-loyalty"],
-    queryFn: () => apiGet<LoyaltyData>("/portal/loyalty"),
+    queryFn: () => portalApiGet<LoyaltyData>("/portal/loyalty"),
     staleTime: 60_000,
   });
 

@@ -52,10 +52,10 @@ export interface EPSClaimCreate {
 }
 
 export interface AgingReport {
-  buckets_0_30: number;
-  buckets_31_60: number;
-  buckets_61_90: number;
-  buckets_90_plus: number;
+  "0_30": number;
+  "31_60": number;
+  "61_90": number;
+  "90_plus": number;
 }
 
 // ─── Query Keys ───────────────────────────────────────────────────────────────

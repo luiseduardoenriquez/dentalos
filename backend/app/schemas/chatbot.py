@@ -5,6 +5,7 @@ management.  All JSON field names use snake_case per project convention.
 """
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -73,10 +74,16 @@ class ChatbotConversationResponse(BaseModel):
     id: str
     channel: str
     patient_id: str | None = None
+    patient_name: str | None = None
+    patient_phone: str | None = None
     status: str
-    intent_history: list[dict] = Field(default_factory=list)
+    last_intent: str | None = None
+    intent_confidence: float | None = None
+    intent_history: list[Any] = Field(default_factory=list)
     started_at: datetime
+    updated_at: datetime | None = None
     resolved_at: datetime | None = None
+    message_count: int = 0
     messages: list[ChatbotMessageResponse] | None = None
 
 
