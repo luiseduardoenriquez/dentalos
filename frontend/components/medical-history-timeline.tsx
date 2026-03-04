@@ -65,8 +65,15 @@ interface TimelineItemProps {
   isLast: boolean;
 }
 
+const DEFAULT_EVENT_CONFIG: EventConfig = {
+  icon: ClipboardList,
+  label: "Evento",
+  iconClass: "text-secondary-600 dark:text-secondary-400",
+  badgeVariant: "secondary",
+};
+
 function TimelineItem({ event, isLast }: TimelineItemProps) {
-  const config = EVENT_CONFIG[event.event_type];
+  const config = EVENT_CONFIG[event.event_type] ?? DEFAULT_EVENT_CONFIG;
   const Icon = config.icon;
 
   return (
@@ -148,7 +155,7 @@ export function MedicalHistoryTimeline({ patientId }: MedicalHistoryTimelineProp
   const [cursor, setCursor] = React.useState<string | undefined>(undefined);
   const [initialized, setInitialized] = React.useState(false);
 
-  const { data, isLoading, isFetching } = useMedicalHistory(patientId, cursor);
+  const { data, isLoading, isError, isFetching } = useMedicalHistory(patientId, cursor);
 
   // Append new events when data arrives
   React.useEffect(() => {
@@ -187,6 +194,22 @@ export function MedicalHistoryTimeline({ patientId }: MedicalHistoryTimelineProp
     );
   }
 
+  // ─── Error state ──────────────────────────────────────────────────────────
+
+  if (isError && !initialized) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-4">
+        <ClipboardList className="h-10 w-10 text-[hsl(var(--muted-foreground))]" />
+        <div>
+          <p className="text-sm font-medium text-foreground">Error al cargar el historial</p>
+          <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
+            No se pudo obtener el historial médico. Intenta recargar la página.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // ─── Empty state ────────────────────────────────────────────────────────────
 
   if (initialized && allEvents.length === 0) {
@@ -210,7 +233,7 @@ export function MedicalHistoryTimeline({ patientId }: MedicalHistoryTimelineProp
       <ul className="relative list-none p-0 m-0" aria-label="Historial médico del paciente">
         {allEvents.map((event, idx) => (
           <TimelineItem
-            key={event.id}
+            key={`${event.id}-${idx}`}
             event={event}
             isLast={idx === allEvents.length - 1 && !data?.has_more}
           />
