@@ -61,7 +61,7 @@ export function useConsentTemplates() {
     queryKey: CONSENT_TEMPLATES_QUERY_KEY,
     queryFn: async () => {
       const response = await apiGet<ConsentTemplateListResponse>("/consent-templates");
-      return response.items;
+      return response.items ?? [];
     },
     staleTime: 5 * 60_000, // 5 minutes — templates change rarely
   });

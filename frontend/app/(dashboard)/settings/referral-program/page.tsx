@@ -111,12 +111,12 @@ export default function ReferralProgramPage() {
     );
   }
 
-  const totalDiscountFormatted = (stats.total_discount_given_cents / 100).toLocaleString(
+  const totalDiscountFormatted = ((stats.total_discount_given_cents ?? 0) / 100).toLocaleString(
     "es-CO",
     { style: "currency", currency: "COP", minimumFractionDigits: 0 },
   );
 
-  const rewardValueFormatted = (stats.reward_value_cents / 100).toLocaleString(
+  const rewardValueFormatted = ((stats.reward_value_cents ?? 0) / 100).toLocaleString(
     "es-CO",
     { style: "currency", currency: "COP", minimumFractionDigits: 0 },
   );
@@ -158,7 +158,7 @@ export default function ReferralProgramPage() {
       </div>
 
       {/* Reward config banner */}
-      {stats.reward_value_cents > 0 && (
+      {(stats.reward_value_cents ?? 0) > 0 && (
         <div className="rounded-xl border border-teal-200 bg-teal-50 dark:bg-teal-950/20 dark:border-teal-800 px-5 py-4 flex items-start gap-3">
           <Gift className="h-5 w-5 text-teal-600 mt-0.5 flex-shrink-0" />
           <div>

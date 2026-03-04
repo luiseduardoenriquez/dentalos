@@ -95,6 +95,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // Triggers GET /auth/me — hydrates store, redirects on 401
   useMe();
 
+  // Timeout guard: if still loading after 10s, force redirect to login
+  useEffect(() => {
+    if (!is_loading) return;
+    const timeout = setTimeout(() => {
+      if (useAuthStore.getState().is_loading) {
+        clearAccessToken();
+        useAuthStore.getState().clear_auth();
+        router.replace("/login");
+      }
+    }, 10_000);
+    return () => clearTimeout(timeout);
+  }, [is_loading, router]);
+
   // Real-time unread notification count (polls every 30s)
   const { data: unreadCount } = useUnreadCount();
 

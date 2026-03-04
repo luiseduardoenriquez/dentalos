@@ -199,12 +199,14 @@ export default function ProfitLossPage() {
     );
   }
 
+  if (!data) return null;
+
   const maxRevenue = Math.max(
-    ...(data?.revenue_by_payment_method.map((m) => m.amount_cents) ?? [1]),
+    ...(data.revenue_by_payment_method?.map((m) => m.amount_cents) ?? [1]),
     1,
   );
   const maxExpense = Math.max(
-    ...(data?.expenses_by_category.map((c) => c.amount_cents) ?? [1]),
+    ...(data.expenses_by_category?.map((c) => c.amount_cents) ?? [1]),
     1,
   );
 
@@ -271,8 +273,8 @@ export default function ProfitLossPage() {
             icon={Minus}
             variant="net"
             subtitle={
-              data.profit_margin_percent !== undefined
-                ? `Margen: ${data.profit_margin_percent.toFixed(1)}%`
+              data.profit_margin_percent != null
+                ? `Margen: ${(data.profit_margin_percent ?? 0).toFixed(1)}%`
                 : undefined
             }
           />
@@ -302,13 +304,13 @@ export default function ProfitLossPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {data.revenue_by_payment_method.length === 0 ? (
+                {(data.revenue_by_payment_method ?? []).length === 0 ? (
                   <p className="text-sm text-[hsl(var(--muted-foreground))] text-center py-6">
                     Sin datos de ingresos.
                   </p>
                 ) : (
                   <div className="space-y-4">
-                    {data.revenue_by_payment_method.map((row) => (
+                    {(data.revenue_by_payment_method ?? []).map((row) => (
                       <div key={row.method} className="space-y-1.5">
                         <div className="flex items-center justify-between text-sm">
                           <span className="font-medium text-foreground">
@@ -344,13 +346,13 @@ export default function ProfitLossPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {data.expenses_by_category.length === 0 ? (
+                {(data.expenses_by_category ?? []).length === 0 ? (
                   <p className="text-sm text-[hsl(var(--muted-foreground))] text-center py-6">
                     Sin datos de egresos.
                   </p>
                 ) : (
                   <div className="space-y-4">
-                    {data.expenses_by_category.map((row) => (
+                    {(data.expenses_by_category ?? []).map((row) => (
                       <div key={row.category_id} className="space-y-1.5">
                         <div className="flex items-center justify-between text-sm">
                           <span className="font-medium text-foreground">

@@ -27,6 +27,10 @@ export const metadata: Metadata = {
   authors: [{ name: "DentalOS" }],
   manifest: "/manifest.json",
   icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192.png", type: "image/png", sizes: "192x192" },
+    ],
     apple: "/icons/icon-192.png",
   },
   robots: {

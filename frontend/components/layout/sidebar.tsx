@@ -21,6 +21,14 @@ import {
   Phone,
   FlaskConical,
   Video,
+  Sunrise,
+  CreditCard,
+  ClipboardList,
+  RefreshCcw,
+  Star,
+  Handshake,
+  Wallet,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -134,6 +142,54 @@ const NAV_ITEMS: NavItem[] = [
     label: "Inventario",
     icon: Package,
     roles: ["clinic_owner", "assistant"],
+  },
+  {
+    href: "/huddle",
+    label: "Huddle",
+    icon: Sunrise,
+    roles: ["clinic_owner", "doctor"],
+  },
+  {
+    href: "/memberships",
+    label: "Membresías",
+    icon: CreditCard,
+    roles: ["clinic_owner"],
+  },
+  {
+    href: "/intake",
+    label: "Intake",
+    icon: ClipboardList,
+    roles: ["clinic_owner", "receptionist"],
+  },
+  {
+    href: "/recall",
+    label: "Recall",
+    icon: RefreshCcw,
+    roles: ["clinic_owner"],
+  },
+  {
+    href: "/reputation",
+    label: "Reputación",
+    icon: Star,
+    roles: ["clinic_owner"],
+  },
+  {
+    href: "/convenios",
+    label: "Convenios",
+    icon: Handshake,
+    roles: ["clinic_owner"],
+  },
+  {
+    href: "/financing",
+    label: "Financiamiento",
+    icon: Wallet,
+    roles: ["clinic_owner"],
+  },
+  {
+    href: "/chatbot",
+    label: "Chatbot",
+    icon: Bot,
+    roles: ["clinic_owner"],
   },
   {
     href: "/settings",

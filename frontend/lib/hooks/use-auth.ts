@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { clearAccessToken } from "@/lib/auth";
 
 // ─── Backend Response Types (snake_case — never convert to camelCase) ──────────
 
@@ -175,6 +176,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   clear_auth: () => {
+    clearAccessToken();
     set({
       user: null,
       tenant: null,

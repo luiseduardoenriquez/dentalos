@@ -70,8 +70,9 @@ export function ReferralShareCard() {
   }
 
   function buildWhatsAppUrl() {
-    if (!referral) return "#";
-    const message = `¡Te invito a conocer mi clínica dental! Usa mi código *${referral.referral_code}* o ingresa aquí: ${referral.referral_url}`;
+    if (!referral?.referral_code) return "#";
+    const portalUrl = referral.referral_url ?? `${typeof window !== "undefined" ? window.location.origin : ""}/portal/register`;
+    const message = `¡Te invito a conocer mi clínica dental! Usa mi código *${referral.referral_code}* o ingresa aquí: ${portalUrl}`;
     return `https://wa.me/?text=${encodeURIComponent(message)}`;
   }
 
@@ -167,7 +168,7 @@ export function ReferralShareCard() {
         </div>
 
         {/* QR code */}
-        {showQR && (
+        {showQR && referral.referral_url && (
           <div className="flex justify-center">
             <QRCodeImage value={referral.referral_url} size={180} />
           </div>

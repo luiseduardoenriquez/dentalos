@@ -277,11 +277,12 @@ export default function DashboardPage() {
 
   // ── Role-based welcome subtitle ──────────────────────────────────────────
   let welcomeSubtitle: React.ReactNode;
+  const clinicName = tenant?.name ?? "tu clínica";
   if (role === "clinic_owner") {
     welcomeSubtitle = (
       <>
         Panel de{" "}
-        <span className="font-medium text-foreground">{tenant?.name}</span>
+        <span className="font-medium text-foreground">{clinicName}</span>
         {" "}— aquí tienes el resumen de hoy.
       </>
     );
@@ -289,14 +290,14 @@ export default function DashboardPage() {
     welcomeSubtitle = (
       <>
         Tu resumen personal —{" "}
-        <span className="font-medium text-foreground">{tenant?.name}</span>.
+        <span className="font-medium text-foreground">{clinicName}</span>.
       </>
     );
   } else {
     welcomeSubtitle = (
       <>
         Panel de{" "}
-        <span className="font-medium text-foreground">{tenant?.name}</span>.
+        <span className="font-medium text-foreground">{clinicName}</span>.
       </>
     );
   }

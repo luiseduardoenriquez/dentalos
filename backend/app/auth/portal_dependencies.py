@@ -7,6 +7,7 @@ Security invariants:
   - Tenant resolution uses the same path as staff (Redis cache -> DB lookup)
 """
 import logging
+import uuid as uuid_mod
 
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -19,7 +20,7 @@ from app.core.database import get_db
 from app.core.exceptions import AuthError
 from app.core.security import decode_access_token
 from app.core.tenant import TenantContext, set_current_tenant
-from app.services.tenant_service import get_tenant_with_plan
+from app.services.tenant_service import get_tenant_with_plan, get_tenant_by_slug
 
 logger = logging.getLogger("dentalos.portal_auth")
 
@@ -46,8 +47,18 @@ async def resolve_portal_tenant_from_body(
             status_code=422,
         )
 
+    # Try UUID first, fall back to slug lookup
     try:
-        tenant_ctx = await get_tenant_with_plan(tenant_id, db)
+        uuid_mod.UUID(tenant_id)
+        is_uuid = True
+    except ValueError:
+        is_uuid = False
+
+    try:
+        if is_uuid:
+            tenant_ctx = await get_tenant_with_plan(tenant_id, db)
+        else:
+            tenant_ctx = await get_tenant_by_slug(tenant_id, db)
     except Exception:
         raise AuthError(
             error="AUTH_tenant_not_found",

@@ -18,6 +18,7 @@ import {
   FileText,
   Scale,
   ScrollText,
+  Gift,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -208,6 +209,18 @@ const SETTINGS_GROUPS: SettingsLinkGroup[] = [
         icon: Scale,
         label: "Cumplimiento",
         description: "Resolución 1888, RIPS y normativa",
+        ownerOnly: true,
+      },
+    ],
+  },
+  {
+    title: "Crecimiento",
+    links: [
+      {
+        href: "/settings/referral-program",
+        icon: Gift,
+        label: "Programa de referidos",
+        description: "Códigos, estadísticas y activación del programa",
         ownerOnly: true,
       },
     ],

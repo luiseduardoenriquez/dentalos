@@ -331,7 +331,7 @@ function PortalLoginContent() {
                   type="text"
                   value={tenantId}
                   onChange={(e) => setTenantId(e.target.value)}
-                  placeholder="ID de la clínica"
+                  placeholder="Código de la clínica (ej: clinica-demo-dental)"
                   required
                   className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />

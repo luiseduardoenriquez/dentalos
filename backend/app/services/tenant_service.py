@@ -78,6 +78,49 @@ async def get_tenant_with_plan(tenant_id: str, db: AsyncSession) -> TenantContex
     return ctx
 
 
+async def get_tenant_by_slug(slug: str, db: AsyncSession) -> TenantContext:
+    """Resolve a tenant by slug — DB lookup, then cache.
+
+    Used by portal login where patients enter the clinic slug instead of UUID.
+    """
+    stmt = (
+        select(Tenant)
+        .where(Tenant.slug == slug)
+        .where(Tenant.status.in_(["active", "suspended"]))
+    )
+    result = await db.execute(stmt)
+    tenant = result.scalar_one_or_none()
+
+    if not tenant:
+        raise ResourceNotFoundError(error="TENANT_not_found", resource_name="Tenant")
+
+    plan = tenant.plan
+
+    ctx = TenantContext(
+        tenant_id=str(tenant.id),
+        schema_name=tenant.schema_name,
+        plan_id=str(tenant.plan_id),
+        plan_name=plan.name if plan else "unknown",
+        country_code=tenant.country_code,
+        timezone=tenant.timezone,
+        currency_code=tenant.currency_code,
+        status=tenant.status,
+        features={**(plan.features if plan else {}), **(tenant.addons or {})},
+        limits={
+            "max_patients": plan.max_patients if plan else 0,
+            "max_doctors": plan.max_doctors if plan else 0,
+            "max_users": plan.max_users if plan else 0,
+            "max_storage_mb": plan.max_storage_mb if plan else 0,
+        },
+    )
+
+    # Cache in Redis
+    cache_key = _cache_key(str(tenant.id))
+    await set_cached(cache_key, asdict(ctx), TENANT_CACHE_TTL)
+
+    return ctx
+
+
 async def invalidate_tenant_cache(tenant_id: str) -> None:
     """Invalidate the cached tenant context."""
     await cache_delete(_cache_key(tenant_id))

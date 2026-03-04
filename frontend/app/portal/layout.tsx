@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -43,6 +43,9 @@ const PORTAL_NAV_ITEMS = [
   { href: "/portal/messages", label: "Mensajes", icon: "💬" },
   { href: "/portal/invoices", label: "Pagos", icon: "💳" },
   { href: "/portal/odontogram", label: "Odontograma", icon: "🦷" },
+  { href: "/portal/postop", label: "Instrucciones", icon: "📝" },
+  { href: "/portal/loyalty", label: "Puntos", icon: "⭐" },
+  { href: "/portal/referral", label: "Referidos", icon: "🎁" },
 ];
 
 function PortalNavbar({
@@ -175,6 +178,18 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
     clear_portal_auth();
     router.replace("/portal/login");
   }
+
+  // Timeout guard: if still loading after 10s, force redirect to portal login
+  useEffect(() => {
+    if (isLoginPage || !is_loading) return;
+    const timeout = setTimeout(() => {
+      if (usePortalAuthStore.getState().is_loading) {
+        usePortalAuthStore.getState().clear_portal_auth();
+        router.replace("/portal/login");
+      }
+    }, 10_000);
+    return () => clearTimeout(timeout);
+  }, [is_loading, isLoginPage, router]);
 
   // Login page: no shell
   if (isLoginPage) {

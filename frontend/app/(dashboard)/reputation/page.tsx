@@ -253,11 +253,11 @@ export default function ReputationDashboardPage() {
                 npsColor(dashboard.nps_score),
               )}
             >
-              {dashboard.nps_score > 0 ? "+" : ""}
-              {dashboard.nps_score}
+              {(dashboard.nps_score ?? 0) > 0 ? "+" : ""}
+              {dashboard.nps_score ?? 0}
             </p>
             <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-              {dashboard.promoters_count} promotores · {dashboard.detractors_count} detractores
+              {dashboard.promoters_count ?? 0} promotores · {dashboard.detractors_count ?? 0} detractores
             </p>
           </CardContent>
         </Card>
@@ -272,10 +272,10 @@ export default function ReputationDashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-4xl font-bold tabular-nums text-foreground">
-              {dashboard.average_rating.toFixed(1)}
+              {(dashboard.average_rating ?? 0).toFixed(1)}
             </p>
             <div className="mt-1">
-              <StarRating score={Math.round(dashboard.average_rating)} />
+              <StarRating score={Math.round(dashboard.average_rating ?? 0)} />
             </div>
           </CardContent>
         </Card>
@@ -290,7 +290,7 @@ export default function ReputationDashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-4xl font-bold tabular-nums text-foreground">
-              {dashboard.total_surveys.toLocaleString("es-CO")}
+              {(dashboard.total_surveys ?? 0).toLocaleString("es-CO")}
             </p>
             <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
               Total acumulado
@@ -308,7 +308,7 @@ export default function ReputationDashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-4xl font-bold tabular-nums text-foreground">
-              {dashboard.response_rate.toFixed(0)}%
+              {(dashboard.response_rate ?? 0).toFixed(0)}%
             </p>
             <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
               De encuestas enviadas
@@ -337,14 +337,14 @@ export default function ReputationDashboardPage() {
                   className="h-full rounded-full bg-green-500 transition-all"
                   style={{
                     width:
-                      dashboard.total_surveys > 0
-                        ? `${(dashboard.promoters_count / dashboard.total_surveys) * 100}%`
+                      (dashboard.total_surveys ?? 0) > 0
+                        ? `${((dashboard.promoters_count ?? 0) / (dashboard.total_surveys ?? 1)) * 100}%`
                         : "0%",
                   }}
                 />
               </div>
               <span className="w-8 text-right text-sm font-medium tabular-nums text-foreground shrink-0">
-                {dashboard.promoters_count}
+                {dashboard.promoters_count ?? 0}
               </span>
             </div>
             {/* Pasivos */}
@@ -357,14 +357,14 @@ export default function ReputationDashboardPage() {
                   className="h-full rounded-full bg-yellow-400 transition-all"
                   style={{
                     width:
-                      dashboard.total_surveys > 0
-                        ? `${(dashboard.passives_count / dashboard.total_surveys) * 100}%`
+                      (dashboard.total_surveys ?? 0) > 0
+                        ? `${((dashboard.passives_count ?? 0) / (dashboard.total_surveys ?? 1)) * 100}%`
                         : "0%",
                   }}
                 />
               </div>
               <span className="w-8 text-right text-sm font-medium tabular-nums text-foreground shrink-0">
-                {dashboard.passives_count}
+                {dashboard.passives_count ?? 0}
               </span>
             </div>
             {/* Detractores */}
@@ -377,14 +377,14 @@ export default function ReputationDashboardPage() {
                   className="h-full rounded-full bg-red-500 transition-all"
                   style={{
                     width:
-                      dashboard.total_surveys > 0
-                        ? `${(dashboard.detractors_count / dashboard.total_surveys) * 100}%`
+                      (dashboard.total_surveys ?? 0) > 0
+                        ? `${((dashboard.detractors_count ?? 0) / (dashboard.total_surveys ?? 1)) * 100}%`
                         : "0%",
                   }}
                 />
               </div>
               <span className="w-8 text-right text-sm font-medium tabular-nums text-foreground shrink-0">
-                {dashboard.detractors_count}
+                {dashboard.detractors_count ?? 0}
               </span>
             </div>
           </div>

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Receipt,
   AlertTriangle,
@@ -203,6 +204,44 @@ const invoiceColumns: ColumnDef<InvoiceSummaryItem>[] = [
   },
 ];
 
+// ─── Sub-page Navigation ─────────────────────────────────────────────────────
+
+const BILLING_TABS = [
+  { href: "/billing", label: "Facturas", exact: true },
+  { href: "/billing/cash-register", label: "Caja" },
+  { href: "/billing/expenses", label: "Gastos" },
+  { href: "/billing/eps-claims", label: "EPS" },
+  { href: "/billing/commissions", label: "Comisiones" },
+  { href: "/billing/tasks", label: "Tareas" },
+];
+
+function BillingSubNav() {
+  const pathname = usePathname();
+  return (
+    <nav className="flex gap-1 border-b border-[hsl(var(--border))]">
+      {BILLING_TABS.map((tab) => {
+        const isActive = tab.exact
+          ? pathname === tab.href
+          : pathname === tab.href || pathname.startsWith(tab.href + "/");
+        return (
+          <Link
+            key={tab.href}
+            href={tab.href}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+              isActive
+                ? "border-primary-600 text-primary-700 dark:text-primary-300"
+                : "border-transparent text-[hsl(var(--muted-foreground))] hover:text-foreground hover:border-[hsl(var(--border))]",
+            )}
+          >
+            {tab.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BillingPage() {
@@ -239,6 +278,9 @@ export default function BillingPage() {
           </h1>
         </div>
       </div>
+
+      {/* Sub-page navigation */}
+      <BillingSubNav />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

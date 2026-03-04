@@ -114,7 +114,21 @@ export function middleware(request: NextRequest): NextResponse {
     pathname.startsWith("/reports") ||
     pathname.startsWith("/analytics") ||
     pathname.startsWith("/compliance") ||
-    pathname.startsWith("/inventory");
+    pathname.startsWith("/inventory") ||
+    pathname.startsWith("/whatsapp") ||
+    pathname.startsWith("/marketing") ||
+    pathname.startsWith("/chatbot") ||
+    pathname.startsWith("/calls") ||
+    pathname.startsWith("/lab-orders") ||
+    pathname.startsWith("/telemedicine") ||
+    pathname.startsWith("/recall") ||
+    pathname.startsWith("/intake") ||
+    pathname.startsWith("/reputation") ||
+    pathname.startsWith("/memberships") ||
+    pathname.startsWith("/convenios") ||
+    pathname.startsWith("/financing") ||
+    pathname.startsWith("/referral-program") ||
+    pathname.startsWith("/huddle");
 
   const isPortalRoute = pathname.startsWith("/portal");
 
