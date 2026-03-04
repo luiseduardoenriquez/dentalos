@@ -232,3 +232,49 @@ class OnboardingStepResponse(BaseModel):
     current_step: int
     completed: bool
     message: str
+
+
+# ─── Plan Upgrade ──────────────────────────────────────────
+
+
+class AvailablePlanItem(BaseModel):
+    """Single plan available for selection in the upgrade dialog."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    slug: str
+    description: str | None
+    price_cents: int
+    currency: str
+    pricing_model: str
+    included_doctors: int
+    max_patients: int
+    max_doctors: int
+    max_users: int
+    max_storage_mb: int
+    features: dict[str, Any]
+    sort_order: int
+
+
+class AvailablePlansResponse(BaseModel):
+    """List of plans with the current plan identified."""
+
+    current_plan_slug: str
+    plans: list[AvailablePlanItem]
+
+
+class ChangePlanRequest(BaseModel):
+    """Request to switch the tenant's subscription plan."""
+
+    plan_id: str = Field(description="UUID of the target plan")
+
+
+class ChangePlanResponse(BaseModel):
+    """Response after a successful plan change."""
+
+    success: bool
+    new_plan_name: str
+    new_plan_slug: str
+    message: str

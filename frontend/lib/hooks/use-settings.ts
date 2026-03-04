@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPut } from "@/lib/api-client";
+import { apiGet, apiPost, apiPut } from "@/lib/api-client";
 import { useToast } from "@/lib/hooks/use-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -48,6 +48,7 @@ export const SETTINGS_QUERY_KEY = ["settings"] as const;
 export const USAGE_QUERY_KEY = ["settings", "usage"] as const;
 export const PLAN_LIMITS_QUERY_KEY = ["settings", "plan-limits"] as const;
 export const ADDONS_QUERY_KEY = ["settings", "addons"] as const;
+export const AVAILABLE_PLANS_QUERY_KEY = ["settings", "available-plans"] as const;
 
 // ─── useSettings ──────────────────────────────────────────────────────────────
 
@@ -175,6 +176,82 @@ export function useToggleAddon() {
           ? err.message
           : "No se pudo actualizar el complemento. Inténtalo de nuevo.";
       error("Error al actualizar complemento", message);
+    },
+  });
+}
+
+// ─── Plan Upgrade Types ──────────────────────────────────────────────────────
+
+export interface AvailablePlanItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  price_cents: number;
+  currency: string;
+  pricing_model: string;
+  included_doctors: number;
+  max_patients: number;
+  max_doctors: number;
+  max_users: number;
+  max_storage_mb: number;
+  features: Record<string, boolean>;
+  sort_order: number;
+}
+
+export interface AvailablePlansResponse {
+  current_plan_slug: string;
+  plans: AvailablePlanItem[];
+}
+
+export interface ChangePlanResponse {
+  success: boolean;
+  new_plan_name: string;
+  new_plan_slug: string;
+  message: string;
+}
+
+// ─── useAvailablePlans ──────────────────────────────────────────────────────
+
+/**
+ * Fetches all available plans for the upgrade dialog.
+ * Enabled only when the dialog is open to avoid unnecessary requests.
+ */
+export function useAvailablePlans(enabled = false) {
+  return useQuery({
+    queryKey: AVAILABLE_PLANS_QUERY_KEY,
+    queryFn: () => apiGet<AvailablePlansResponse>("/settings/available-plans"),
+    staleTime: 5 * 60 * 1000,
+    enabled,
+  });
+}
+
+// ─── useChangePlan ──────────────────────────────────────────────────────────
+
+/**
+ * POST /settings/change-plan — switches the tenant to a different plan.
+ * On success: invalidates all settings queries and shows a toast.
+ */
+export function useChangePlan() {
+  const queryClient = useQueryClient();
+  const { success, error } = useToast();
+
+  return useMutation({
+    mutationFn: (planId: string) =>
+      apiPost<ChangePlanResponse>("/settings/change-plan", { plan_id: planId }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PLAN_LIMITS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: USAGE_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: AVAILABLE_PLANS_QUERY_KEY });
+      success("Plan actualizado", data.message);
+    },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "No se pudo cambiar el plan. Inténtalo de nuevo.";
+      error("Error al cambiar plan", message);
     },
   });
 }

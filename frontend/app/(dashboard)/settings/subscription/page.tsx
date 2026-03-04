@@ -24,8 +24,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUsage, usePlanLimits, useAddons, useToggleAddon } from "@/lib/hooks/use-settings";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { useToast } from "@/lib/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
+import { UpgradePlanDialog } from "@/components/settings/upgrade-plan-dialog";
 
 // ─── Usage Bar ────────────────────────────────────────────────────────────────
 
@@ -215,7 +215,6 @@ function AddonCard({ addon, enabled, isPending, onToggle }: AddonCardProps) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SubscriptionPage() {
-  const { info } = useToast();
   const { has_role } = useAuth();
 
   const { data: usage, isLoading: isLoadingUsage } = useUsage();
@@ -224,6 +223,9 @@ export default function SubscriptionPage() {
   const { mutate: toggleAddon, isPending: isTogglingAddon } = useToggleAddon();
 
   const isLoading = isLoadingUsage || isLoadingLimits || isLoadingAddons;
+
+  // Upgrade dialog state
+  const [showUpgradeDialog, setShowUpgradeDialog] = React.useState(false);
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = React.useState<{
@@ -255,7 +257,7 @@ export default function SubscriptionPage() {
   }
 
   function handleUpgrade() {
-    info("Próximamente", "La actualización de plan estará disponible muy pronto.");
+    setShowUpgradeDialog(true);
   }
 
   if (isLoading) {
@@ -444,6 +446,12 @@ export default function SubscriptionPage() {
           </div>
         </div>
       )}
+
+      {/* ─── Upgrade Plan Dialog ───────────────────────────────────────── */}
+      <UpgradePlanDialog
+        open={showUpgradeDialog}
+        onOpenChange={setShowUpgradeDialog}
+      />
     </div>
   );
 }

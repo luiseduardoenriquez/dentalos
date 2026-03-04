@@ -292,6 +292,164 @@ async def toggle_addon(
 # ─── Admin: Tenant CRUD ────────────────────────────
 
 
+async def list_available_plans(
+    tenant_id: str,
+    db: AsyncSession,
+) -> dict[str, Any]:
+    """Return all active plans and the tenant's current plan slug.
+
+    Used by the in-app upgrade dialog so clinic owners can compare plans.
+    """
+    tenant = await _get_tenant_or_raise(tenant_id, db)
+    current_plan = tenant.plan
+
+    if not current_plan:
+        raise TenantError(
+            error="TENANT_no_plan",
+            message="Tenant has no assigned plan.",
+            status_code=500,
+        )
+
+    # Fetch all active plans ordered by sort_order
+    stmt = (
+        select(Plan)
+        .where(Plan.is_active.is_(True))
+        .order_by(Plan.sort_order)
+    )
+    result = await db.execute(stmt)
+    plans = result.scalars().all()
+
+    plan_items = []
+    for plan in plans:
+        plan_items.append({
+            "id": str(plan.id),
+            "name": plan.name,
+            "slug": plan.slug,
+            "description": plan.description,
+            "price_cents": plan.price_cents,
+            "currency": plan.currency,
+            "pricing_model": plan.pricing_model,
+            "included_doctors": plan.included_doctors,
+            "max_patients": plan.max_patients,
+            "max_doctors": plan.max_doctors,
+            "max_users": plan.max_users,
+            "max_storage_mb": plan.max_storage_mb,
+            "features": plan.features or {},
+            "sort_order": plan.sort_order,
+        })
+
+    return {
+        "current_plan_slug": current_plan.slug,
+        "plans": plan_items,
+    }
+
+
+async def change_plan(
+    tenant_id: str,
+    schema_name: str,
+    plan_id: str,
+    db: AsyncSession,
+) -> dict[str, Any]:
+    """Switch the tenant to a different plan.
+
+    Validates:
+    - Target plan exists and is active
+    - Not the same plan
+    - Enterprise plans require contacting sales
+    - Downgrade guard: current usage must fit within new plan limits
+
+    On success: updates tenant.plan_id, invalidates caches.
+    Returns a dict suitable for ChangePlanResponse.
+    """
+    tenant = await _get_tenant_or_raise(tenant_id, db)
+
+    # Validate target plan exists
+    plan_stmt = select(Plan).where(
+        Plan.id == uuid.UUID(plan_id),
+        Plan.is_active.is_(True),
+    )
+    plan_result = await db.execute(plan_stmt)
+    new_plan = plan_result.scalar_one_or_none()
+
+    if not new_plan:
+        raise ResourceNotFoundError(
+            error="TENANT_plan_not_found",
+            resource_name="Plan",
+        )
+
+    # Block enterprise plan selection
+    if new_plan.slug == "enterprise":
+        raise TenantError(
+            error="TENANT_enterprise_contact_sales",
+            message="Para el plan Enterprise, contacta a ventas.",
+            status_code=400,
+        )
+
+    # Block same plan
+    if tenant.plan_id and str(tenant.plan_id) == plan_id:
+        raise TenantError(
+            error="TENANT_same_plan",
+            message="Ya estás en este plan.",
+            status_code=400,
+        )
+
+    # Downgrade guard: check current usage vs new plan limits
+    usage = await get_plan_usage(tenant_id, schema_name, db)
+
+    if new_plan.max_patients > 0 and usage["current_patients"] > new_plan.max_patients:
+        raise TenantError(
+            error="TENANT_downgrade_patients_exceeded",
+            message=(
+                f"Tienes {usage['current_patients']} pacientes activos pero el plan "
+                f"{new_plan.name} permite máximo {new_plan.max_patients}. "
+                f"Reduce los pacientes antes de cambiar de plan."
+            ),
+            status_code=400,
+        )
+
+    if new_plan.max_doctors > 0 and usage["current_doctors"] > new_plan.max_doctors:
+        raise TenantError(
+            error="TENANT_downgrade_doctors_exceeded",
+            message=(
+                f"Tienes {usage['current_doctors']} doctores activos pero el plan "
+                f"{new_plan.name} permite máximo {new_plan.max_doctors}. "
+                f"Reduce los doctores antes de cambiar de plan."
+            ),
+            status_code=400,
+        )
+
+    if new_plan.max_users > 0 and usage["current_users"] > new_plan.max_users:
+        raise TenantError(
+            error="TENANT_downgrade_users_exceeded",
+            message=(
+                f"Tienes {usage['current_users']} usuarios activos pero el plan "
+                f"{new_plan.name} permite máximo {new_plan.max_users}. "
+                f"Reduce los usuarios antes de cambiar de plan."
+            ),
+            status_code=400,
+        )
+
+    # Apply plan change
+    tenant.plan_id = uuid.UUID(plan_id)
+    await db.flush()
+
+    # Invalidate caches
+    await invalidate_tenant_cache(tenant_id)
+    await cache_delete(f"dentalos:{tenant_id}:config:plan_limits")
+
+    logger.info(
+        "Tenant %s changed plan to %s (%s)",
+        tenant.slug, new_plan.name, new_plan.slug,
+    )
+
+    return {
+        "success": True,
+        "new_plan_name": new_plan.name,
+        "new_plan_slug": new_plan.slug,
+        "message": f"Plan actualizado a {new_plan.name} exitosamente.",
+    }
+
+
 async def admin_create_tenant(
     name: str,
     owner_email: str,

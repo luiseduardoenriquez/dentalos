@@ -11,6 +11,9 @@ from app.schemas.reminder import ReminderConfigResponse, ReminderConfigUpdate
 from app.schemas.tenant import (
     AddonToggleRequest,
     AddonsResponse,
+    AvailablePlansResponse,
+    ChangePlanRequest,
+    ChangePlanResponse,
     PlanLimitsResponse,
     PlanUsageResponse,
     TenantSettingsResponse,
@@ -19,10 +22,12 @@ from app.schemas.tenant import (
 from app.services.odontogram_settings_service import get_odontogram_settings, update_odontogram_settings
 from app.services.reminder_service import reminder_service
 from app.services.tenant_settings_service import (
+    change_plan,
     get_addons,
     get_plan_limits,
     get_plan_usage,
     get_tenant_settings,
+    list_available_plans,
     toggle_addon,
     update_tenant_settings,
 )
@@ -96,6 +101,49 @@ async def get_limits(
         db=db,
     )
     return PlanLimitsResponse(**result)
+
+
+# ─── Plan Upgrade Endpoints ───────────────────────────────────────────────────
+
+
+@router.get("/available-plans", response_model=AvailablePlansResponse)
+async def get_available_plans(
+    current_user: AuthenticatedUser = Depends(require_role(["clinic_owner"])),
+    db: AsyncSession = Depends(get_db),
+) -> AvailablePlansResponse:
+    """List all available plans for upgrade (clinic_owner only)."""
+    result = await list_available_plans(
+        tenant_id=current_user.tenant.tenant_id,
+        db=db,
+    )
+    return AvailablePlansResponse(**result)
+
+
+@router.post("/change-plan", response_model=ChangePlanResponse)
+async def change_plan_endpoint(
+    body: ChangePlanRequest,
+    request: Request,
+    current_user: AuthenticatedUser = Depends(require_role(["clinic_owner"])),
+    db: AsyncSession = Depends(get_db),
+) -> ChangePlanResponse:
+    """Change the tenant's subscription plan (clinic_owner only)."""
+    result = await change_plan(
+        tenant_id=current_user.tenant.tenant_id,
+        schema_name=current_user.tenant.schema_name,
+        plan_id=body.plan_id,
+        db=db,
+    )
+
+    await audit_action(
+        request=request,
+        db=db,
+        current_user=current_user,
+        action="change_plan",
+        resource_type="plan",
+        resource_id=body.plan_id,
+    )
+
+    return ChangePlanResponse(**result)
 
 
 # ─── Add-on Endpoints ─────────────────────────────────────────────────────────
