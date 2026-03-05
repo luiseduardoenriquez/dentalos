@@ -482,6 +482,200 @@ class ReferralProgramService:
             ),
         }
 
+    # -- Portal-specific Methods ---------------------------------------------------
+
+    async def get_portal_referral_data(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+        tenant_slug: str,
+        base_url: str,
+    ) -> dict[str, Any]:
+        """Build the portal referral view with code, URL, and pending reward count.
+
+        Always creates a code if one doesn't exist (portal patients expect to see their code).
+        """
+        code_data = await self.get_or_create_code(db=db, patient_id=patient_id)
+
+        pid = uuid.UUID(patient_id)
+        pending_count = (await db.execute(
+            select(func.count(ReferralReward.id)).where(
+                ReferralReward.referrer_patient_id == pid,
+                ReferralReward.status == "pending",
+            )
+        )).scalar_one()
+
+        referral_url = f"{base_url.rstrip('/')}/{tenant_slug}?ref={code_data['code']}"
+
+        return {
+            "referral_code": code_data["code"],
+            "referral_url": referral_url,
+            "uses_count": code_data["uses_count"],
+            "pending_rewards": pending_count,
+            "reward_description": (
+                f"Descuento de ${DEFAULT_REWARD_AMOUNT_CENTS // 100:,} COP "
+                f"para ti y tu referido en la primera cita"
+            ),
+        }
+
+    async def get_portal_rewards(
+        self, *, db: AsyncSession, patient_id: str,
+    ) -> dict[str, Any]:
+        """List rewards for a patient using portal-friendly Spanish field names."""
+        pid = uuid.UUID(patient_id)
+
+        result = await db.execute(
+            select(ReferralReward).where(
+                ReferralReward.referrer_patient_id == pid,
+            ).order_by(ReferralReward.created_at.desc())
+        )
+        rewards = [self._reward_to_portal_dict(r) for r in result.scalars().all()]
+
+        return {
+            "items": rewards,
+            "total": len(rewards),
+        }
+
+    # -- Dashboard (staff) ---------------------------------------------------------
+
+    async def get_dashboard_data(
+        self, *, db: AsyncSession,
+    ) -> dict[str, Any]:
+        """Aggregate dashboard data: stats + top 10 referrers with names.
+
+        Does a local import of Patient to avoid circular dependency at module level.
+        """
+        from app.models.tenant.patient import Patient
+
+        # Stats
+        total_referrals = (await db.execute(
+            select(func.count(func.distinct(ReferralReward.referred_patient_id)))
+        )).scalar_one()
+
+        successful = (await db.execute(
+            select(func.count(func.distinct(ReferralReward.referred_patient_id))).where(
+                ReferralReward.status == "applied",
+            )
+        )).scalar_one()
+
+        conversion_rate = (successful / total_referrals) if total_referrals > 0 else 0.0
+
+        total_rewards_cents = (await db.execute(
+            select(func.coalesce(func.sum(ReferralReward.reward_amount_cents), 0)).where(
+                ReferralReward.status == "applied",
+            )
+        )).scalar_one()
+
+        active_referrers = (await db.execute(
+            select(func.count(func.distinct(ReferralCode.patient_id))).where(
+                ReferralCode.is_active.is_(True),
+                ReferralCode.uses_count > 0,
+            )
+        )).scalar_one()
+
+        stats = {
+            "total_referrals": total_referrals,
+            "successful_referrals": successful,
+            "conversion_rate": round(conversion_rate, 4),
+            "total_rewards_cents": total_rewards_cents,
+            "active_referrers": active_referrers,
+        }
+
+        # Top 10 referrers
+        top_q = (
+            select(
+                ReferralCode.patient_id,
+                func.concat(Patient.first_name, " ", Patient.last_name).label("patient_name"),
+                ReferralCode.uses_count.label("referral_count"),
+                func.count(
+                    func.distinct(
+                        ReferralReward.referred_patient_id
+                    )
+                ).filter(ReferralReward.status == "applied").label("successful_count"),
+                func.coalesce(
+                    func.sum(ReferralReward.reward_amount_cents).filter(
+                        ReferralReward.status == "applied"
+                    ), 0
+                ).label("rewards_earned_cents"),
+            )
+            .join(Patient, Patient.id == ReferralCode.patient_id)
+            .outerjoin(ReferralReward, ReferralReward.referral_code_id == ReferralCode.id)
+            .where(ReferralCode.is_active.is_(True), ReferralCode.uses_count > 0)
+            .group_by(ReferralCode.patient_id, Patient.first_name, Patient.last_name, ReferralCode.uses_count)
+            .order_by(ReferralCode.uses_count.desc())
+            .limit(10)
+        )
+        rows = (await db.execute(top_q)).all()
+
+        top_referrers = []
+        for row in rows:
+            rc = row.referral_count
+            sc = row.successful_count
+            top_referrers.append({
+                "patient_id": str(row.patient_id),
+                "patient_name": row.patient_name or "Paciente",
+                "referral_count": rc,
+                "successful_count": sc,
+                "rewards_earned_cents": row.rewards_earned_cents,
+                "conversion_rate": round((sc / rc) if rc > 0 else 0.0, 4),
+            })
+
+        return {
+            "stats": stats,
+            "top_referrers": top_referrers,
+        }
+
+    # -- Staff: patient summary (read-only) ----------------------------------------
+
+    async def get_patient_referral_summary(
+        self, *, db: AsyncSession, patient_id: str,
+    ) -> dict[str, Any]:
+        """Get a patient's referral code + reward counts for staff view.
+
+        Does NOT create a code — staff viewing shouldn't trigger code generation.
+        """
+        pid = uuid.UUID(patient_id)
+
+        result = await db.execute(
+            select(ReferralCode).where(
+                ReferralCode.patient_id == pid,
+                ReferralCode.is_active.is_(True),
+            ).order_by(ReferralCode.created_at.desc()).limit(1)
+        )
+        code_obj = result.scalar_one_or_none()
+
+        # Reward counts
+        pending = (await db.execute(
+            select(func.count(ReferralReward.id)).where(
+                ReferralReward.referrer_patient_id == pid,
+                ReferralReward.status == "pending",
+            )
+        )).scalar_one()
+
+        applied = (await db.execute(
+            select(func.count(ReferralReward.id)).where(
+                ReferralReward.referrer_patient_id == pid,
+                ReferralReward.status == "applied",
+            )
+        )).scalar_one()
+
+        total_referrals = (await db.execute(
+            select(func.count(func.distinct(ReferralReward.referred_patient_id))).where(
+                ReferralReward.referrer_patient_id == pid,
+                ReferralReward.referrer_patient_id != ReferralReward.referred_patient_id,
+            )
+        )).scalar_one()
+
+        return {
+            "referral_code": code_obj.code if code_obj else None,
+            "code_is_active": code_obj.is_active if code_obj else False,
+            "uses_count": code_obj.uses_count if code_obj else 0,
+            "total_referrals_made": total_referrals,
+            "rewards_pending": pending,
+            "rewards_applied": applied,
+        }
+
     # -- Private Helpers -----------------------------------------------------------
 
     def _code_to_dict(self, code: ReferralCode) -> dict[str, Any]:
@@ -508,6 +702,24 @@ class ReferralProgramService:
             ),
             "completed_at": reward.completed_at,
             "created_at": reward.created_at,
+        }
+
+    def _reward_to_portal_dict(self, reward: ReferralReward) -> dict[str, Any]:
+        """Map reward to portal-friendly shape with Spanish enum values."""
+        type_map = {"discount": "descuento", "credit": "credito", "gift": "regalo"}
+        status_map = {"pending": "pendiente", "applied": "aplicado", "expired": "expirado"}
+
+        return {
+            "id": str(reward.id),
+            "created_at": reward.created_at,
+            "reward_type": type_map.get(reward.reward_type, reward.reward_type),
+            "amount_cents": reward.reward_amount_cents,
+            "status": status_map.get(reward.status, reward.status),
+            "applied_at": reward.completed_at,
+            "expires_at": None,
+            "description": (
+                f"Descuento de ${reward.reward_amount_cents // 100:,} COP por referido"
+            ),
         }
 
 

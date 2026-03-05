@@ -68,3 +68,81 @@ class ProcessReferralCodeRequest(BaseModel):
     """Used internally when a new patient signs up with a referral code."""
 
     referral_code: str = Field(..., min_length=1, max_length=8)
+
+
+# ─── Portal-specific Schemas ──────────────────────────────────────────────────
+
+
+class PortalReferralResponse(BaseModel):
+    """Portal view of the patient's referral code + stats."""
+
+    referral_code: str
+    referral_url: str
+    uses_count: int
+    pending_rewards: int
+    reward_description: str
+
+
+class PortalReferralRewardItem(BaseModel):
+    """Single reward in the portal list — Spanish field names."""
+
+    id: str
+    created_at: datetime
+    reward_type: str
+    amount_cents: int
+    status: str
+    applied_at: datetime | None = None
+    expires_at: datetime | None = None
+    description: str
+
+
+class PortalReferralRewardListResponse(BaseModel):
+    """Paginated list of rewards for portal."""
+
+    items: list[PortalReferralRewardItem]
+    total: int
+
+
+# ─── Dashboard Schemas ────────────────────────────────────────────────────────
+
+
+class ReferralDashboardStats(BaseModel):
+    """Aggregate stats for the referral program dashboard."""
+
+    total_referrals: int
+    successful_referrals: int
+    conversion_rate: float
+    total_rewards_cents: int
+    active_referrers: int
+
+
+class TopReferrerItem(BaseModel):
+    """Single row in the top referrers table."""
+
+    patient_id: str
+    patient_name: str
+    referral_count: int
+    successful_count: int
+    rewards_earned_cents: int
+    conversion_rate: float
+
+
+class ReferralDashboardResponse(BaseModel):
+    """Full dashboard response: stats + top referrers."""
+
+    stats: ReferralDashboardStats
+    top_referrers: list[TopReferrerItem]
+
+
+# ─── Staff: Patient Referral Summary ──────────────────────────────────────────
+
+
+class PatientReferralSummaryResponse(BaseModel):
+    """Staff view of a patient's referral activity."""
+
+    referral_code: str | None = None
+    code_is_active: bool
+    uses_count: int
+    total_referrals_made: int
+    rewards_pending: int
+    rewards_applied: int

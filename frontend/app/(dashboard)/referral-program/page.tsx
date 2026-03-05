@@ -1,8 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,30 +9,7 @@ import { DataTable, type ColumnDef } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { Users, UserPlus, TrendingUp, Gift, Award } from "lucide-react";
 import { formatCurrency, getInitials } from "@/lib/utils";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface ReferralStats {
-  total_referrals: number;
-  successful_referrals: number;
-  conversion_rate: number;
-  total_rewards_cents: number;
-  active_referrers: number;
-}
-
-interface TopReferrer {
-  patient_id: string;
-  patient_name: string;
-  referral_count: number;
-  successful_count: number;
-  rewards_earned_cents: number;
-  conversion_rate: number;
-}
-
-interface ReferralDashboardData {
-  stats: ReferralStats;
-  top_referrers: TopReferrer[];
-}
+import { useReferralDashboard, type TopReferrer } from "@/lib/hooks/use-referral-program";
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
@@ -121,11 +96,7 @@ const topReferrerColumns: ColumnDef<TopReferrer>[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ReferralProgramPage() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["referral_dashboard"],
-    queryFn: () => apiGet<ReferralDashboardData>("/referral-program/dashboard"),
-    staleTime: 60_000,
-  });
+  const { data, isLoading } = useReferralDashboard();
 
   if (isLoading) {
     return (

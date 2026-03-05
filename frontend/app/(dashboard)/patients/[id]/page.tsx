@@ -22,6 +22,7 @@ import {
   Download,
   Bell,
   DollarSign,
+  Share2,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api-client";
@@ -44,6 +45,7 @@ import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/empty-state";
 import { MedicalHistoryTimeline } from "@/components/medical-history-timeline";
 import { usePatient, useDeactivatePatient, useManagePortalAccess } from "@/lib/hooks/use-patients";
+import { usePatientReferralSummary } from "@/lib/hooks/use-referral-program";
 import { useAppointments, type Appointment, type AppointmentStatus } from "@/lib/hooks/use-appointments";
 import { useTreatmentPlans, type TreatmentPlanResponse } from "@/lib/hooks/use-treatment-plans";
 import { formatDate, formatDateTime, formatCurrency, getInitials } from "@/lib/utils";
@@ -460,6 +462,71 @@ function DocumentosTab({ patientId }: { patientId: string }) {
   );
 }
 
+// ─── Referral Summary Card ────────────────────────────────────────────────────
+
+function ReferralSummaryCard({ patientId }: { patientId: string }) {
+  const { data, isLoading } = usePatientReferralSummary(patientId);
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <Skeleton className="h-5 w-32" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Skeleton className="h-6 w-24" />
+          <Skeleton className="h-4 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <Share2 className="h-4 w-4 text-primary-600" />
+          Programa de referidos
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {data.referral_code ? (
+          <>
+            <div className="flex items-center gap-2">
+              <code className="rounded bg-[hsl(var(--muted))] px-2 py-1 text-sm font-mono font-semibold tracking-wider">
+                {data.referral_code}
+              </code>
+              <Badge variant={data.code_is_active ? "success" : "secondary"} className="text-xs">
+                {data.code_is_active ? "Activo" : "Inactivo"}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-lg font-bold">{data.uses_count}</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">Usos</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold">{data.rewards_pending}</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">Pendientes</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold">{data.rewards_applied}</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">Aplicados</p>
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">
+            Sin código de referido generado.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PatientDetailPage() {
@@ -762,6 +829,9 @@ export default function PatientDetailPage() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Referral Program */}
+              <ReferralSummaryCard patientId={patient.id} />
             </div>
 
             {/* Notes */}
