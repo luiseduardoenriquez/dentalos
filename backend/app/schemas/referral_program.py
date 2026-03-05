@@ -45,11 +45,23 @@ class ReferralRewardListResponse(BaseModel):
 class ReferralProgramStatsResponse(BaseModel):
     """Aggregate statistics for the referral program dashboard."""
 
-    total_referral_codes: int
+    is_active: bool
+    total_codes_generated: int
     total_referrals_made: int
-    total_rewards_pending: int
-    total_rewards_applied: int
+    referrals_pending: int
+    referrals_converted: int
+    rewards_pending: int
+    rewards_applied: int
     total_discount_given_cents: int
+    reward_type: str
+    reward_value_cents: int
+    reward_description: str | None = None
+
+
+class ReferralProgramToggleRequest(BaseModel):
+    """Toggle the referral program on/off."""
+
+    is_active: bool
 
 
 class ProcessReferralCodeRequest(BaseModel):

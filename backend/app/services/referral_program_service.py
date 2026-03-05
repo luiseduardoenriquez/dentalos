@@ -420,7 +420,7 @@ class ReferralProgramService:
     # -- Stats (clinic_owner dashboard) --------------------------------------------
 
     async def get_program_stats(
-        self, *, db: AsyncSession,
+        self, *, db: AsyncSession, tenant_settings: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Aggregate referral program statistics for the clinic dashboard."""
         total_codes = (await db.execute(
@@ -429,9 +429,19 @@ class ReferralProgramService:
             )
         )).scalar_one()
 
+        # Count distinct referred patients (each referral = 2 reward rows)
         total_referrals = (await db.execute(
-            select(func.count(ReferralReward.id))
+            select(func.count(func.distinct(ReferralReward.referred_patient_id)))
         )).scalar_one()
+
+        # Referrals pending = referred patients where NO reward is applied yet
+        referrals_converted = (await db.execute(
+            select(func.count(func.distinct(ReferralReward.referred_patient_id))).where(
+                ReferralReward.status == "applied",
+            )
+        )).scalar_one()
+
+        referrals_pending = total_referrals - referrals_converted
 
         pending = (await db.execute(
             select(func.count(ReferralReward.id)).where(
@@ -451,12 +461,25 @@ class ReferralProgramService:
             )
         )).scalar_one()
 
+        # Program active state from tenant settings
+        settings = tenant_settings or {}
+        is_active = settings.get("referral_program_active", True)
+
         return {
-            "total_referral_codes": total_codes,
+            "is_active": is_active,
+            "total_codes_generated": total_codes,
             "total_referrals_made": total_referrals,
-            "total_rewards_pending": pending,
-            "total_rewards_applied": applied,
+            "referrals_pending": referrals_pending,
+            "referrals_converted": referrals_converted,
+            "rewards_pending": pending,
+            "rewards_applied": applied,
             "total_discount_given_cents": total_discount,
+            "reward_type": "discount",
+            "reward_value_cents": DEFAULT_REWARD_AMOUNT_CENTS,
+            "reward_description": (
+                f"Descuento de ${DEFAULT_REWARD_AMOUNT_CENTS // 100:,} COP "
+                f"para referidor y referido en su primera cita"
+            ),
         }
 
     # -- Private Helpers -----------------------------------------------------------
