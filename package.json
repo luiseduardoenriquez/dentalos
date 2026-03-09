@@ -1,0 +1,26 @@
+{
+  "name": "dentalos",
+  "version": "1.0.0",
+  "description": "",
+  "main": "create_playbook.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luiseduardoenriquez/dentalos.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/luiseduardoenriquez/dentalos/issues"
+  },
+  "homepage": "https://github.com/luiseduardoenriquez/dentalos#readme",
+  "dependencies": {
+    "pptxgenjs": "^4.0.1"
+  }
+}

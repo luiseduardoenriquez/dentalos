@@ -42,22 +42,23 @@ Next.js (port 3000) ─── SSR + Static ───→ FastAPI API
 ## Project Structure
 
 ```
-backend/
+backend/                            # 72 models, 93 services, 73 route modules, 24 core modules
   app/
-    api/v1/          # Route handlers by domain (auth/, patients/, odontogram/, ...)
+    api/v1/          # Route handlers by domain (auth/, patients/, odontogram/, billing/, ...)
     core/            # Config, security, database, cache, queue
     models/          # SQLAlchemy models
     schemas/         # Pydantic request/response models
     services/        # Business logic layer
     workers/         # RabbitMQ consumer workers
-    events/          # Event handlers (cache invalidation, audit)
-  migrations/        # Alembic migrations
+    integrations/    # 13 external API adapters (payments, insurance, telemedicine, VoIP, ...)
+  alembic_tenant/    # Tenant schema migrations (16 versions, runs on all tn_* schemas)
+  alembic_public/    # Public schema migrations (6 versions)
   tests/             # factories/, unit/, integration/, e2e/
-frontend/
-  app/               # Next.js App Router: (public)/, (dashboard)/, (portal)/, (admin)/
+frontend/                           # 168 components, 135 pages, 54 hooks
+  app/               # Next.js App Router: (public)/, (dashboard)/, (portal)/, (marketing)/, admin/
   components/        # Shared React components
-  lib/               # API client, hooks, utils
-specs/               # 371 spec files — see DENTALOS-SDD-MASTER-INDEX.md
+  lib/               # API clients, hooks, utils, Zod validations
+specs/               # 374 spec files — see DENTALOS-SDD-MASTER-INDEX.md
 ```
 
 ---
@@ -120,7 +121,10 @@ id UUID PRIMARY KEY DEFAULT gen_random_uuid(), created_at TIMESTAMPTZ NOT NULL D
 
 Add `is_active BOOLEAN DEFAULT true` + `deleted_at TIMESTAMPTZ`. Returns 404 unless `?include_deleted=true` (clinic_owner/superadmin only).
 
-### Migrations — Alembic runs against ALL tenant schemas. Never modify a deployed migration.
+### Migrations — Dual Alembic setup. Never modify a deployed migration.
+
+- `alembic_tenant/` — runs against ALL `tn_*` schemas (16 versions)
+- `alembic_public/` — runs against `public` schema only (6 versions)
 
 ---
 
@@ -141,7 +145,7 @@ Add `is_active BOOLEAN DEFAULT true` + `deleted_at TIMESTAMPTZ`. Returns 404 unl
 
 **Pagination:** `?page=1&page_size=20` → `{"items": [...], "total": 42, "page": 1, "page_size": 20}`. Cursor-based for audit logs, notifications.
 
-**Errors:** `{"error": "DOMAIN_error_name", "message": "...", "details": {}}`. Domains: `AUTH`, `TENANT`, `PATIENT`, `ODONTOGRAM`, `CLINICAL`, `APPOINTMENT`, `BILLING`, `CONSENT`, `SYSTEM`, `VALIDATION`.
+**Errors:** `{"error": "DOMAIN_error_name", "message": "...", "details": {}}`. Domains: `AUTH`, `TENANT`, `PATIENT`, `ODONTOGRAM`, `CLINICAL`, `APPOINTMENT`, `BILLING`, `CONSENT`, `SYSTEM`, `VALIDATION`, `REFERRAL`, `MEMBERSHIP`, `LOYALTY`, `INVENTORY`, `COMPLIANCE`, `PORTAL`, `VOICE`, `CHATBOT`, `FINANCING`, `TELEMEDICINE`, `LAB`, `MARKETING`.
 
 ---
 
@@ -198,11 +202,13 @@ One user can belong to 2-6 clinics via `public.user_tenant_memberships`. Clinic 
 
 ## Frontend Conventions
 
-- **Framework:** Next.js 16 App Router with route groups: `(public)`, `(dashboard)`, `(portal)`, `(admin)`. Note: `proxy.ts` replaces `middleware.ts` in v16.
+- **Framework:** Next.js 16 App Router with route groups: `(public)`, `(dashboard)`, `(portal)`, `(marketing)`, `admin/`. Uses `middleware.ts` for auth/routing.
 - **Styling:** TailwindCSS with custom design tokens. Primary: teal/cyan (`primary-600: #0891B2`). Secondary: slate.
 - **State:** React Query (TanStack Query) for server state. Zustand for client state.
 - **Forms:** React Hook Form + Zod validation (mirrors Pydantic schemas)
-- **Components:** shadcn/ui base, customized with DentalOS design tokens
+- **Components:** shadcn/ui base, customized with DentalOS design tokens. TipTap for rich text editing. Sonner for toast notifications.
+- **API clients:** 3 separate clients in `lib/`: `api-client.ts` (staff JWT), `portal-api-client.ts` (patient JWT), `admin-api-client.ts` (superadmin JWT).
+- **Monitoring:** Sentry (`@sentry/nextjs`) for error tracking.
 - **Language:** All UI text in Spanish (es-419). Hardcoded strings → i18n keys for future locales.
 - **Responsive:** Tablet-first design. Min viewport: 768px for dashboard, 320px for portal.
 - **Dark mode:** Supported. Odontogram anatomic view uses dark theme by default.
@@ -261,7 +267,9 @@ Redis is a **performance enhancement**, not a hard dependency. If down, fallthro
 | Queue | Workers | Purpose |
 |-------|---------|---------|
 | `notifications` | 2 | Email, WhatsApp, SMS, in-app |
-| `clinical` | 2 | PDF generation, RIPS, odontogram snapshots |
+| `clinical` | 2 | PDF generation, odontogram snapshots |
+| `compliance` | 1 | RIPS/RDA generation, regulatory archival |
+| `voice` | 1 | Speech-to-text, voice command parsing |
 | `import` | 1 | CSV import, bulk export, tenant seeding |
 | `maintenance` | 1 | Audit archive, analytics aggregation, cleanup |
 
@@ -279,6 +287,66 @@ Redis is a **performance enhancement**, not a hard dependency. If down, fallthro
 ```
 
 Retry policy: 3 retries with exponential backoff → dead letter queue on failure.
+
+---
+
+## Integration Adapters
+
+External services use a consistent adapter pattern: `base.py` (abstract) → `{service}_service.py` (prod) → `{service}_mock.py` (test/dev).
+
+Located in `backend/app/integrations/`:
+
+| Category | Modules | Notes |
+|----------|---------|-------|
+| Payments | `nequi/`, `daviplata/`, `payments/` (Mercado Pago) | HMAC-SHA256 webhook verification |
+| Financing | `financing/` (Addi, Sistecrédito) | Eligibility check + revenue share tracking |
+| Insurance | `adres/` (EPS coverage), `rethus/` (professional registry), `eps_claims/` | ABC adapter pattern |
+| Telemedicine | `telemedicine/` (Daily.co) | Room creation, meeting tokens, add-on gated |
+| Exchange Rates | `exchange_rates/` (Banco de la República) | COP/USD/EUR, cached |
+| VoIP | `twilio_voice/` | HMAC-SHA1 verification, TwiML response |
+| SMS | `sms/` | Transactional messaging |
+| WhatsApp | `whatsapp/` | Bidirectional chat, 24h session window |
+| Calendar | `calendar/` (Google Calendar) | Appointment sync |
+
+---
+
+## AI Features
+
+Shared client: `app/services/ai_claude_client.py` (`call_claude`, `extract_json_object`, `extract_json_array`).
+
+| Feature | Model | Security | Gating |
+|---------|-------|----------|--------|
+| Treatment Advisor | Claude API | CUPS code validation | Add-on: AI Voice ($10/doc/mo) |
+| AI Reports | Claude API | **Template-selector** — Claude picks `query_key`, never generates SQL | Pro+ plan |
+| Chatbot | Claude Haiku | 8 intents, confidence threshold 0.6, human handoff | Pro+ plan |
+| Voice-to-Odontogram | Whisper + Claude | FDI validation | Add-on: AI Voice ($10/doc/mo) |
+
+**Security critical:** AI Reports uses a template-selector architecture with 10 predefined query templates. Claude only selects which template to use — it never sees or generates raw SQL.
+
+---
+
+## Real-Time (SSE)
+
+Server-Sent Events pattern for live updates, backed by Redis pub/sub:
+
+| Feature | Redis Channel | Notes |
+|---------|--------------|-------|
+| WhatsApp chat | `dentalos:{tid}:whatsapp:incoming` | Bidirectional, 24h session window detection |
+| VoIP screen pop | `dentalos:{tid}:calls:incoming` | Phone-to-patient matching, call log |
+
+Both use the same SSE endpoint pattern with `StreamingResponse` and async Redis subscriber.
+
+---
+
+## Billing Pipeline
+
+4-tier discount waterfall applied in order:
+1. **Membership discount** (2a) — plan-level percentage
+2. **Convenio discount** (2b) — insurance/EPS agreement rates
+3. **Referral discount** (4a) — referral program credits
+4. **Loyalty discount** (4b) — points redemption (`SELECT FOR UPDATE` for atomicity)
+
+Multi-currency support (COP/USD/EUR) via `exchange_rate_service`. Money stored as **integer cents** in COP, converted at display/payment time.
 
 ---
 
@@ -325,8 +393,9 @@ docker compose up -d               # Start PostgreSQL, Redis, RabbitMQ, MinIO
 # Backend
 cd backend
 python -m uvicorn app.main:app --reload --port 8000  # Dev server
-alembic upgrade head               # Run migrations
-alembic revision --autogenerate -m "description"      # Create migration
+alembic -c alembic_tenant/alembic.ini upgrade head    # Tenant migrations (all tn_* schemas)
+alembic -c alembic_public/alembic.ini upgrade head    # Public schema migrations
+alembic -c alembic_tenant/alembic.ini revision --autogenerate -m "description"  # New tenant migration
 pytest                              # Run all tests
 pytest --cov=app --cov-report=html  # Coverage report
 
@@ -342,7 +411,7 @@ npm run lint                        # ESLint + Prettier
 
 ## Spec Reference
 
-371 spec files live in `specs/`. Always consult the relevant spec before implementing a feature.
+374 spec files live in `specs/`. Always consult the relevant spec before implementing a feature.
 
 **Finding specs:**
 - Master index: `specs/DENTALOS-SDD-MASTER-INDEX.md`
