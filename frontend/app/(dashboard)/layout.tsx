@@ -4,6 +4,8 @@ import { type ReactNode, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
+import { UpdateBanner } from "@/components/update-banner";
+import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { useAuthStore } from "@/lib/hooks/use-auth";
 import { clearAccessToken } from "@/lib/auth";
 import { apiPost } from "@/lib/api-client";
@@ -130,6 +132,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <>
+      <UpdateBanner />
       <ImpersonationBanner />
       <div className={impersonating ? "pt-10" : ""}>
         <DashboardShell
@@ -143,6 +146,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           {children}
         </DashboardShell>
       </div>
+      <PwaInstallBanner />
     </>
   );
 }

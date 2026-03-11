@@ -1,7 +1,6 @@
 "use client";
 
 import { X, Download } from "lucide-react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useInstallPrompt } from "@/lib/hooks/use-pwa-install";
 
@@ -9,12 +8,12 @@ import { useInstallPrompt } from "@/lib/hooks/use-pwa-install";
  * PWA install prompt banner.
  * Shows a dismissible banner when the app can be installed.
  * Appears at the bottom of the viewport on mobile/tablet.
+ * Only shows after 3 visits; dismiss persists across sessions.
  */
 export function PwaInstallBanner() {
-  const { canInstall, promptInstall } = useInstallPrompt();
-  const [dismissed, setDismissed] = useState(false);
+  const { canInstall, promptInstall, dismiss } = useInstallPrompt();
 
-  if (!canInstall || dismissed) return null;
+  if (!canInstall) return null;
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-50 p-4 sm:p-6 pointer-events-none">
@@ -36,7 +35,7 @@ export function PwaInstallBanner() {
               Instalar
             </Button>
             <button
-              onClick={() => setDismissed(true)}
+              onClick={dismiss}
               className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               aria-label="Cerrar"
             >

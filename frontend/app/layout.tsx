@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
+import { SerwistProvider } from "./serwist-provider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -33,6 +34,11 @@ export const metadata: Metadata = {
     ],
     apple: "/icons/icon-192.png",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "DentalOS",
+  },
   robots: {
     index: false, // SaaS app — do not index dashboard pages
     follow: false,
@@ -47,7 +53,9 @@ export default function RootLayout({
   return (
     <html lang="es-419" suppressHydrationWarning>
       <body className={inter.variable}>
-        <Providers>{children}</Providers>
+        <SerwistProvider swUrl="/serwist/sw.js">
+          <Providers>{children}</Providers>
+        </SerwistProvider>
       </body>
     </html>
   );

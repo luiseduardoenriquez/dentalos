@@ -76,5 +76,11 @@
     </p>
     <button onclick="window.location.reload()">Reintentar</button>
   </div>
+  <script>
+    // Auto-redirect to dashboard when connectivity is restored
+    window.addEventListener("online", function() {
+      window.location.href = "/dashboard";
+    });
+  </script>
 </body>
 </html>

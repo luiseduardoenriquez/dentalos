@@ -41,6 +41,9 @@ const ALWAYS_ACCESSIBLE_PREFIXES = [
   "/robots.txt",
   "/sitemap.xml",
   "/api/v1/public", // Backend public API (served by FastAPI, not Next)
+  "/serwist/",      // Service worker route handler
+  "/offline.html",  // Offline fallback page
+  "/icons/",        // PWA icons
 ];
 
 // ─── Cookie Name ──────────────────────────────────────────────────────────────
@@ -183,6 +186,6 @@ export const config = {
      * - _next/image (image optimization)
      * - favicon.ico, sitemap.xml, robots.txt
      */
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|serwist/.*|offline\\.html).*)",
   ],
 };
