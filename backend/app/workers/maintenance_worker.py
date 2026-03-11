@@ -51,6 +51,8 @@ class MaintenanceWorker(BaseWorker):
             "loyalty.award_membership_renewal": self._handle_loyalty_award,
             "loyalty.expire_inactive": self._handle_loyalty_expire,
             "schedule.unfilled_alert": self._handle_unfilled_alert,
+            # GAP-15: AI Workflow Compliance Monitor
+            "workflow.compliance_check": self._handle_workflow_compliance_check,
         }
         handler = handlers.get(message.job_type)
         if handler:
@@ -728,6 +730,105 @@ class MaintenanceWorker(BaseWorker):
                 )
         except Exception:
             logger.exception("Unfilled alert failed: tenant=%s", tenant_id)
+            raise
+
+
+    # ── GAP-15: Workflow Compliance Handler ───────────────────────────────
+
+    _COMPLIANCE_CHECK_LABELS: dict[str, str] = {
+        "appointment_no_record": "Cita completada sin historia clinica",
+        "record_no_diagnosis": "Historia clinica sin diagnostico",
+        "record_no_procedure": "Historia clinica sin procedimiento",
+        "plan_consent_unsigned": "Plan de tratamiento sin consentimiento firmado",
+        "plan_item_overdue": "Item de plan de tratamiento vencido (+90 dias)",
+        "lab_order_overdue": "Orden de laboratorio vencida",
+        "patient_no_anamnesis": "Paciente sin anamnesis",
+    }
+
+    async def _handle_workflow_compliance_check(self, message: QueueMessage) -> None:
+        """Run compliance checks and dispatch notifications/tasks."""
+        tenant_id = message.tenant_id
+        payload = message.payload
+        lookback_days = payload.get("lookback_days", 30)
+        enable_ai = payload.get("enable_ai", False)
+        create_tasks = payload.get("create_tasks", True)
+
+        try:
+            from app.core.database import get_tenant_session
+            from app.core.queue import publish_message
+            from app.services.workflow_compliance_service import (
+                workflow_compliance_service,
+            )
+
+            async with get_tenant_session(tenant_id) as db:
+                snapshot = await workflow_compliance_service.get_compliance_snapshot(
+                    db=db,
+                    tenant_id=tenant_id,
+                    lookback_days=lookback_days,
+                    enable_ai=enable_ai,
+                )
+
+                for check in snapshot.checks:
+                    for violation in check.violations:
+                        # Dispatch in-app notification
+                        await publish_message(
+                            "notifications",
+                            QueueMessage(
+                                tenant_id=tenant_id,
+                                job_type="notification.dispatch",
+                                payload={
+                                    "type": "workflow_compliance_alert",
+                                    "check_type": violation.check_type,
+                                    "severity": violation.severity,
+                                    "patient_id": str(violation.patient_id),
+                                    "reference_id": str(violation.reference_id) if violation.reference_id else None,
+                                    "reference_type": violation.reference_type,
+                                },
+                            ),
+                        )
+
+                    # Create staff tasks for high/medium severity
+                    if create_tasks and check.severity in ("high", "medium") and check.count > 0:
+                        try:
+                            from app.services.staff_task_service import staff_task_service
+
+                            label = self._COMPLIANCE_CHECK_LABELS.get(
+                                check.check_type, check.check_type
+                            )
+                            await staff_task_service.create_task(
+                                db=db,
+                                title=f"[Compliance] {label} ({check.count})",
+                                description=(
+                                    f"Se detectaron {check.count} caso(s) de "
+                                    f"'{label}'. Revise y tome accion."
+                                ),
+                                task_type="manual",
+                                priority="high" if check.severity == "high" else "normal",
+                                metadata={
+                                    "source": "workflow_compliance",
+                                    "check_type": check.check_type,
+                                    "count": check.count,
+                                },
+                            )
+                        except Exception:
+                            logger.warning(
+                                "Failed to create staff task for %s",
+                                check.check_type,
+                                exc_info=True,
+                            )
+
+                await db.commit()
+
+            logger.info(
+                "Workflow compliance check: tenant=%s violations=%d checks=%d",
+                tenant_id[:8] if len(tenant_id) > 8 else tenant_id,
+                snapshot.total_violations,
+                len(snapshot.checks),
+            )
+        except Exception:
+            logger.exception(
+                "Workflow compliance check failed: tenant=%s", tenant_id
+            )
             raise
 
 

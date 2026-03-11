@@ -275,4 +275,9 @@ from app.api.v1.ortho.router import router as ortho_router
 
 api_v1_router.include_router(ortho_router)
 
+# GAP-15: AI Workflow Compliance Monitor
+from app.api.v1.analytics.workflow_compliance import router as workflow_compliance_router
+
+api_v1_router.include_router(workflow_compliance_router)
+
 # Sprint 15-16: Admin (included at top of file for route priority)

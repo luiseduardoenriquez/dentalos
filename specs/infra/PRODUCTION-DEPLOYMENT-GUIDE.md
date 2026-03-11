@@ -1,7 +1,7 @@
 # DentalOS — Guia de Despliegue a Produccion
 
-> Estrategia completa para llevar DentalOS de desarrollo a produccion en Hetzner Cloud.
-> Incluye dos opciones: **Opcion A** (IA via API) y **Opcion B** (IA local en el servidor).
+> Estrategia completa para llevar DentalOS de desarrollo a produccion.
+> Incluye tres opciones: **Opcion A** (IA via API), **Opcion B** (IA local en el servidor), y **Opcion C** (VPS con GPU dedicada).
 
 ---
 
@@ -12,13 +12,14 @@
 3. [Inventario de Features de IA](#3-inventario-de-features-de-ia)
 4. [Opcion A: IA via API Externa](#4-opcion-a-ia-via-api-externa)
 5. [Opcion B: IA Local en Produccion](#5-opcion-b-ia-local-en-produccion)
-6. [Comparativa A vs B](#6-comparativa-a-vs-b)
-7. [Archivos de Infraestructura](#7-archivos-de-infraestructura)
-8. [Proceso de Despliegue Paso a Paso](#8-proceso-de-despliegue-paso-a-paso)
-9. [Seguridad](#9-seguridad)
-10. [Monitoreo y Mantenimiento](#10-monitoreo-y-mantenimiento)
-11. [Costos](#11-costos)
-12. [Decision y Recomendacion](#12-decision-y-recomendacion)
+6. [Opcion C: VPS con GPU Dedicada](#6-opcion-c-vps-con-gpu-dedicada)
+7. [Comparativa A vs B vs C](#7-comparativa-a-vs-b-vs-c)
+8. [Archivos de Infraestructura](#8-archivos-de-infraestructura)
+9. [Proceso de Despliegue Paso a Paso](#9-proceso-de-despliegue-paso-a-paso)
+10. [Seguridad](#10-seguridad)
+11. [Monitoreo y Mantenimiento](#11-monitoreo-y-mantenimiento)
+12. [Costos](#12-costos)
+13. [Decision y Recomendacion](#13-decision-y-recomendacion)
 
 ---
 
@@ -524,64 +525,327 @@ docker compose -f docker-compose.prod.yml exec ollama ollama pull qwen2.5:7b
 
 ---
 
-## 6. Comparativa A vs B
+## 6. Opcion C: VPS con GPU Dedicada
+
+### Concepto
+
+En lugar de usar Hetzner Cloud (sin GPU) o servidores dedicados caros via subastas, contratar un **VPS con GPU dedicada** de un proveedor especializado en GPU hosting. Estos proveedores ofrecen servidores con tarjetas NVIDIA dedicadas a precios mensuales fijos, ideales para correr Ollama + faster-whisper con rendimiento de GPU real.
+
+**La idea:** separar la infraestructura en dos servidores:
+
+1. **Hetzner CX31** ($15/mes) — corre todo excepto IA (PostgreSQL, Redis, RabbitMQ, MinIO, Backend, Frontend)
+2. **GPU VPS** ($76-184/mes) — corre solo Ollama + faster-whisper, expuesto internamente via VPN/WireGuard
+
+O alternativamente, consolidar **todo en un solo GPU VPS** que tenga suficiente RAM y CPU para correr la stack completa + modelos de IA.
+
+### Proveedores Investigados (Marzo 2026)
+
+#### Tier 1: Budget ($76-100/mes) — Entrada minima con GPU
+
+| Proveedor | GPU | VRAM | CPU | RAM | Disco | Precio/mes |
+|-----------|-----|------|-----|-----|-------|-----------|
+| **Hostkey** (Islandia) | GTX 1080 Ti | 11 GB | E5-26xx (8 cores) | 32 GB | 240 GB SSD | **$76** |
+| **TensorDock** (marketplace) | RTX 3060 | 12 GB | Variable | Variable | Variable | **~$100** |
+
+**Rendimiento estimado Tier 1 (GTX 1080 Ti / RTX 3060):**
+
+| Tarea | Modelo | Tiempo | Viable? |
+|-------|--------|--------|---------|
+| Whisper STT (30s audio) | `small` (int8) | 1-3 s | Si |
+| Whisper STT (30s audio) | `medium` (int8) | 2-5 s | Si |
+| Qwen NLP | `qwen2.5:7b` (Q4) | 2-5 s | Si |
+| Qwen NLP | `qwen2.5:14b` (Q4) | No cabe en 11 GB VRAM | No (1080 Ti) |
+
+> **GTX 1080 Ti:** Solo sirve para modelos 7B. Los 11 GB de VRAM limitan a modelos Q4 de hasta ~8B parametros. Pero para Whisper + Qwen 7B es suficiente y la experiencia de usuario es rapida (< 8s por dictado).
+
+> **RTX 3060:** Con 12 GB de VRAM tiene un poco mas de margen. Modelos 7B corren fluidos. Modelos 13-14B apretados.
+
+#### Tier 2: Sweet Spot ($136-184/mes) — Recomendado para DentalOS
+
+| Proveedor | GPU | VRAM | CPU | RAM | Disco | Precio/mes |
+|-----------|-----|------|-----|-----|-------|-----------|
+| **Hostkey** (Paises Bajos) | RTX A4000 | 16 GB | EPYC 7402 (8 cores) | 32 GB | 240 GB SSD | **$136** |
+| **DatabaseMart** | RTX A4000 | 16 GB | 24 cores | 32 GB | 320 GB SSD | **$179** |
+| **Hetzner GEX44** (Alemania) | RTX 4000 SFF Ada | 20 GB | i5-13500 (14 cores) | 64 GB | 2x1.92 TB NVMe | **~$184 (€170)** |
+
+**Rendimiento real benchmarked en A4000 (16 GB VRAM):**
+
+| Modelo | Parametros | Tokens/s | GPU Util | Viable? |
+|--------|-----------|----------|----------|---------|
+| Qwen 2.5 7B (Q4) | 7B | **52.68 t/s** | 12% | Excelente |
+| LLaMA 3.1 8B | 8B | 51.35 t/s | 78% | Excelente |
+| LLaMA 2 13B | 13B | 38.46 t/s | 89% | Muy bueno |
+| DeepSeek-Coder 16B | 16B | 22.89 t/s | 40% | Aceptable |
+| Gemma2 27B | 27B | 2.38 t/s | 1% | **Impractico** |
+
+> **La A4000 es el sweet spot** para DentalOS: corre `qwen2.5:7b` a 52+ tokens/s (respuesta en 1-2s) y `qwen2.5:14b` cabe comodo en 16 GB VRAM con buen rendimiento. Whisper `medium` corre en < 1s.
+
+> **El Hetzner GEX44 es la mejor relacion calidad/precio** si quieres todo en un solo servidor: 20 GB VRAM (RTX 4000 Ada), 64 GB RAM (sobra para toda la stack), 2x1.92 TB NVMe, y es del mismo proveedor que ya conocemos. Precio: ~€170/mes (antes de aumento en abril 2026 sube a ~€212/mes).
+
+#### Tier 3: Premium ($272+/mes) — Maxima calidad
+
+| Proveedor | GPU | VRAM | CPU | RAM | Disco | Precio/mes |
+|-----------|-----|------|-----|-----|-------|-----------|
+| **Hostkey** (Islandia) | RTX 4090 | 24 GB | EPYC 7402 (8 cores) | 64 GB | 240 GB NVMe | **$272** |
+| **RunPod** (on-demand) | RTX 4090 | 24 GB | Variable | Variable | Variable | **~$430** |
+| **Vast.ai** (marketplace) | RTX 4090 | 24 GB | Variable | Variable | Variable | **~$175-440** |
+
+**Rendimiento estimado Tier 3 (RTX 4090):**
+
+| Tarea | Modelo | Tiempo | Viable? |
+|-------|--------|--------|---------|
+| Whisper STT (30s) | `medium` | < 0.5 s | Si |
+| Qwen NLP | `qwen2.5:7b` | < 1 s | Si |
+| Qwen NLP | `qwen2.5:14b` | 1-3 s | Si |
+| Qwen NLP | `qwen2.5:32b` | 3-8 s | Si |
+
+> La RTX 4090 con 24 GB VRAM puede correr **todos los modelos** incluyendo `qwen2.5:32b`. Pero el costo es prohibitivo para beta.
+
+### Arquitectura Recomendada: Opcion C con Hetzner GEX44 (Todo en Uno)
+
+El GEX44 tiene suficientes recursos (64 GB RAM, 14 cores CPU, 20 GB VRAM) para correr **toda la stack de DentalOS + modelos de IA** en un solo servidor:
+
+```
+[Hetzner GEX44 — i5-13500, 64 GB RAM, RTX 4000 Ada 20 GB VRAM]
+│
+├── Docker Network (dentalos-prod)
+│   ├── postgres       (2 GB RAM)   ← schema-per-tenant
+│   ├── redis          (256 MB)     ← cache + sesiones + pub/sub
+│   ├── rabbitmq       (384 MB)     ← 5 colas async
+│   ├── minio          (384 MB)     ← archivos S3
+│   ├── backend        (768 MB)     ← Gunicorn + UvicornWorker
+│   ├── worker         (1 GB RAM)   ← faster-whisper medium (~2 GB en GPU)
+│   ├── frontend       (384 MB)     ← Next.js SSR + PWA
+│   └── ollama         (GPU)        ← qwen2.5:14b (~9 GB VRAM)
+│                                      Whisper medium (~2 GB VRAM)
+│                                      Total VRAM: ~11 GB / 20 GB
+│
+└── Nginx (nativo)                  ← TLS, reverse proxy
+```
+
+**Distribucion de recursos en GEX44:**
+
+| Servicio | RAM | VRAM (GPU) | Notas |
+|----------|-----|-----------|-------|
+| PostgreSQL | 2 GB | -- | Mas headroom que CX31 |
+| Redis | 256 MB | -- | |
+| RabbitMQ | 384 MB | -- | |
+| MinIO | 384 MB | -- | |
+| Backend (2 workers) | 768 MB | -- | |
+| Worker (5 queues) | 1 GB | -- | faster-whisper corre en GPU via Ollama |
+| Frontend | 384 MB | -- | |
+| **Ollama** | 2 GB (overhead) | **~11 GB** | qwen2.5:14b + whisper medium |
+| Nginx + OS | 1 GB | -- | |
+| **Total** | **~8.2 GB / 64 GB** | **~11 GB / 20 GB** | **Sobra muchisimo** |
+
+> Con 64 GB de RAM y solo ~8 GB usados, hay margen para escalar a multiples clinicas, agregar mas workers, o subir PostgreSQL shared_buffers. Con 20 GB de VRAM y ~11 GB usados, se podria hasta subir a `qwen2.5:32b` (Q4, ~20 GB) si se quita whisper de GPU.
+
+### Arquitectura Alternativa: Dos Servidores (Hetzner CX31 + GPU VPS Hostkey)
+
+Si se prefiere separar la infraestructura base de la IA:
+
+```
+[Hetzner CX31 — $15/mes]                    [Hostkey A4000 — $136/mes]
+├── postgres, redis, rabbitmq, minio         ├── ollama (qwen2.5:14b)
+├── backend, worker, frontend                └── (expone :11434 via WireGuard)
+└── nginx
+         |                                            |
+         └──────── WireGuard VPN tunnel ──────────────┘
+                   Backend llama a Ollama via VPN
+```
+
+**Ventaja:** Si la GPU VPS falla, la app sigue funcionando (solo pierde Voice NLP local, fallback a API). **Desventaja:** Complejidad de red (WireGuard), latencia inter-servidor (~5-20ms), dos facturas.
+
+### Configuracion de IA en `.env` (Opcion C)
+
+```env
+# Voice: usar modelos locales con GPU
+VOICE_STT_PROVIDER=local
+VOICE_NLP_PROVIDER=local
+
+# Whisper local — modelo medium viable gracias a GPU
+WHISPER_MODEL_SIZE=medium          # "medium" para GPU (mejor precision), "small" si 1080 Ti
+WHISPER_DEVICE=cuda                # Usar GPU para Whisper (requiere faster-whisper con CUDA)
+
+# Ollama local con GPU
+OLLAMA_BASE_URL=http://ollama:11434
+OLLAMA_MODEL=qwen2.5:14b          # 14b viable con >=16 GB VRAM, 7b si 1080 Ti (11 GB)
+OLLAMA_TIMEOUT_SECONDS=30         # Timeout mas bajo porque GPU es rapido
+
+# Anthropic (SIGUE SIENDO NECESARIO para Treatment Advisor, Reports, Chatbot)
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_MODEL=claude-haiku-4-5-20251001
+ANTHROPIC_MODEL_TREATMENT=claude-sonnet-4-5-20250514
+```
+
+### docker-compose.prod.yml: Ollama con GPU
+
+```yaml
+  # ── Ollama (Local LLM inference con GPU) ─────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: dentalos-ollama-prod
+    restart: unless-stopped
+    networks:
+      - dentalos-network
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 4g          # Solo overhead de proceso, modelos van a VRAM
+          cpus: "2.0"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s       # Mas tiempo para cargar modelo en GPU
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - OLLAMA_NUM_PARALLEL=2  # Permite 2 requests concurrentes
+```
+
+**Prerequisito:** Instalar NVIDIA Container Toolkit en el servidor:
+
+```bash
+# En el servidor GPU VPS (Ubuntu 22.04):
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
+  sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+```
+
+### Rendimiento Esperado: Opcion C vs A vs B1
+
+| Tarea | Opcion A (API) | Opcion B1 (CPU) | Opcion C (GPU VPS) |
+|-------|---------------|----------------|-------------------|
+| **Whisper STT (30s)** | 1-3s | 3-8s (base) / 8-15s (small) | **< 1s (medium)** |
+| **Qwen NLP** | 1-5s (Haiku) | 10-30s (7b CPU) | **1-3s (14b GPU)** |
+| **Latencia total dictado** | **2-8s** | **15-30s** | **1-4s** |
+| **Precision STT** | Excelente (Large v3) | Buena (base/small) | **Muy alta (medium GPU)** |
+| **Precision NLP** | Excelente (Haiku) | Buena (7b) | **Muy buena (14b)** |
+
+> **Opcion C iguala o supera la latencia de APIs** (1-4s vs 2-8s) y usa un modelo NLP mas grande (14b vs 7b en CPU) con mejor precision, manteniendo la privacidad de datos clinicos.
+
+### Proveedores: Tabla Comparativa Completa
+
+| Proveedor | GPU | VRAM | RAM | Disco | Precio/mes | Ubicacion | Deploy | Ideal para |
+|-----------|-----|------|-----|-------|-----------|-----------|--------|------------|
+| **Hostkey** | 1080 Ti | 11 GB | 32 GB | 240 GB SSD | **$76** | Islandia | 15 min | Beta minimo |
+| **TensorDock** | RTX 3060 | 12 GB | Variable | Variable | **~$100** | Variable | Minutos | Beta minimo |
+| **Hostkey** | A4000 | 16 GB | 32 GB | 240 GB SSD | **$136** | Paises Bajos | 15 min | Produccion (solo GPU) |
+| **Hetzner GEX44** | RTX 4000 Ada | 20 GB | 64 GB | 3.84 TB NVMe | **~$184** | Alemania | Horas | **Todo en uno** |
+| **DatabaseMart** | A4000 | 16 GB | 32 GB | 320 GB SSD | **$179** | USA | Horas | Produccion |
+| **Hostkey** | RTX 4090 | 24 GB | 64 GB | 240 GB NVMe | **$272** | Islandia | 15 min | Premium |
+| **Vast.ai** | RTX 4090 | 24 GB | Variable | Variable | **$175-440** | Variable | Minutos | No recomendado* |
+| **RunPod** | RTX 4090 | 24 GB | Variable | Variable | **~$430** | Variable | Minutos | No recomendado* |
+
+> *Vast.ai y RunPod son **marketplaces** con precios variables, hardware no garantizado, y riesgo de interrupcion. **No recomendados para produccion de un SaaS de salud.** Utiles para experimentacion y desarrollo.
+
+### Ventajas de la Opcion C
+
+1. **Mejor rendimiento que B1:** GPU acelera inference 10-30x vs CPU. Latencia de 1-4s vs 15-30s
+2. **Mejor que B2 en costo/beneficio:** $136-184/mes por un servidor GPU dedicado con soporte, vs $90-180/mes por un Hetzner Auction sin garantia de GPU especifica
+3. **Privacidad total:** igual que B — audio y texto clinico nunca salen del servidor
+4. **Modelo mas grande viable:** `qwen2.5:14b` en GPU vs `qwen2.5:7b` en CPU = mejor precision en extraccion dental
+5. **Whisper medium:** viable en GPU (< 1s) vs impractico en CPU (8-15s). Mejor precision en espanol clinico
+6. **Proveedores especializados:** Hostkey, DatabaseMart, Hetzner GEX son estables, con SLA, no son marketplaces volatiles
+7. **GEX44 todo en uno:** 64 GB RAM y 20 GB VRAM = corre la stack completa sin necesidad de 2 servidores
+8. **Mismo proveedor (Hetzner):** si se elige GEX44, se mantiene la relacion con Hetzner. Facturacion unificada, misma red, mismos data centers
+
+### Desventajas de la Opcion C
+
+1. **Costo 7-10x vs Opcion A:** $136-184/mes vs $18/mes — significativo para beta
+2. **Complejidad operativa:** hay que mantener drivers NVIDIA, CUDA toolkit, Ollama, modelos. Mas que A, similar a B2
+3. **Disponibilidad limitada:** los GPU VPS baratos se agotan rapido (Hostkey muestra "3 servers remaining"). Hay que reservar pronto
+4. **Solo cubre 2 de 5 features:** igual que B — Treatment Advisor, Reports, Chatbot siguen en API
+5. **Vendor lock-in de GPU:** si Hostkey sube precios o se queda sin stock, hay que migrar
+6. **Hetzner GEX44 sube de precio:** a partir de abril 2026, pasa de €170 a ~€212/mes (~$230/mes)
+7. **Overhead de NVIDIA stack:** nvidia-container-toolkit, drivers CUDA, compatibilidad de versiones — mas superficie de error
+
+---
+
+## 7. Comparativa A vs B vs C
 
 ### Tabla Completa
 
-| Dimension | Opcion A (API) | Opcion B1 (Local CPU) | Opcion B2 (Local GPU) |
-|-----------|---------------|----------------------|----------------------|
-| **Servidor** | CX31 (4 vCPU, 8 GB) | CCX33 (8 vCPU, 32 GB) | Dedicated (GPU + 64 GB) |
-| **Costo servidor/mes** | ~$15 | ~$57 | ~$90-180 |
+| Dimension | Opcion A (API) | Opcion B1 (Local CPU) | Opcion C (GPU VPS) |
+|-----------|---------------|----------------------|-------------------|
+| **Servidor** | CX31 (4 vCPU, 8 GB) | CCX33 (8 vCPU, 32 GB) | GEX44 (14 cores, 64 GB, RTX 4000 Ada) |
+| **Costo servidor/mes** | ~$15 | ~$57 | ~$136-184 |
 | **Costo IA APIs/mes** | ~$2.55 | ~$0.50 (solo Anthropic 3 features) | ~$0.50 |
-| **Costo total/mes** | **~$18** | **~$58** | **~$91-181** |
-| **Latencia STT** | 1-3s (API) | 3-8s (CPU, base) | < 1s (GPU) |
-| **Latencia NLP** | 1-5s (Haiku) | 10-30s (7b, CPU) | 1-3s (14b, GPU) |
+| **Costo total/mes** | **~$18** | **~$58** | **~$137-185** |
+| **Latencia STT** | 1-3s (API) | 3-8s (CPU, base) | **< 1s (medium, GPU)** |
+| **Latencia NLP** | 1-5s (Haiku) | 10-30s (7b, CPU) | **1-3s (14b, GPU)** |
 | **Latencia total dictado** | **2-8s** | **15-30s** | **1-4s** |
-| **Precision STT** | Excelente (Whisper Large v3) | Buena-Muy buena (base/small) | Excelente (medium) |
-| **Precision NLP** | Excelente (Claude Haiku) | Buena (Qwen 7B) | Muy buena (Qwen 14-32B) |
-| **Privacidad audio/texto** | Sale del servidor | Queda local | Queda local |
+| **Precision STT** | Excelente (Whisper Large v3) | Buena-Muy buena (base/small) | **Muy alta (medium GPU)** |
+| **Precision NLP** | Excelente (Claude Haiku) | Buena (Qwen 7B) | **Muy buena (Qwen 14B)** |
+| **Privacidad audio/texto** | Sale del servidor | Queda local | **Queda local** |
 | **Dependencia internet IA** | 5/5 features | 3/5 features | 3/5 features |
-| **Complejidad ops** | Minima | Media | Alta |
-| **Riesgo de fallo IA** | Bajo (proveedores estables) | Medio (OOM, modelo lento) | Bajo-Medio |
-| **Escalabilidad IA** | Infinita | Limitada por RAM | Limitada por GPU |
+| **Complejidad ops** | Minima | Media | Media-Alta |
+| **Riesgo de fallo IA** | Bajo (proveedores estables) | Medio (OOM, modelo lento) | Bajo (GPU dedicada) |
+| **Escalabilidad IA** | Infinita | Limitada por RAM | Limitada por VRAM |
+| **Modelo NLP maximo** | Claude Haiku (cloud) | Qwen 7B | **Qwen 14B (16 GB VRAM) / 32B (24 GB)** |
 
-### Arbol de Decision
+### Arbol de Decision (actualizado con Opcion C)
 
 ```
 ¿Cuantos dictados de voz se hacen al mes?
 ├── < 200 (tipico 1-3 clinicas)
 │   └── ¿Hay requisito regulatorio estricto de residencia de datos?
-│       ├── SI → Opcion B1 (CPU, $57/mes) — cumplimiento total
+│       ├── SI → ¿Es importante la velocidad de respuesta?
+│       │       ├── SI → Opcion C ($136-184/mes) — GPU, 1-4s, privacidad total
+│       │       └── NO → Opcion B1 ($57/mes) — CPU, 15-30s, privacidad total
 │       └── NO → Opcion A ($18/mes) — mas simple y barato
 │
 ├── 200-2000 (5-20 clinicas)
 │   └── ¿El costo de API > $50/mes?
-│       ├── SI → Evaluar B1 o B2
+│       ├── SI → Opcion C ($136-184/mes) — GPU, mejor rendimiento que B1
 │       └── NO → Opcion A sigue siendo mas barato
 │
 └── > 2000 (20+ clinicas)
-    └── Opcion B2 (GPU) empieza a tener sentido economico
+    └── ¿Prioridad?
+        ├── Rendimiento + privacidad → Opcion C con RTX 4090 ($272/mes)
+        └── Minimo costo → Opcion B1 con CCX33 ($57/mes)
 ```
 
-### Punto de Equilibrio (Breakeven) entre A y B
+### Punto de Equilibrio (Breakeven)
 
 ```
-Costo A = $15 (server) + $X (API calls)
+Costo A  = $15 (server) + $X (API calls)
 Costo B1 = $57 (server) + $0.50 (API parcial)
+Costo C  = $136-184 (GPU VPS) + $0.50 (API parcial)
 
-Breakeven: $15 + $X = $57.50
-→ $X = $42.50/mes en APIs de voz
+Breakeven A vs B1: $X = $42.50/mes → ~5,000 dictados/mes → ~50-100 clinicas
+Breakeven A vs C:  $X = $121-169/mes → ~16,000-22,000 dictados/mes → ~160-220 clinicas
 
-A $0.006/min (Whisper) + ~$0.001/call (Claude Haiku NLP):
-→ ~5,000 dictados/mes o ~100 horas de audio
-→ Equivale a ~50-100 clinicas activas
+Pero C NO se justifica solo por ahorro — se justifica por:
+  1. Privacidad de datos clinicos (regulatorio)
+  2. Rendimiento superior (1-4s vs 15-30s de B1)
+  3. Precision superior (14B vs 7B de B1)
+  4. Independencia parcial de APIs externas
 ```
 
-**Conclusion:** Opcion B solo tiene sentido economico con **50+ clinicas activas** o por **requisito regulatorio de residencia de datos**.
+**Conclusion:**
+- **Opcion A** es la mejor para beta y primeras clinicas ($18/mes, simple, rapido)
+- **Opcion B1** tiene sentido solo si el regulatorio exige datos locales Y el presupuesto es limitado
+- **Opcion C** es la mejor opcion cuando se necesita **privacidad + rendimiento**: cuesta mas que B1 pero la experiencia de usuario es dramaticamente mejor (1-4s vs 15-30s)
 
 ---
 
-## 7. Archivos de Infraestructura
+## 8. Archivos de Infraestructura
 
 ### Estructura de archivos creados
 
@@ -685,7 +949,7 @@ Pipeline de CD que en cada push a master:
 
 ---
 
-## 8. Proceso de Despliegue Paso a Paso
+## 9. Proceso de Despliegue Paso a Paso
 
 ### Pre-requisitos
 
@@ -814,7 +1078,7 @@ Despues de configurar estos secrets, cada push a `master` despliega automaticame
 
 ---
 
-## 9. Seguridad
+## 10. Seguridad
 
 ### Nivel de Red
 
@@ -862,7 +1126,7 @@ Despues de configurar estos secrets, cada push a `master` despliega automaticame
 
 ---
 
-## 10. Monitoreo y Mantenimiento
+## 11. Monitoreo y Mantenimiento
 
 ### Monitoreo Activo
 
@@ -937,7 +1201,7 @@ docker compose -f docker-compose.prod.yml up -d backend worker
 
 ---
 
-## 11. Costos
+## 12. Costos
 
 ### Opcion A: Todo API (recomendada para beta)
 
@@ -961,17 +1225,40 @@ docker compose -f docker-compose.prod.yml up -d backend worker
 | SendGrid, Sentry, Cloudflare | $0 |
 | **Total** | **~$61/mes** |
 
-### Opcion B2: IA Local GPU
+### Opcion C1: GPU VPS Budget (Hostkey 1080 Ti)
 
 | Item | Costo/mes |
 |------|----------|
-| Hetzner Dedicated con GPU | $90-180 |
+| Hostkey GPU VPS (1080 Ti, 32 GB RAM) | $76 |
+| Hetzner CX31 (app stack) | $15 |
 | Dominio .co | ~$3 |
-| IA APIs — solo Anthropic | ~$0.50 |
+| IA APIs — solo Anthropic (3 features) | ~$0.50 |
 | SendGrid, Sentry, Cloudflare | $0 |
-| **Total** | **~$94-184/mes** |
+| **Total** | **~$95/mes** |
 
-### Costos de APIs Externas (aplica a ambas opciones)
+### Opcion C2: GPU VPS Sweet Spot (Hostkey A4000)
+
+| Item | Costo/mes |
+|------|----------|
+| Hostkey GPU VPS (A4000, 32 GB RAM) | $136 |
+| Dominio .co | ~$3 |
+| IA APIs — solo Anthropic (3 features) | ~$0.50 |
+| SendGrid, Sentry, Cloudflare | $0 |
+| **Total** | **~$140/mes** |
+
+> Opcion: correr todo en el GPU VPS ($136/mes, solo 1 servidor) o separar app en CX31 + GPU VPS ($136+$15 = $151/mes, 2 servidores con redundancia).
+
+### Opcion C3: GPU VPS Todo en Uno (Hetzner GEX44)
+
+| Item | Costo/mes |
+|------|----------|
+| Hetzner GEX44 (RTX 4000 Ada, 64 GB RAM) | ~$184 (€170, sube a €212 en abril 2026) |
+| Dominio .co | ~$3 |
+| IA APIs — solo Anthropic (3 features) | ~$0.50 |
+| SendGrid, Sentry, Cloudflare | $0 |
+| **Total** | **~$188/mes** (sube a ~$233/mes post-abril) |
+
+### Costos de APIs Externas (aplica a todas las opciones)
 
 | Servicio | Costo | Cuando se activa |
 |----------|-------|-----------------|
@@ -986,19 +1273,19 @@ docker compose -f docker-compose.prod.yml up -d backend worker
 
 ### Proyeccion de Costos por Escala
 
-| Clinicas | Opcion A (API) | Opcion B1 (CPU) | Opcion B2 (GPU) |
-|----------|---------------|----------------|----------------|
-| 1 | $21/mes | $61/mes | $94-184/mes |
-| 5 | $28/mes | $63/mes | $96-186/mes |
-| 20 | $65/mes | $68/mes | $98-188/mes |
-| 50 | $140/mes | $80/mes | $110-200/mes |
-| 100 | $270/mes | $100/mes | $120-210/mes |
+| Clinicas | Opcion A (API) | Opcion B1 (CPU) | Opcion C2 (A4000) | Opcion C3 (GEX44) |
+|----------|---------------|----------------|-------------------|-------------------|
+| 1 | $21/mes | $61/mes | $140/mes | $188/mes |
+| 5 | $28/mes | $63/mes | $141/mes | $189/mes |
+| 20 | $65/mes | $68/mes | $143/mes | $190/mes |
+| 50 | $140/mes | $80/mes | $150/mes | $197/mes |
+| 100 | $270/mes | $100/mes | $160/mes | $207/mes |
 
-> A partir de ~50 clinicas, Opcion B1 empieza a ser mas barata que A. Pero a esa escala ya necesitarias un servidor mas grande de todas formas.
+> A partir de ~50 clinicas, B1 es mas barata que A. A ~100 clinicas, C2 y C3 tambien se vuelven competitivas vs A, pero con mucho mejor rendimiento y privacidad.
 
 ---
 
-## 12. Decision y Recomendacion
+## 13. Decision y Recomendacion
 
 ### Para el Beta Inmediato (1 clinica, 2026)
 
@@ -1006,20 +1293,21 @@ docker compose -f docker-compose.prod.yml up -d backend worker
 
 | Factor | Justificacion |
 |--------|--------------|
-| Costo | $21/mes vs $61-184/mes — 3-9x mas barato |
+| Costo | $21/mes vs $61-188/mes — 3-9x mas barato |
 | Simplicidad | Cero operaciones de IA que mantener |
 | Riesgo | Menor superficie de error y fallo |
 | Precision | Los mejores modelos disponibles (Claude Sonnet/Haiku, Whisper Large v3) |
 | Velocidad | 2-8s latencia total de voz vs 15-30s (CPU local) |
-| Tiempo de setup | 2-3 horas vs 4-6 horas (con Ollama) |
+| Tiempo de setup | 2-3 horas vs 4-6 horas (con Ollama/GPU) |
 
-### Cuando Migrar a Opcion B
+### Cuando Migrar a Opcion B o C
 
 Escenarios que justificarian la migracion:
 
-1. **Requisito regulatorio formal:** la Superintendencia de Salud o la SIC exigen que datos clinicos de audio no salgan del servidor
-2. **Volumen > $50/mes en APIs de voz:** ~50+ clinicas activas usando dictado
-3. **Clinicas en zonas rurales:** donde internet es inestable y la voz necesita funcionar offline
+1. **Requisito regulatorio formal:** la Superintendencia de Salud o la SIC exigen que datos clinicos de audio no salgan del servidor → **Opcion C** (GPU VPS, rendimiento bueno) o **Opcion B1** (CPU, mas barato pero lento)
+2. **Volumen > $50/mes en APIs de voz:** ~50+ clinicas activas usando dictado → **B1 o C** segun presupuesto
+3. **Clinicas en zonas rurales:** donde internet es inestable y la voz necesita funcionar offline → **C** (GPU, rapido) preferible a B1 (CPU, lento)
+4. **Experiencia de usuario critica:** si los doctores se quejan de latencia de 15-30s en B1 → **Upgrade a C** ($136-184/mes, 1-4s)
 
 ### Plan de Migracion Gradual
 
@@ -1029,17 +1317,19 @@ Mes 1-3 (beta):
   → Validar producto, recolectar metricas de uso de IA
   → Medir: cuantos dictados/mes, latencia promedio, precision percibida
 
-Mes 4-6 (si hay requisito regulatorio o escala):
-  → Upgrade servidor a CCX33 ($57/mes)
-  → Agregar Ollama al docker-compose
-  → Cambiar .env: VOICE_STT_PROVIDER=local, VOICE_NLP_PROVIDER=local
-  → Treatment Advisor, Reports, Chatbot siguen en API
-  → Resultado: audio nunca sale del servidor
+Mes 4-6 (si hay requisito regulatorio):
+  RUTA BARATA:
+  → Upgrade a Opcion B1: CCX33 ($57/mes, CPU, Qwen 7B)
+  → Pro: barato. Contra: lento (15-30s por dictado)
+
+  RUTA RAPIDA:
+  → Upgrade a Opcion C: Hostkey A4000 ($136/mes) o Hetzner GEX44 ($184/mes)
+  → Pro: rapido (1-4s), mejor precision (Qwen 14B). Contra: 7-10x costo de A
 
 Mes 6+ (si se necesita TODO local):
   → Modificar ai_claude_client.py para soportar Ollama como backend
   → Usar modelo grande (Qwen 32B o Llama 70B) para Treatment Advisor
-  → Requiere GPU dedicada ($90+/mes)
+  → Requiere GPU VPS con >=24 GB VRAM (Hostkey RTX 4090, $272/mes)
   → Evaluar si el costo se justifica vs las APIs
 ```
 
@@ -1052,12 +1342,16 @@ Cambiar de API a local es **1 linea en `.env`** para STT y NLP:
 VOICE_STT_PROVIDER=openai
 VOICE_NLP_PROVIDER=anthropic
 
-# ...a local (Opcion B):
+# ...a local (Opcion B o C):
 VOICE_STT_PROVIDER=local
 VOICE_NLP_PROVIDER=local
+
+# Diferencia entre B y C: en C agregar WHISPER_DEVICE=cuda
+WHISPER_DEVICE=cuda              # Solo Opcion C (GPU)
+OLLAMA_MODEL=qwen2.5:14b         # 14b viable en GPU, usar 7b en CPU (Opcion B)
 ```
 
-El codigo ya soporta ambos modos. No hay que cambiar nada en la aplicacion. Solo agregar el contenedor de Ollama y descargar el modelo.
+El codigo ya soporta ambos modos. No hay que cambiar nada en la aplicacion. Solo agregar el contenedor de Ollama, instalar NVIDIA Container Toolkit (Opcion C), y descargar el modelo.
 
 ### Resumen Final para el Socio
 
@@ -1065,13 +1359,15 @@ El codigo ya soporta ambos modos. No hay que cambiar nada en la aplicacion. Solo
 |----------|-----------|
 | **Cuanto cuesta arrancar?** | ~$21 USD/mes (Opcion A) |
 | **Cuanto tiempo para estar live?** | 2-3 dias de trabajo tecnico |
-| **Se necesita GPU?** | No. La IA son llamadas API |
-| **Y si quiero IA local?** | Se puede, pero cuesta 3x mas y es mas lento |
+| **Se necesita GPU?** | No para beta. La IA son llamadas API |
+| **Y si quiero IA local barata?** | Opcion B1: $57/mes (CPU), funciona pero lento (15-30s) |
+| **Y si quiero IA local rapida?** | Opcion C: $136-184/mes (GPU VPS), rapido (1-4s), privacidad total |
+| **Mejores proveedores GPU?** | Hostkey ($76-272/mes), Hetzner GEX44 ($184/mes), DatabaseMart ($179/mes) |
 | **Que riesgo hay?** | Codigo completo (97%), 13 integraciones con mocks, multi-tenancy desde dia 1 |
-| **Puedo migrar a IA local despues?** | Si, es 1 linea de config. El codigo ya lo soporta |
+| **Puedo migrar a GPU despues?** | Si, es 1 linea de config + instalar NVIDIA toolkit. El codigo ya lo soporta |
 
 ---
 
-> Documento generado: 2026-03-11
+> Documento generado: 2026-03-11 | Actualizado: 2026-03-11
 > Aplica a: DentalOS MVP v1.0
-> Servidor objetivo: Hetzner CX31 (Opcion A) o CCX33 (Opcion B1)
+> Servidor objetivo: Hetzner CX31 (Opcion A) | CCX33 (Opcion B1) | GPU VPS Hostkey/GEX44 (Opcion C)

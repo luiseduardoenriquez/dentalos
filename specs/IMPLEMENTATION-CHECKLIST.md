@@ -1523,7 +1523,7 @@ AI-generated smile simulation for patient consultations. Could integrate 3rd par
 
 ### BACKLOG: GAP-15 — Controlador IA (Workflow Compliance Monitor)
 AI that monitors if clinical and administrative workflows are being completed on time.
-- [ ] AI workflow compliance monitor (alerts on incomplete workflows)
+- [x] AI workflow compliance monitor (alerts on incomplete workflows)
 
 ### BACKLOG: GAP-16 — Marketplace de API Abierta
 Open API marketplace for third-party integrations. Valuable long-term for ecosystem.

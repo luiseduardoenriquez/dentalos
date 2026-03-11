@@ -503,6 +503,13 @@ class OrthoErrors:
     INSUFFICIENT_INVENTORY = "ORTHO_insufficient_inventory"
 
 
+class WorkflowComplianceErrors:
+    """WORKFLOW_COMPLIANCE domain — workflow compliance monitor error codes."""
+
+    PLAN_REQUIRED = "WORKFLOW_COMPLIANCE_plan_required"
+    CHECK_FAILED = "WORKFLOW_COMPLIANCE_check_failed"
+
+
 class SystemErrors:
     """SYSTEM domain — infrastructure, HTTP, and platform-level error codes."""
 
