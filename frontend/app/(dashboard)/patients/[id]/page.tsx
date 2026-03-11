@@ -48,6 +48,8 @@ import { usePatient, useDeactivatePatient, useManagePortalAccess } from "@/lib/h
 import { usePatientReferralSummary } from "@/lib/hooks/use-referral-program";
 import { useAppointments, type Appointment, type AppointmentStatus } from "@/lib/hooks/use-appointments";
 import { useTreatmentPlans, type TreatmentPlanResponse } from "@/lib/hooks/use-treatment-plans";
+import { useOrthoCases } from "@/lib/hooks/use-ortho";
+import { OrthoStatusBadge } from "@/components/ortho/ortho-status-badge";
 import { formatDate, formatDateTime, formatCurrency, getInitials } from "@/lib/utils";
 import {
   DOCUMENT_TYPE_LABELS,
@@ -385,6 +387,92 @@ function TratamientosTab({ patientId }: { patientId: string }) {
   );
 }
 
+// ─── Ortodoncia Tab Component ────────────────────────────────────────────────
+
+function OrtodonciaTab({ patientId }: { patientId: string }) {
+  const { data, isLoading } = useOrthoCases(patientId, 1, 10);
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {[1, 2].map((i) => (
+          <div key={i} className="p-4 border rounded-xl space-y-3">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const cases = data?.items ?? [];
+
+  if (cases.length === 0) {
+    return (
+      <EmptyState
+        icon={ClipboardList}
+        title="Sin casos de ortodoncia"
+        description="Este paciente no tiene casos de ortodoncia creados."
+        action={{ label: "Nuevo caso", href: `/patients/${patientId}/ortho/new` }}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+          {data?.total ?? cases.length} caso{(data?.total ?? cases.length) !== 1 ? "s" : ""}
+        </p>
+        <Button size="sm" asChild>
+          <Link href={`/patients/${patientId}/ortho/new`}>
+            <FilePlus className="mr-1.5 h-3.5 w-3.5" />
+            Nuevo caso
+          </Link>
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {cases.map((orthoCase) => (
+          <Link key={orthoCase.id} href={`/patients/${patientId}/ortho/${orthoCase.id}`}>
+            <Card className="hover:border-primary-600/30 transition-colors cursor-pointer">
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-sm font-semibold truncate">
+                    {orthoCase.case_number}
+                  </CardTitle>
+                  <OrthoStatusBadge status={orthoCase.status} />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[hsl(var(--muted-foreground))]">
+                    {ORTHO_APPLIANCE_LABELS[orthoCase.appliance_type] ?? orthoCase.appliance_type}
+                  </span>
+                  <span className="font-semibold">
+                    {formatCurrency(orthoCase.total_cost_estimated)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-[hsl(var(--muted-foreground))]">
+                  <span>{orthoCase.visit_count} visita{orthoCase.visit_count !== 1 ? "s" : ""}</span>
+                  <span>Creado el {formatDate(orthoCase.created_at)}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const ORTHO_APPLIANCE_LABELS: Record<string, string> = {
+  brackets: "Brackets",
+  aligners: "Alineadores",
+  mixed: "Mixto",
+};
+
 // ─── Documentos Tab Component ────────────────────────────────────────────────
 
 function DocumentosTab({ patientId }: { patientId: string }) {
@@ -682,6 +770,7 @@ export default function PatientDetailPage() {
             <TabsTrigger value="odontograma">Odontograma</TabsTrigger>
             <TabsTrigger value="historial">Historial clinico</TabsTrigger>
             <TabsTrigger value="tratamientos">Tratamientos</TabsTrigger>
+            <TabsTrigger value="ortodoncia">Ortodoncia</TabsTrigger>
             <TabsTrigger value="citas">Citas</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
           </TabsList>
@@ -915,6 +1004,11 @@ export default function PatientDetailPage() {
           {/* ── Tratamientos Tab ─────────────────────────────────────────── */}
           <TabsContent value="tratamientos" className="mt-4">
             <TratamientosTab patientId={patient.id} />
+          </TabsContent>
+
+          {/* ── Ortodoncia Tab ─────────────────────────────────────────── */}
+          <TabsContent value="ortodoncia" className="mt-4">
+            <OrtodonciaTab patientId={patient.id} />
           </TabsContent>
 
           {/* ── Citas Tab ────────────────────────────────────────────────── */}

@@ -85,6 +85,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "calls:read", "calls:write",
         "eps_claims:read", "eps_claims:write",
         "lab_orders:read", "lab_orders:write",
+        # Sprint 33: GAP-07 Orthodontics
+        "ortho:read", "ortho:write",
     }),
     "doctor": frozenset({
         "patients:read", "patients:write",
@@ -133,6 +135,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "calls:read",
         "eps_claims:read",
         "lab_orders:read", "lab_orders:write",
+        # Sprint 33: GAP-07 Orthodontics
+        "ortho:read", "ortho:write",
     }),
     "assistant": frozenset({
         "patients:read", "patients:write",
@@ -169,6 +173,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         # Sprint 31-32: VoIP, Lab Orders
         "calls:read",
         "lab_orders:read",
+        # Sprint 33: GAP-07 Orthodontics
+        "ortho:read", "ortho:write",
     }),
     "receptionist": frozenset({
         "patients:read", "patients:write",
@@ -204,6 +210,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "calls:read", "calls:write",
         "eps_claims:read", "eps_claims:write",
         "lab_orders:read",
+        # Sprint 33: GAP-07 Orthodontics
+        "ortho:read",
     }),
     "patient": frozenset({
         "patients:read",

@@ -12,9 +12,9 @@
 #     (or mount via Docker secrets for higher-security environments).
 #
 # Architecture:
-#   Browser → Hetzner LB (TLS termination) → frontend:3000
-#                                           → backend:8000
-#   backend → postgres:5432 | redis:6379 | rabbitmq:5672 | minio:9000
+#   Browser → Nginx (TLS) → frontend:3000
+#                          → backend:8000
+#   backend + worker → postgres:5432 | redis:6379 | rabbitmq:5672 | minio:9000
 # ─────────────────────────────────────────────────────────────────────────────
 
 networks:
@@ -65,13 +65,12 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    # Resource caps — adjust to match the Hetzner instance size.
-    # CX21 (2 vCPU, 4 GB): postgres can use up to 1.5 GB safely.
+    # Resource caps — CX31 (4 vCPU, 8 GB).
     deploy:
       resources:
         limits:
           memory: 1536m
-          cpus: "1.5"
+          cpus: "1.0"
 
 
   # ── Redis 7 ─────────────────────────────────────────────────────────────────
@@ -103,8 +102,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 384m
-          cpus: "0.5"
+          memory: 256m
+          cpus: "0.25"
 
 
   # ── RabbitMQ 3 ──────────────────────────────────────────────────────────────
@@ -134,8 +133,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
-          cpus: "0.5"
+          memory: 384m
+          cpus: "0.25"
 
 
   # ── MinIO (S3-compatible object storage) ─────────────────────────────────────
@@ -167,8 +166,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
-          cpus: "0.5"
+          memory: 384m
+          cpus: "0.25"
 
 
   # ── FastAPI Backend ─────────────────────────────────────────────────────────
@@ -194,10 +193,10 @@ services:
     env_file:
       - .env
     environment:
-      # Override specific variables that differ between dev and prod.
       ENVIRONMENT: production
-      # Connect to sibling containers using their service names as hostnames —
-      # Docker's internal DNS resolves these within dentalos-network.
+      # CX31 beta: 2 gunicorn workers to leave room for the worker process.
+      WEB_WORKERS: "2"
+      # Docker internal DNS resolves service names within dentalos-network.
       DATABASE_URL:      "postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
       DATABASE_SYNC_URL: "postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
       REDIS_URL:         "redis://:${REDIS_PASSWORD}@redis:6379/0"
@@ -221,8 +220,44 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1024m
-          cpus: "1.0"
+          memory: 768m
+          cpus: "0.75"
+
+
+  # ── Background Workers (all 5 queues) ────────────────────────────────────
+  # Same image as backend, different entrypoint. A single container runs all
+  # 5 workers (notification, clinical/compliance, voice, import, maintenance).
+  # For beta with 1 clinic this is sufficient — scale to separate containers later.
+  worker:
+    image: dentalos-backend:latest
+    container_name: dentalos-worker-prod
+    restart: unless-stopped
+    networks:
+      - dentalos-network
+    env_file:
+      - .env
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL:      "postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+      DATABASE_SYNC_URL: "postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+      REDIS_URL:         "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      RABBITMQ_URL:      "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/${RABBITMQ_VHOST:-dentalos}"
+      S3_ENDPOINT_URL:   "http://minio:9000"
+    command: ["python", "-m", "app.workers.main"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.5"
 
 
   # ── Next.js Frontend ─────────────────────────────────────────────────────────
@@ -260,5 +295,5 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
-          cpus: "0.5"
+          memory: 384m
+          cpus: "0.25"

@@ -133,3 +133,30 @@ To avoid circular imports when service A calls service B:
 - `selectinload` must come from `sqlalchemy.orm` for eager loading in async sessions
 - `func.date()` for date-casting TIMESTAMPTZ to DATE in WHERE clauses (PostgreSQL)
 - Close register endpoint: resolve register_id from `get_current()` rather than asking client to pass it
+- NEVER use `func.case()` — `case()` is imported directly from `sqlalchemy`, not via `func`
+- NEVER name a local variable `case` in a method that also calls SQLAlchemy `case()` — use `ortho_case`, `active_case`, etc. to avoid shadowing
+- SQLAlchemy `case` syntax (v2): `case((condition, value), else_=fallback)` — single tuple, not kwargs
+- `case` for conditional count: `func.count(case((Model.field == "val", Model.id)))` — NULL rows excluded from count
+
+## Frontend Page Patterns (confirmed 2026-03-11)
+- Tab pages: each tab as isolated sub-component, owns pagination state internally
+- `DataTable<T>` columns typed `{ key: keyof T | string, header, cell?, headerClassName?, cellClassName? }`
+- No Popover component file in `components/ui/` — use `import * as PopoverPrimitive from "@radix-ui/react-popover"` directly
+- No `@radix-ui/react-radio-group` installed — use button toggles instead
+- Bonding chart: `@radix-ui/react-popover` installed; tooth grid: `h-12 w-12 rounded-md border` buttons
+- Money form inputs: user enters whole COP → `Math.round(value * 100)` for API (cents)
+- InfoRow helper for label+value pairs in detail cards: `flex justify-between py-2 divide-y`
+- Skeleton widths: use arbitrary values `w-[Npx]` instead of Tailwind fractional widths in skeletons
+- `cn()` import: always from `@/lib/utils`
+- Dialog footer: `flex-col-reverse sm:flex-row gap-2` for mobile-first button stacking
+
+## Ortho Service Implementation (2026-03-11)
+- File: `backend/app/services/ortho_service.py`
+- 13 methods: create_case, get_case, list_cases, update_case, transition_case,
+  create_bonding_record, list_bonding_records, get_bonding_record,
+  create_visit, list_visits, update_visit, add_material, get_case_summary
+- Case numbering: count ALL cases (including inactive) per patient, then ORT-{n+1:04d}
+- Visit numbering: SELECT MAX(visit_number) WHERE is_active=True, then +1
+- transition_case sets actual_start_date on "bonding", actual_end_date on "completed"/"cancelled"
+- add_material uses .with_for_update() on InventoryItem; decrements quantity in same flush
+- get_case_summary: uses ortho_case (not `case`) to avoid SQLAlchemy case() import shadowing

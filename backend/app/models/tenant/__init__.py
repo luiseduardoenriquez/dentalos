@@ -112,6 +112,15 @@ from app.models.tenant.eps_claim import EPSClaim
 # Sprint 31-32: VP-22 Lab Orders
 from app.models.tenant.lab_order import DentalLab, LabOrder
 
+# Sprint 33: GAP-07 Orthodontics
+from app.models.tenant.ortho import (
+    OrthoCase,
+    OrthoBondingRecord,
+    OrthoBondingTooth,
+    OrthoVisit,
+    OrthoCaseMaterial,
+)
+
 __all__ = [
     "AuditLog",
     "Anamnesis",
@@ -228,4 +237,10 @@ __all__ = [
     # Sprint 31-32: VP-22 Lab Orders
     "DentalLab",
     "LabOrder",
+    # Sprint 33: GAP-07 Orthodontics
+    "OrthoCase",
+    "OrthoBondingRecord",
+    "OrthoBondingTooth",
+    "OrthoVisit",
+    "OrthoCaseMaterial",
 ]

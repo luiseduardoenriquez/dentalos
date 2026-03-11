@@ -97,8 +97,8 @@ jobs:
             docker tag ${{ env.BACKEND_IMAGE }}:${{ github.sha }} dentalos-backend:latest
             docker tag ${{ env.FRONTEND_IMAGE }}:${{ github.sha }} dentalos-frontend:latest
 
-            # Restart services
-            docker compose -f docker-compose.prod.yml up -d --no-build backend frontend
+            # Restart services (backend, frontend, worker)
+            docker compose -f docker-compose.prod.yml up -d --no-build backend frontend worker
 
             # Health check
             sleep 10

@@ -114,7 +114,7 @@ This is the **living sprint-by-sprint implementation tracker** for DentalOS, a c
 
 - [x] **I-10** Security policy: HTTPS, CORS, CSP headers, input sanitization
 - [x] **I-11** Audit logging: Immutable audit trail per tenant
-- [-] **I-14** Deployment architecture: Hetzner Cloud baseline plan — *Deferred to deployment phase*
+- [x] **I-14** Deployment architecture: Hetzner Cloud baseline plan -- docker-compose.prod.yml (7 services), .env.production template, Nginx reverse proxy, setup-server.sh + first-deploy.sh scripts, CD workflow with worker
 
 ### Architecture Decision Records (ADRs)
 
@@ -1504,10 +1504,10 @@ Items identified from competitive analysis (Dentalink, Dentrix, Open Dental, Cur
 
 ### BACKLOG: GAP-07 — Módulo de Ortodoncia
 Specialized orthodontics tracking: bracket bonding chart, archwire changes, appointment sequence, payment tracking per visit, material tracking. ~25-30% of clinic revenue. Consider a "lite" version first.
-- [ ] Design orthodontic case model and visit tracking
-- [ ] Bracket bonding chart UI
-- [ ] Ortho-specific payment plan (per-visit tracking over 12-36 months)
-- [ ] Material tracking per case
+- [x] Design orthodontic case model and visit tracking
+- [x] Bracket bonding chart UI
+- [x] Ortho-specific payment plan (per-visit tracking over 12-36 months)
+- [x] Material tracking per case
 
 ### BACKLOG: GAP-11 — Videos Educativos 3D
 Curate or embed open-source dental education videos. Low dev effort if embedded from external library.

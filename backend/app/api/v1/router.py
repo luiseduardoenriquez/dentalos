@@ -270,4 +270,9 @@ from app.api.v1.lab_orders.router import router as lab_orders_router
 
 api_v1_router.include_router(lab_orders_router)
 
+# Sprint 33: GAP-07 Orthodontics
+from app.api.v1.ortho.router import router as ortho_router
+
+api_v1_router.include_router(ortho_router)
+
 # Sprint 15-16: Admin (included at top of file for route priority)

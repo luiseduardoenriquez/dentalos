@@ -489,6 +489,20 @@ class LabOrderErrors:
     ALREADY_DELIVERED = "LAB_ORDER_already_delivered"
 
 
+class OrthoErrors:
+    """ORTHO domain — orthodontics case management error codes."""
+
+    CASE_NOT_FOUND = "ORTHO_case_not_found"
+    VISIT_NOT_FOUND = "ORTHO_visit_not_found"
+    BONDING_NOT_FOUND = "ORTHO_bonding_not_found"
+    MATERIAL_NOT_FOUND = "ORTHO_material_not_found"
+    INVALID_STATUS_TRANSITION = "ORTHO_invalid_status_transition"
+    INVALID_TOOTH_NUMBER = "ORTHO_invalid_tooth_number"
+    CASE_NOT_ACTIVE = "ORTHO_case_not_active"
+    VISIT_NUMBER_EXISTS = "ORTHO_visit_number_exists"
+    INSUFFICIENT_INVENTORY = "ORTHO_insufficient_inventory"
+
+
 class SystemErrors:
     """SYSTEM domain — infrastructure, HTTP, and platform-level error codes."""
 

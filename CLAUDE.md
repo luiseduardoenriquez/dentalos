@@ -2,7 +2,7 @@
 
 Multi-tenant dental SaaS for LATAM (Colombia first). North star: "Si no es más rápido que el papel, fallamos."
 
-**Stack:** Python 3.12 + FastAPI | SQLAlchemy 2.0 + PostgreSQL 16 | Redis 7 | RabbitMQ 3 | Next.js 16 + TailwindCSS | Hetzner Cloud
+**Stack:** Python 3.12 + FastAPI | SQLAlchemy 2.0 + PostgreSQL 16 | Redis 7 | RabbitMQ 3 | Next.js 16 + TailwindCSS + Serwist (PWA) | Hetzner Cloud
 **UI language:** Spanish (es-419). **Code/comments:** English.
 
 ---
@@ -42,7 +42,7 @@ Next.js (port 3000) ─── SSR + Static ───→ FastAPI API
 ## Project Structure
 
 ```
-backend/                            # 72 models, 93 services, 73 route modules, 24 core modules
+backend/                            # 64 models, 84 services, 76 route modules, 23 core modules
   app/
     api/v1/          # Route handlers by domain (auth/, patients/, odontogram/, billing/, ...)
     core/            # Config, security, database, cache, queue
@@ -51,10 +51,10 @@ backend/                            # 72 models, 93 services, 73 route modules, 
     services/        # Business logic layer
     workers/         # RabbitMQ consumer workers
     integrations/    # 13 external API adapters (payments, insurance, telemedicine, VoIP, ...)
-  alembic_tenant/    # Tenant schema migrations (16 versions, runs on all tn_* schemas)
-  alembic_public/    # Public schema migrations (6 versions)
+  alembic_tenant/    # Tenant schema migrations (15 versions, runs on all tn_* schemas)
+  alembic_public/    # Public schema migrations (5 versions)
   tests/             # factories/, unit/, integration/, e2e/
-frontend/                           # 168 components, 135 pages, 54 hooks
+frontend/                           # 168 components, 135 pages, 49 hooks
   app/               # Next.js App Router: (public)/, (dashboard)/, (portal)/, (marketing)/, admin/
   components/        # Shared React components
   lib/               # API clients, hooks, utils, Zod validations
@@ -123,8 +123,8 @@ Add `is_active BOOLEAN DEFAULT true` + `deleted_at TIMESTAMPTZ`. Returns 404 unl
 
 ### Migrations — Dual Alembic setup. Never modify a deployed migration.
 
-- `alembic_tenant/` — runs against ALL `tn_*` schemas (16 versions)
-- `alembic_public/` — runs against `public` schema only (6 versions)
+- `alembic_tenant/` — runs against ALL `tn_*` schemas (15 versions)
+- `alembic_public/` — runs against `public` schema only (5 versions)
 
 ---
 
@@ -212,6 +212,7 @@ One user can belong to 2-6 clinics via `public.user_tenant_memberships`. Clinic 
 - **Language:** All UI text in Spanish (es-419). Hardcoded strings → i18n keys for future locales.
 - **Responsive:** Tablet-first design. Min viewport: 768px for dashboard, 320px for portal.
 - **Dark mode:** Supported. Odontogram anatomic view uses dark theme by default.
+- **PWA:** Serwist-based service worker (`app/sw.ts`) with offline fallback (`public/offline.html`), install prompt (`pwa-install-banner.tsx`), and update banner (`update-banner.tsx`). Manifest at `public/manifest.json`. SW served via `/serwist/[path]/route.ts`. Hooks: `use-pwa-install.ts`, `use-sw-update.ts`.
 
 ---
 
