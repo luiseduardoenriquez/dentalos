@@ -285,4 +285,9 @@ from app.api.v1.analytics.workflow_compliance import router as workflow_complian
 
 api_v1_router.include_router(workflow_compliance_router)
 
+# Admin Hardening: Clinic-facing announcements
+from app.api.v1.announcements.router import router as announcements_router
+
+api_v1_router.include_router(announcements_router)
+
 # Sprint 15-16: Admin (included at top of file for route priority)

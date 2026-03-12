@@ -840,6 +840,44 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 - [x] **ADH-35** Admin notifications frontend (bell icon in header, dropdown, mark read/all-read)
 - [x] **ADH-36** Notification instrumentation (suspend_tenant, create_tenant emit notifications)
 - [x] **ADH-37** FE: Multi-step tenant onboarding wizard (3 steps: basic info, plan/location, initial config)
+- [x] **SA-R02** Trial management: list trials, extend trial endpoint, frontend page with KPI cards
+- [x] **SA-O04** Maintenance mode: Redis flag toggle, GET/POST endpoints, frontend page with status card
+- [x] **SA-O01** Job monitor: RabbitMQ queue stats endpoint, frontend page with queue cards
+- [x] **SA-E01** Announcements: CRUD endpoints, migration 007 (admin_announcements table), model, frontend page with create/edit/delete
+- [x] **SA-R01** Revenue dashboard: migration 008 (admin_revenue_snapshots), KPI cards (MRR/ARPA/LTV/NRR), trend chart, plan/country breakdowns
+- [x] **SA-R03** Add-on usage tracking: cross-schema aggregation, adoption metrics, upsell candidates, tenant table
+- [x] **SA-G03** Onboarding funnel: step funnel visualization, stuck tenants table, onboarding_step labels
+- [x] **SA-U01** Cross-tenant user search: cross-schema UNION query, search by email/name, role filter, multi-clinic badge
+- [x] **SA-O02** Database metrics: pg_stat queries (connections, index/cache hit ratios, largest tables, slow queries, dead tuples)
+- [x] **SA-A03** Bulk operations: suspend/unsuspend/change_plan/extend_trial on multiple tenants, audit logging
+- [x] **SA-C01** Compliance dashboard: RIPS/RDA/consent/RETHUS status per Colombian tenant, KPI cards, compliance table
+- [x] **SA-C02** Security alerts: failed logins, suspicious IPs, after-hours actions from audit log analysis, severity-sorted alert cards
+- [x] **SA-C03** Data retention: retention policies (10yr clinical, 5yr audit), archivable cancelled tenants, HABEAS DATA
+- [x] **SA-U02** Tenant usage analytics: per-tenant health scores (active users, patients, appointments, invoices, records), risk levels
+- [x] **SA-G01** Cohort analysis: monthly retention matrix, months selector, avg churn month, heatmap visualization
+- [x] **SA-G02** Feature adoption: 8-feature adoption bars, per-tenant usage matrix, adoption percentages
+- [x] **SA-E02** Broadcast messaging: send filtered broadcasts (plan/country/status), notification worker queue, history log
+- [x] **SA-A01** Automated alerts: CRUD alert rules with condition/threshold/channel, toggle active/inactive
+- [x] **SA-A02** Scheduled reports: CRUD scheduled reports with type/schedule/recipients, active toggle, run tracking
+- [x] **SA-E03** Support chat: thread-per-tenant, admin/clinic_owner messages, unread counts, thread open/close status
+- [x] **SA-K01** Catalog administration: tab-switched CIE-10/CUPS management, search, pagination, add/edit codes inline
+- [x] **SA-K02** Template management: global consent/evolution templates list, filter by type, edit name/status, version tracking
+- [x] **SA-K03** Default prices: CUPS-based pricing per country, upsert, search, country filter, currency formatting
+- [x] **SA-U03** Tenant comparison: compare 2-5 tenants side-by-side, metrics rows, plan averages, color-coded cells
+- [x] **SA-O03** API usage metrics: 24h request totals, error rate, avg/P95 latency, hourly bar chart, Redis counters
+- [x] **SA-G04** Geo intelligence: country breakdown, MRR per country, signup trends, activation rates, flag badges
+
+### Admin Portal Hardening — Execution Engine Fixes
+
+- [x] **AEF-01** ApiMetricsMiddleware: writes Redis counters (hourly buckets, per-endpoint counts/errors/latency, per-tenant counts, latency samples sorted set)
+- [x] **AEF-02** MaintenanceMiddleware: checks Redis key, returns 503 for non-admin API routes, auto-clears expired maintenance, exempts health/admin/docs
+- [x] **AEF-03** Maintenance mode service: set deletes key when disabled, stores ends_at for auto-expiry
+- [x] **AEF-04** Clinic-facing announcements endpoint: GET /api/v1/announcements/active with tenant plan/country filtering
+- [x] **AEF-05** Broadcast email delivery: send_broadcast publishes QueueMessage per recipient to notifications queue
+- [x] **AEF-06** get_api_usage_metrics reads real Redis counters: endpoint scan, tenant scan, sorted set p95 calculation
+- [x] **AEF-07** Maintenance worker: admin.evaluate_alerts handler evaluates active rules against platform metrics, fires email notifications
+- [x] **AEF-08** Maintenance worker: admin.generate_report handler generates analytics/revenue/health reports, emails recipients
+- [x] **AEF-09** Maintenance worker: admin.revenue_snapshot handler captures monthly MRR/tenant/patient snapshots with upsert
 
 ### Email Templates
 

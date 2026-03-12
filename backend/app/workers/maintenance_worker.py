@@ -53,6 +53,10 @@ class MaintenanceWorker(BaseWorker):
             "schedule.unfilled_alert": self._handle_unfilled_alert,
             # GAP-15: AI Workflow Compliance Monitor
             "workflow.compliance_check": self._handle_workflow_compliance_check,
+            # Admin Portal Hardening: alert evaluation, report generation, revenue snapshot
+            "admin.evaluate_alerts": self._handle_evaluate_alerts,
+            "admin.generate_report": self._handle_generate_report,
+            "admin.revenue_snapshot": self._handle_revenue_snapshot,
         }
         handler = handlers.get(message.job_type)
         if handler:
@@ -829,6 +833,262 @@ class MaintenanceWorker(BaseWorker):
             logger.exception(
                 "Workflow compliance check failed: tenant=%s", tenant_id
             )
+            raise
+
+
+    # ── Admin Hardening: Alert Rule Evaluation ──────────────────────────
+
+    async def _handle_evaluate_alerts(self, message: QueueMessage) -> None:
+        """Evaluate all active admin alert rules and fire notifications.
+
+        Checks conditions like:
+        - churn_rate_high: churn rate > threshold
+        - mrr_drop: MRR dropped by > threshold%
+        - health_degraded: system health check failed
+        - new_signups_low: new signups in 7d < threshold
+        - tenant_suspended: any tenant was suspended
+        """
+        try:
+            from sqlalchemy import text
+
+            from app.core.database import AsyncSessionLocal
+            from app.core.queue import publish_message
+
+            async with AsyncSessionLocal() as db:
+                # Fetch active rules
+                result = await db.execute(
+                    text(
+                        "SELECT id, name, condition, threshold, channel "
+                        "FROM admin_alert_rules WHERE is_active = true"
+                    )
+                )
+                rules = result.fetchall()
+
+                if not rules:
+                    logger.debug("No active alert rules to evaluate")
+                    return
+
+                # Gather platform metrics once
+                from app.services.admin_service import admin_service
+
+                analytics = await admin_service.get_platform_analytics(db=db)
+
+                fired = 0
+                for rule in rules:
+                    rule_id, name, condition, threshold_str, channel = rule
+                    threshold = float(threshold_str) if threshold_str else 0
+
+                    should_fire = False
+                    detail = ""
+
+                    if condition == "churn_rate_high":
+                        if analytics.churn_rate > threshold:
+                            should_fire = True
+                            detail = f"Churn rate {analytics.churn_rate:.1f}% > {threshold}%"
+                    elif condition == "mrr_drop":
+                        # Compare to 30d-ago snapshot if available
+                        pass  # requires revenue history, skip for now
+                    elif condition == "new_signups_low":
+                        if analytics.new_signups_30d < int(threshold):
+                            should_fire = True
+                            detail = f"New signups {analytics.new_signups_30d} < {int(threshold)}"
+                    elif condition == "health_degraded":
+                        health = await admin_service.check_system_health()
+                        failed = [
+                            k for k, v in {
+                                "database": health.database,
+                                "redis": health.redis,
+                                "rabbitmq": health.rabbitmq,
+                                "storage": health.storage,
+                            }.items() if not v
+                        ]
+                        if failed:
+                            should_fire = True
+                            detail = f"Services down: {', '.join(failed)}"
+
+                    if should_fire:
+                        fired += 1
+                        # Update last_triggered_at
+                        await db.execute(
+                            text(
+                                "UPDATE admin_alert_rules SET last_triggered_at = now() "
+                                "WHERE id = :id"
+                            ),
+                            {"id": str(rule_id)},
+                        )
+
+                        # Send notification via the configured channel
+                        await publish_message(
+                            "notifications",
+                            QueueMessage(
+                                tenant_id="system",
+                                job_type="email.send",
+                                payload={
+                                    "to": channel,  # channel stores recipient email
+                                    "subject": f"[DentalOS Alert] {name}",
+                                    "body": f"Alert rule '{name}' triggered: {detail}",
+                                    "template": "admin_alert",
+                                },
+                                priority=8,  # High priority
+                            ),
+                        )
+
+                await db.commit()
+                logger.info("Alert evaluation: %d rules checked, %d fired", len(rules), fired)
+
+        except Exception:
+            logger.exception("Alert evaluation failed")
+            raise
+
+    async def _handle_generate_report(self, message: QueueMessage) -> None:
+        """Generate a scheduled admin report and email it to recipients.
+
+        Payload:
+            report_id: str — ID of the scheduled report config
+        """
+        payload = message.payload
+        report_id = payload.get("report_id")
+        if not report_id:
+            logger.warning("admin.generate_report missing report_id: %s", message.message_id)
+            return
+
+        try:
+            from sqlalchemy import text
+
+            from app.core.database import AsyncSessionLocal
+            from app.core.queue import publish_message
+
+            async with AsyncSessionLocal() as db:
+                # Fetch report config
+                result = await db.execute(
+                    text(
+                        "SELECT id, name, report_type, recipients "
+                        "FROM admin_scheduled_reports WHERE id = :id AND is_active = true"
+                    ),
+                    {"id": report_id},
+                )
+                report = result.fetchone()
+                if not report:
+                    logger.warning("Scheduled report not found or inactive: %s", report_id)
+                    return
+
+                _, name, report_type, recipients = report
+                recipients_list = recipients if isinstance(recipients, list) else []
+
+                # Generate report data based on type
+                from app.services.admin_service import admin_service
+
+                report_body = ""
+                if report_type == "analytics":
+                    analytics = await admin_service.get_platform_analytics(db=db)
+                    report_body = (
+                        f"Platform Report: {name}\n\n"
+                        f"Active Tenants: {analytics.active_tenants}\n"
+                        f"MRR: ${analytics.mrr_cents / 100:,.2f}\n"
+                        f"Churn Rate: {analytics.churn_rate:.1f}%\n"
+                        f"MAU: {analytics.mau}\n"
+                        f"New Signups (30d): {analytics.new_signups_30d}\n"
+                    )
+                elif report_type == "revenue":
+                    revenue = await admin_service.get_revenue_dashboard(db=db)
+                    report_body = (
+                        f"Revenue Report: {name}\n\n"
+                        f"Current MRR: ${revenue.current_mrr_cents / 100:,.2f}\n"
+                        f"ARPA: ${revenue.arpa_cents / 100:,.2f}\n"
+                    )
+                elif report_type == "health":
+                    health = await admin_service.check_system_health()
+                    report_body = (
+                        f"System Health Report: {name}\n\n"
+                        f"Database: {'OK' if health.database else 'DOWN'}\n"
+                        f"Redis: {'OK' if health.redis else 'DOWN'}\n"
+                        f"RabbitMQ: {'OK' if health.rabbitmq else 'DOWN'}\n"
+                        f"Storage: {'OK' if health.storage else 'DOWN'}\n"
+                    )
+                else:
+                    report_body = f"Report type '{report_type}' not yet implemented."
+
+                # Email to each recipient
+                for email in recipients_list:
+                    await publish_message(
+                        "notifications",
+                        QueueMessage(
+                            tenant_id="system",
+                            job_type="email.send",
+                            payload={
+                                "to": email,
+                                "subject": f"[DentalOS] Reporte: {name}",
+                                "body": report_body,
+                                "template": "admin_report",
+                            },
+                            priority=4,
+                        ),
+                    )
+
+                # Update last_run_at
+                await db.execute(
+                    text(
+                        "UPDATE admin_scheduled_reports SET last_run_at = now() "
+                        "WHERE id = :id"
+                    ),
+                    {"id": report_id},
+                )
+                await db.commit()
+
+                logger.info(
+                    "Report generated: name=%s type=%s recipients=%d",
+                    name, report_type, len(recipients_list),
+                )
+
+        except Exception:
+            logger.exception("Report generation failed: report_id=%s", report_id)
+            raise
+
+    async def _handle_revenue_snapshot(self, message: QueueMessage) -> None:
+        """Capture monthly revenue snapshot for trend tracking."""
+        try:
+            from sqlalchemy import text
+
+            from app.core.database import AsyncSessionLocal
+
+            async with AsyncSessionLocal() as db:
+                from app.services.admin_service import admin_service
+
+                revenue = await admin_service.get_revenue_dashboard(db=db)
+                analytics = await admin_service.get_platform_analytics(db=db)
+
+                month_str = datetime.now(UTC).strftime("%Y-%m")
+
+                # Upsert snapshot (unique on month)
+                await db.execute(
+                    text(
+                        "INSERT INTO admin_revenue_snapshots "
+                        "(id, month, mrr_cents, active_tenants, "
+                        "new_tenants, total_patients) "
+                        "VALUES (gen_random_uuid(), :month, :mrr, :tenants, "
+                        ":new_tenants, :patients) "
+                        "ON CONFLICT (month) DO UPDATE SET "
+                        "mrr_cents = :mrr, active_tenants = :tenants, "
+                        "new_tenants = :new_tenants, total_patients = :patients"
+                    ),
+                    {
+                        "month": month_str,
+                        "mrr": revenue.current_mrr_cents,
+                        "tenants": analytics.active_tenants,
+                        "new_tenants": analytics.new_signups_30d,
+                        "patients": analytics.total_patients,
+                    },
+                )
+                await db.commit()
+
+                logger.info(
+                    "Revenue snapshot captured: month=%s mrr=%d tenants=%d",
+                    month_str,
+                    revenue.current_mrr_cents,
+                    analytics.active_tenants,
+                )
+        except Exception:
+            logger.exception("Revenue snapshot failed")
             raise
 
 

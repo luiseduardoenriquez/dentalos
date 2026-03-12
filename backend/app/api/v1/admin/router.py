@@ -42,23 +42,72 @@ from app.core.exceptions import AuthError
 from app.core.security import _load_public_key
 from app.models.public.superadmin import Superadmin
 from app.schemas.admin import (
+    AddonUsageResponse,
     AdminLoginRequest,
     AdminLoginResponse,
     AdminNotificationListResponse,
     AdminTOTPSetupResponse,
     AdminTOTPVerifyRequest,
+    AnnouncementCreateRequest,
+    AnnouncementListResponse,
+    AnnouncementResponse,
+    AnnouncementUpdateRequest,
     AuditLogListResponse,
+    BulkOperationRequest,
+    BulkOperationResponse,
+    AlertRuleCreateRequest,
+    AlertRuleListResponse,
+    AlertRuleResponse,
+    AlertRuleUpdateRequest,
+    BroadcastCreateRequest,
+    BroadcastHistoryResponse,
+    BroadcastSendResponse,
+    CohortAnalysisResponse,
+    ComplianceDashboardResponse,
+    CrossTenantUserListResponse,
+    DatabaseMetricsResponse,
+    DataRetentionResponse,
+    FeatureAdoptionResponse,
+    ExtendTrialRequest,
     FeatureFlagCreateRequest,
     FeatureFlagResponse,
     FeatureFlagUpdateRequest,
     FlagChangeHistoryEntry,
     ImpersonateRequest,
     ImpersonateResponse,
+    JobMonitorResponse,
+    MaintenanceStatusResponse,
+    MaintenanceToggleRequest,
+    OnboardingFunnelResponse,
     PlanChangeHistoryResponse,
     PlanResponse,
     PlanUpdateRequest,
     PlatformAnalyticsResponse,
+    RevenueDashboardResponse,
+    ScheduledReportCreateRequest,
+    ScheduledReportListResponse,
+    ScheduledReportResponse,
+    ScheduledReportUpdateRequest,
+    SecurityAlertListResponse,
     SuperadminCreateRequest,
+    SupportMessageCreateRequest,
+    SupportMessageItem,
+    SupportThreadDetailResponse,
+    SupportThreadListResponse,
+    TenantHealthListResponse,
+    ApiUsageMetricsResponse,
+    CatalogCodeCreateRequest,
+    CatalogCodeItem,
+    CatalogCodeListResponse,
+    CatalogCodeUpdateRequest,
+    DefaultPriceItem,
+    DefaultPriceListResponse,
+    DefaultPriceUpsertRequest,
+    GeoIntelligenceResponse,
+    GlobalTemplateDetailResponse,
+    GlobalTemplateListResponse,
+    GlobalTemplateUpdateRequest,
+    TenantComparisonResponse,
     SuperadminResponse,
     SuperadminUpdateRequest,
     SystemHealthResponse,
@@ -66,6 +115,7 @@ from app.schemas.admin import (
     TenantDetailResponse,
     TenantListResponse,
     TenantUpdateRequest,
+    TrialListResponse,
 )
 from app.services.admin_auth_service import admin_auth_service
 from app.services.admin_service import admin_service
@@ -770,3 +820,710 @@ async def mark_all_notifications_read(
     count = await admin_service.mark_all_notifications_read(db=db, admin_id=admin.id)
     await db.commit()
     return {"status": "ok", "marked_count": count}
+
+
+# ─── SA-R02: Trial Management ─────────────────────────────────────────────
+
+
+@router.get("/trials", response_model=TrialListResponse, tags=["admin-trials"])
+async def list_trials(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> TrialListResponse:
+    """List all tenants with active trials."""
+    return await admin_service.list_trials(db=db)
+
+
+@router.post(
+    "/tenants/{tenant_id}/extend-trial",
+    tags=["admin-trials"],
+)
+async def extend_trial(
+    tenant_id: str,
+    body: ExtendTrialRequest,
+    request: Request,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> dict:
+    """Extend a tenant's trial period."""
+    result = await admin_service.extend_trial(db=db, tenant_id=tenant_id, days=body.days)
+    ip, ua = _get_client_info(request)
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action="extend_trial",
+        resource_type="tenant",
+        resource_id=tenant_id,
+        details={"days": body.days},
+        ip_address=ip,
+        user_agent=ua,
+    )
+    await db.commit()
+    return result
+
+
+# ─── SA-O04: Maintenance Mode ─────────────────────────────────────────────
+
+
+@router.get("/maintenance", response_model=MaintenanceStatusResponse, tags=["admin-maintenance"])
+async def get_maintenance_status(
+    admin: Superadmin = Depends(get_current_admin),
+) -> MaintenanceStatusResponse:
+    """Get current maintenance mode status."""
+    return await admin_service.get_maintenance_status()
+
+
+@router.post("/maintenance", response_model=MaintenanceStatusResponse, tags=["admin-maintenance"])
+async def toggle_maintenance(
+    body: MaintenanceToggleRequest,
+    request: Request,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> MaintenanceStatusResponse:
+    """Toggle platform maintenance mode."""
+    result = await admin_service.set_maintenance_mode(
+        enabled=body.enabled,
+        message=body.message,
+        scheduled_end=body.scheduled_end,
+    )
+    ip, ua = _get_client_info(request)
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action="toggle_maintenance",
+        resource_type="system",
+        details={"enabled": body.enabled, "message": body.message},
+        ip_address=ip,
+        user_agent=ua,
+    )
+    await db.commit()
+    return result
+
+
+# ─── SA-O01: Job Monitor ──────────────────────────────────────────────────
+
+
+@router.get("/jobs", response_model=JobMonitorResponse, tags=["admin-jobs"])
+async def get_job_stats(
+    admin: Superadmin = Depends(get_current_admin),
+) -> JobMonitorResponse:
+    """Get RabbitMQ queue stats for job monitoring."""
+    return await admin_service.get_job_monitor_stats()
+
+
+# ─── SA-E01: Announcements ────────────────────────────────────────────────
+
+
+@router.get("/announcements", response_model=AnnouncementListResponse, tags=["admin-announcements"])
+async def list_announcements(
+    active_only: bool = Query(False),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> AnnouncementListResponse:
+    """List all announcements."""
+    return await admin_service.list_announcements(db=db, active_only=active_only)
+
+
+@router.post(
+    "/announcements",
+    response_model=AnnouncementResponse,
+    status_code=201,
+    tags=["admin-announcements"],
+)
+async def create_announcement(
+    body: AnnouncementCreateRequest,
+    request: Request,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> AnnouncementResponse:
+    """Create a new platform announcement."""
+    result = await admin_service.create_announcement(
+        db=db,
+        admin_id=str(admin.id),
+        title=body.title,
+        body=body.body,
+        announcement_type=body.announcement_type,
+        visibility=body.visibility,
+        visibility_filter=body.visibility_filter,
+        is_dismissable=body.is_dismissable,
+        starts_at=body.starts_at,
+        ends_at=body.ends_at,
+    )
+    ip, ua = _get_client_info(request)
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action="create_announcement",
+        resource_type="announcement",
+        resource_id=result.id,
+        details={"title": body.title},
+        ip_address=ip,
+        user_agent=ua,
+    )
+    await db.commit()
+    return result
+
+
+@router.put(
+    "/announcements/{announcement_id}",
+    response_model=AnnouncementResponse,
+    tags=["admin-announcements"],
+)
+async def update_announcement(
+    announcement_id: str,
+    body: AnnouncementUpdateRequest,
+    request: Request,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> AnnouncementResponse:
+    """Update an existing announcement."""
+    result = await admin_service.update_announcement(
+        db=db,
+        announcement_id=announcement_id,
+        **body.model_dump(exclude_none=True),
+    )
+    ip, ua = _get_client_info(request)
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action="update_announcement",
+        resource_type="announcement",
+        resource_id=announcement_id,
+        details=body.model_dump(exclude_none=True),
+        ip_address=ip,
+        user_agent=ua,
+    )
+    await db.commit()
+    return result
+
+
+@router.delete(
+    "/announcements/{announcement_id}",
+    tags=["admin-announcements"],
+)
+async def delete_announcement(
+    announcement_id: str,
+    request: Request,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> dict[str, str]:
+    """Deactivate an announcement."""
+    await admin_service.delete_announcement(db=db, announcement_id=announcement_id)
+    ip, ua = _get_client_info(request)
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action="delete_announcement",
+        resource_type="announcement",
+        resource_id=announcement_id,
+        ip_address=ip,
+        user_agent=ua,
+    )
+    await db.commit()
+    return {"status": "deactivated"}
+
+
+# ─── SA-R01: Revenue Dashboard ─────────────────────────────────────────────
+
+
+@router.get("/analytics/revenue", response_model=RevenueDashboardResponse, tags=["admin-revenue"])
+async def revenue_dashboard(
+    months: int = Query(default=12, ge=3, le=24),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> RevenueDashboardResponse:
+    """Revenue dashboard with KPIs, monthly trends, and breakdowns."""
+    return await admin_service.get_revenue_dashboard(db=db, months=months)
+
+
+# ─── SA-R03: Add-on Usage ─────────────────────────────────────────────────
+
+
+@router.get("/analytics/addons", response_model=AddonUsageResponse, tags=["admin-addons"])
+async def addon_usage(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> AddonUsageResponse:
+    """Add-on adoption metrics and per-tenant usage."""
+    return await admin_service.get_addon_usage(db=db)
+
+
+# ─── SA-G03: Onboarding Funnel ────────────────────────────────────────────
+
+
+@router.get("/analytics/onboarding", response_model=OnboardingFunnelResponse, tags=["admin-onboarding"])
+async def onboarding_funnel(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> OnboardingFunnelResponse:
+    """Onboarding funnel metrics — step completion rates and stuck tenants."""
+    return await admin_service.get_onboarding_funnel(db=db)
+
+
+# ─── SA-U01: Cross-Tenant User Search ─────────────────────────────────────
+
+
+@router.get("/users", response_model=CrossTenantUserListResponse, tags=["admin-users"])
+async def search_users(
+    search: str = Query(..., min_length=2, description="Search by email, name"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    role: str | None = Query(default=None),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> CrossTenantUserListResponse:
+    """Search users across all tenant schemas."""
+    return await admin_service.search_users_cross_tenant(
+        db=db, search=search, page=page, page_size=page_size, role=role,
+    )
+
+
+# ─── SA-O02: Database Metrics ─────────────────────────────────────────────
+
+
+@router.get("/metrics/database", response_model=DatabaseMetricsResponse, tags=["admin-database"])
+async def database_metrics(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> DatabaseMetricsResponse:
+    """PostgreSQL performance and size metrics."""
+    return await admin_service.get_database_metrics(db=db)
+
+
+# ─── SA-A03: Bulk Operations ──────────────────────────────────────────────
+
+
+@router.post("/tenants/bulk", response_model=BulkOperationResponse, tags=["admin-bulk"])
+async def bulk_tenant_operation(
+    body: BulkOperationRequest,
+    request: Request,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> BulkOperationResponse:
+    """Execute a bulk action on multiple tenants."""
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
+    return await admin_service.execute_bulk_operation(
+        db=db,
+        tenant_ids=body.tenant_ids,
+        action=body.action,
+        admin_id=str(admin.id),
+        plan_id=body.plan_id,
+        trial_days=body.trial_days,
+        ip_address=ip,
+        user_agent=ua,
+    )
+
+
+# ─── SA-C01: Compliance Dashboard ─────────────────────────────────────────
+
+
+@router.get("/compliance", response_model=ComplianceDashboardResponse, tags=["admin-compliance"])
+async def compliance_dashboard(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> ComplianceDashboardResponse:
+    """Compliance status for Colombian tenants (Resolucion 1888)."""
+    return await admin_service.get_compliance_dashboard(db=db)
+
+
+# ─── SA-C02: Security Alerts ──────────────────────────────────────────────
+
+
+@router.get("/security/alerts", response_model=SecurityAlertListResponse, tags=["admin-security"])
+async def security_alerts(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> SecurityAlertListResponse:
+    """Security alerts from audit log analysis."""
+    return await admin_service.get_security_alerts(
+        db=db, page=page, page_size=page_size,
+    )
+
+
+# ─── SA-C03: Data Retention ───────────────────────────────────────────────
+
+
+@router.get("/retention", response_model=DataRetentionResponse, tags=["admin-retention"])
+async def data_retention(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> DataRetentionResponse:
+    """Data retention policies and archivable tenants."""
+    return await admin_service.get_data_retention(db=db)
+
+
+# ─── SA-U02: Tenant Usage Analytics ───────────────────────────────────────
+
+
+@router.get("/analytics/tenant-health", response_model=TenantHealthListResponse, tags=["admin-intelligence"])
+async def tenant_health(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> TenantHealthListResponse:
+    """Per-tenant usage metrics and health scores."""
+    return await admin_service.get_tenant_health(db=db)
+
+
+# ─── SA-G01: Cohort Analysis ──────────────────────────────────────────────
+
+
+@router.get("/analytics/cohorts", response_model=CohortAnalysisResponse, tags=["admin-intelligence"])
+async def cohort_analysis(
+    months: int = Query(default=12, ge=3, le=24),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> CohortAnalysisResponse:
+    """Monthly cohort retention matrix."""
+    return await admin_service.get_cohort_analysis(db=db, months=months)
+
+
+# ─── SA-G02: Feature Adoption ─────────────────────────────────────────────
+
+
+@router.get("/analytics/feature-adoption", response_model=FeatureAdoptionResponse, tags=["admin-intelligence"])
+async def feature_adoption(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> FeatureAdoptionResponse:
+    """Feature adoption matrix across all active tenants."""
+    return await admin_service.get_feature_adoption(db=db)
+
+
+# ─── SA-E02: Broadcast Messaging ──────────────────────────────────────────
+
+
+@router.post("/broadcast", response_model=BroadcastSendResponse, status_code=201, tags=["admin-broadcast"])
+async def send_broadcast(
+    body: BroadcastCreateRequest,
+    request: Request,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> BroadcastSendResponse:
+    """Queue a broadcast email to clinic owners."""
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
+    result = await admin_service.send_broadcast(
+        db=db, subject=body.subject, body=body.body,
+        admin_id=str(admin.id), template=body.template,
+        filter_plan=body.filter_plan, filter_country=body.filter_country,
+        filter_status=body.filter_status,
+    )
+    await admin_service.log_admin_action(
+        db=db, admin_id=str(admin.id), action="send_broadcast",
+        resource_type="broadcast", resource_id=result.broadcast_id,
+        details={"subject": body.subject, "recipients": result.recipients_count},
+        ip_address=ip, user_agent=ua,
+    )
+    return result
+
+
+@router.get("/broadcast/history", response_model=BroadcastHistoryResponse, tags=["admin-broadcast"])
+async def broadcast_history(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> BroadcastHistoryResponse:
+    """Broadcast send history."""
+    return await admin_service.get_broadcast_history(
+        db=db, page=page, page_size=page_size,
+    )
+
+
+# ─── SA-A01: Alert Rules ──────────────────────────────────────────────────
+
+
+@router.get("/alert-rules", response_model=AlertRuleListResponse, tags=["admin-alerts"])
+async def list_alert_rules(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> AlertRuleListResponse:
+    """List all automated alert rules."""
+    return await admin_service.list_alert_rules(db=db)
+
+
+@router.post("/alert-rules", response_model=AlertRuleResponse, status_code=201, tags=["admin-alerts"])
+async def create_alert_rule(
+    body: AlertRuleCreateRequest,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> AlertRuleResponse:
+    """Create an automated alert rule."""
+    return await admin_service.create_alert_rule(
+        db=db, name=body.name, condition=body.condition,
+        threshold=body.threshold, channel=body.channel,
+        is_active=body.is_active, admin_id=str(admin.id),
+    )
+
+
+@router.put("/alert-rules/{rule_id}", response_model=AlertRuleResponse, tags=["admin-alerts"])
+async def update_alert_rule(
+    rule_id: str,
+    body: AlertRuleUpdateRequest,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> AlertRuleResponse:
+    """Update an alert rule."""
+    updates = body.model_dump(exclude_unset=True)
+    return await admin_service.update_alert_rule(
+        db=db, rule_id=rule_id, updates=updates,
+    )
+
+
+@router.delete("/alert-rules/{rule_id}", tags=["admin-alerts"])
+async def delete_alert_rule(
+    rule_id: str,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> dict:
+    """Delete an alert rule."""
+    await admin_service.delete_alert_rule(db=db, rule_id=rule_id)
+    return {"status": "deleted"}
+
+
+# ─── SA-A02: Scheduled Reports ────────────────────────────────────────────
+
+
+@router.get("/scheduled-reports", response_model=ScheduledReportListResponse, tags=["admin-reports"])
+async def list_scheduled_reports(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> ScheduledReportListResponse:
+    """List all scheduled reports."""
+    return await admin_service.list_scheduled_reports(db=db)
+
+
+@router.post("/scheduled-reports", response_model=ScheduledReportResponse, status_code=201, tags=["admin-reports"])
+async def create_scheduled_report(
+    body: ScheduledReportCreateRequest,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> ScheduledReportResponse:
+    """Create a scheduled report."""
+    return await admin_service.create_scheduled_report(
+        db=db, name=body.name, report_type=body.report_type,
+        schedule=body.schedule, recipients=body.recipients,
+        is_active=body.is_active, admin_id=str(admin.id),
+    )
+
+
+@router.put("/scheduled-reports/{report_id}", response_model=ScheduledReportResponse, tags=["admin-reports"])
+async def update_scheduled_report(
+    report_id: str,
+    body: ScheduledReportUpdateRequest,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> ScheduledReportResponse:
+    """Update a scheduled report."""
+    updates = body.model_dump(exclude_unset=True)
+    return await admin_service.update_scheduled_report(
+        db=db, report_id=report_id, updates=updates,
+    )
+
+
+@router.delete("/scheduled-reports/{report_id}", tags=["admin-reports"])
+async def delete_scheduled_report(
+    report_id: str,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> dict:
+    """Delete a scheduled report."""
+    await admin_service.delete_scheduled_report(db=db, report_id=report_id)
+    return {"status": "deleted"}
+
+
+# ─── SA-E03: Support Chat ─────────────────────────────────────────────────
+
+
+@router.get("/support/threads", response_model=SupportThreadListResponse, tags=["admin-support"])
+async def list_support_threads(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> SupportThreadListResponse:
+    """List all support threads."""
+    return await admin_service.list_support_threads(db=db)
+
+
+@router.get("/support/threads/{tenant_id}", response_model=SupportThreadDetailResponse, tags=["admin-support"])
+async def get_support_thread(
+    tenant_id: str,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> SupportThreadDetailResponse:
+    """Get or create a support thread for a tenant."""
+    return await admin_service.get_support_thread(db=db, tenant_id=tenant_id)
+
+
+@router.post("/support/threads/{tenant_id}/messages", response_model=SupportMessageItem, status_code=201, tags=["admin-support"])
+async def send_support_message(
+    tenant_id: str,
+    body: SupportMessageCreateRequest,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> SupportMessageItem:
+    """Send a message in a support thread."""
+    return await admin_service.send_support_message(
+        db=db, tenant_id=tenant_id, content=body.content,
+        sender_type="admin", sender_id=str(admin.id),
+        sender_name=admin.name,
+    )
+
+
+# ─── SA-K03: Default Price Catalog (MUST be before /catalog/{catalog_type}) ───
+
+
+@router.get("/catalog/prices", response_model=DefaultPriceListResponse, tags=["admin-catalog"])
+async def list_default_prices(
+    country_code: str | None = Query(None),
+    search: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> DefaultPriceListResponse:
+    """List default procedure prices."""
+    return await admin_service.list_default_prices(
+        db=db, country_code=country_code, search=search, page=page, page_size=page_size,
+    )
+
+
+@router.post("/catalog/prices", response_model=DefaultPriceItem, status_code=201, tags=["admin-catalog"])
+async def upsert_default_price(
+    body: DefaultPriceUpsertRequest,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> DefaultPriceItem:
+    """Create or update a default price entry."""
+    return await admin_service.upsert_default_price(
+        db=db, data=body, admin_id=str(admin.id),
+    )
+
+
+# ─── SA-K01: Catalog Administration ─────────────────────────────────────
+
+
+@router.get("/catalog/{catalog_type}", response_model=CatalogCodeListResponse, tags=["admin-catalog"])
+async def list_catalog_codes(
+    catalog_type: str,
+    search: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> CatalogCodeListResponse:
+    """List CIE-10 or CUPS codes."""
+    if catalog_type not in ("cie10", "cups"):
+        raise HTTPException(status_code=400, detail="catalog_type must be 'cie10' or 'cups'")
+    return await admin_service.list_catalog_codes(
+        db=db, catalog_type=catalog_type, search=search, page=page, page_size=page_size,
+    )
+
+
+@router.post("/catalog/{catalog_type}", response_model=CatalogCodeItem, status_code=201, tags=["admin-catalog"])
+async def create_catalog_code(
+    catalog_type: str,
+    body: CatalogCodeCreateRequest,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> CatalogCodeItem:
+    """Create a new CIE-10 or CUPS code."""
+    if catalog_type not in ("cie10", "cups"):
+        raise HTTPException(status_code=400, detail="catalog_type must be 'cie10' or 'cups'")
+    return await admin_service.create_catalog_code(db=db, catalog_type=catalog_type, data=body)
+
+
+@router.put("/catalog/{catalog_type}/{code_id}", response_model=CatalogCodeItem, tags=["admin-catalog"])
+async def update_catalog_code(
+    catalog_type: str,
+    code_id: str,
+    body: CatalogCodeUpdateRequest,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> CatalogCodeItem:
+    """Update a CIE-10 or CUPS code."""
+    if catalog_type not in ("cie10", "cups"):
+        raise HTTPException(status_code=400, detail="catalog_type must be 'cie10' or 'cups'")
+    return await admin_service.update_catalog_code(
+        db=db, catalog_type=catalog_type, code_id=code_id, data=body,
+    )
+
+
+# ─── SA-K02: Global Template Management ─────────────────────────────────
+
+
+@router.get("/templates", response_model=GlobalTemplateListResponse, tags=["admin-templates"])
+async def list_global_templates(
+    template_type: str | None = Query(None),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> GlobalTemplateListResponse:
+    """List global consent and evolution templates."""
+    return await admin_service.list_global_templates(db=db, template_type=template_type)
+
+
+@router.get("/templates/{template_id}", response_model=GlobalTemplateDetailResponse, tags=["admin-templates"])
+async def get_global_template(
+    template_id: str,
+    template_type: str = Query("consent"),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> GlobalTemplateDetailResponse:
+    """Get a global template with full content."""
+    return await admin_service.get_global_template(
+        db=db, template_id=template_id, template_type=template_type,
+    )
+
+
+@router.put("/templates/{template_id}", response_model=GlobalTemplateDetailResponse, tags=["admin-templates"])
+async def update_global_template(
+    template_id: str,
+    body: GlobalTemplateUpdateRequest,
+    template_type: str = Query("consent"),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> GlobalTemplateDetailResponse:
+    """Update a global template."""
+    return await admin_service.update_global_template(
+        db=db, template_id=template_id, template_type=template_type, data=body,
+    )
+
+
+# ─── SA-U03: Tenant Comparison ───────────────────────────────────────────
+
+
+@router.get("/analytics/benchmark", response_model=TenantComparisonResponse, tags=["admin-analytics"])
+async def compare_tenants(
+    tenant_ids: str = Query(..., description="Comma-separated tenant IDs (2-5)"),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> TenantComparisonResponse:
+    """Compare 2-5 tenants side by side."""
+    ids = [tid.strip() for tid in tenant_ids.split(",") if tid.strip()]
+    return await admin_service.compare_tenants(db=db, tenant_ids=ids)
+
+
+# ─── SA-O03: API Usage Metrics ───────────────────────────────────────────
+
+
+@router.get("/metrics/api", response_model=ApiUsageMetricsResponse, tags=["admin-metrics"])
+async def get_api_usage_metrics(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> ApiUsageMetricsResponse:
+    """Get API usage metrics."""
+    return await admin_service.get_api_usage_metrics(db=db)
+
+
+# ─── SA-G04: Geographic Intelligence ─────────────────────────────────────
+
+
+@router.get("/analytics/geo", response_model=GeoIntelligenceResponse, tags=["admin-analytics"])
+async def get_geo_intelligence(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> GeoIntelligenceResponse:
+    """Get geographic expansion intelligence."""
+    return await admin_service.get_geo_intelligence(db=db)

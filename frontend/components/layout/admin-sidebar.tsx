@@ -26,6 +26,31 @@ import {
   ClipboardList,
   Users,
   X,
+  Timer,
+  Wrench,
+  Layers,
+  Megaphone,
+  DollarSign,
+  Puzzle,
+  Footprints,
+  Search,
+  Database,
+  FileCheck,
+  AlertTriangle,
+  Archive,
+  HeartPulse,
+  GitBranch,
+  Grid3X3,
+  Radio,
+  Bell,
+  FileText,
+  MessageSquare,
+  BookOpen,
+  FileCode,
+  Tag,
+  BarChartHorizontal,
+  Gauge,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -67,6 +92,46 @@ const ADMIN_NAV: AdminNavItem[] = [
     icon: BarChart3,
   },
   {
+    href: "/admin/revenue",
+    label: "Revenue",
+    icon: DollarSign,
+  },
+  {
+    href: "/admin/trials",
+    label: "Trials",
+    icon: Timer,
+  },
+  {
+    href: "/admin/addons",
+    label: "Add-ons",
+    icon: Puzzle,
+  },
+  {
+    href: "/admin/onboarding",
+    label: "Onboarding",
+    icon: Footprints,
+  },
+  {
+    href: "/admin/tenant-health",
+    label: "Salud de Clínicas",
+    icon: HeartPulse,
+  },
+  {
+    href: "/admin/cohorts",
+    label: "Cohortes",
+    icon: GitBranch,
+  },
+  {
+    href: "/admin/feature-adoption",
+    label: "Adopción de Features",
+    icon: Grid3X3,
+  },
+  {
+    href: "/admin/users",
+    label: "Buscar Usuarios",
+    icon: Search,
+  },
+  {
     href: "/admin/plans",
     label: "Planes",
     icon: CreditCard,
@@ -82,6 +147,56 @@ const ADMIN_NAV: AdminNavItem[] = [
     icon: Activity,
   },
   {
+    href: "/admin/database",
+    label: "Base de Datos",
+    icon: Database,
+  },
+  {
+    href: "/admin/jobs",
+    label: "Cola de Trabajos",
+    icon: Layers,
+  },
+  {
+    href: "/admin/announcements",
+    label: "Anuncios",
+    icon: Megaphone,
+  },
+  {
+    href: "/admin/broadcast",
+    label: "Broadcast",
+    icon: Radio,
+  },
+  {
+    href: "/admin/alert-rules",
+    label: "Alertas Automáticas",
+    icon: Bell,
+  },
+  {
+    href: "/admin/scheduled-reports",
+    label: "Reportes Programados",
+    icon: FileText,
+  },
+  {
+    href: "/admin/support",
+    label: "Soporte",
+    icon: MessageSquare,
+  },
+  {
+    href: "/admin/maintenance",
+    label: "Mantenimiento",
+    icon: Wrench,
+  },
+  {
+    href: "/admin/compliance",
+    label: "Cumplimiento",
+    icon: FileCheck,
+  },
+  {
+    href: "/admin/data-retention",
+    label: "Retención de Datos",
+    icon: Archive,
+  },
+  {
     href: "/admin/audit-log",
     label: "Registro de Auditoría",
     icon: ClipboardList,
@@ -95,6 +210,41 @@ const ADMIN_NAV: AdminNavItem[] = [
     href: "/admin/security",
     label: "Seguridad",
     icon: Shield,
+  },
+  {
+    href: "/admin/security/alerts",
+    label: "Alertas de Seguridad",
+    icon: AlertTriangle,
+  },
+  {
+    href: "/admin/catalogs",
+    label: "Catálogos",
+    icon: BookOpen,
+  },
+  {
+    href: "/admin/templates",
+    label: "Plantillas",
+    icon: FileCode,
+  },
+  {
+    href: "/admin/default-prices",
+    label: "Precios por Defecto",
+    icon: Tag,
+  },
+  {
+    href: "/admin/benchmark",
+    label: "Comparar Clínicas",
+    icon: BarChartHorizontal,
+  },
+  {
+    href: "/admin/api-metrics",
+    label: "Métricas API",
+    icon: Gauge,
+  },
+  {
+    href: "/admin/geo",
+    label: "Inteligencia Geográfica",
+    icon: Globe,
   },
 ];
 

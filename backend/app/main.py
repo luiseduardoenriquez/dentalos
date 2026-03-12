@@ -12,6 +12,8 @@ from app.core.database import engine
 from app.core.exception_handlers import register_exception_handlers
 from app.core.logging_config import setup_logging
 from app.core.middleware import (
+    ApiMetricsMiddleware,
+    MaintenanceMiddleware,
     MetricsMiddleware,
     RequestLoggingMiddleware,
     SecurityHeadersMiddleware,
@@ -60,7 +62,9 @@ app = FastAPI(
 # Middleware stack (order matters: outermost runs first on request, last on response)
 # Added in reverse order: last add_middleware = outermost
 app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(ApiMetricsMiddleware)
 app.add_middleware(MetricsMiddleware)
+app.add_middleware(MaintenanceMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
