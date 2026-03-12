@@ -1515,7 +1515,7 @@ Curate or embed open-source dental education videos. Low dev effort if embedded 
 
 ### BACKLOG: GAP-12 — Módulo de Estética Facial
 Facial aesthetics with body/face diagram for clinics doing botox/fillers. Niche feature.
-- [ ] Facial aesthetics module (body/face diagram, injection points tracking)
+- [x] Facial aesthetics module (body/face diagram, injection points tracking)
 
 ### BACKLOG: GAP-13 — Simulador de Sonrisa IA
 AI-generated smile simulation for patient consultations. Could integrate 3rd party.

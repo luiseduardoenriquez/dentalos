@@ -503,6 +503,15 @@ class OrthoErrors:
     INSUFFICIENT_INVENTORY = "ORTHO_insufficient_inventory"
 
 
+class FacialAestheticsErrors:
+    """FACIAL_AESTHETICS domain — facial aesthetics module error codes."""
+
+    SESSION_NOT_FOUND = "FACIAL_AESTHETICS_session_not_found"
+    INJECTION_NOT_FOUND = "FACIAL_AESTHETICS_injection_not_found"
+    INVALID_ZONE = "FACIAL_AESTHETICS_invalid_zone"
+    DUPLICATE_ZONE = "FACIAL_AESTHETICS_duplicate_zone"
+
+
 class WorkflowComplianceErrors:
     """WORKFLOW_COMPLIANCE domain — workflow compliance monitor error codes."""
 

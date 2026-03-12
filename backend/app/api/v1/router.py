@@ -275,6 +275,11 @@ from app.api.v1.ortho.router import router as ortho_router
 
 api_v1_router.include_router(ortho_router)
 
+# GAP-12: Facial Aesthetics
+from app.api.v1.facial_aesthetics.router import router as facial_aesthetics_router
+
+api_v1_router.include_router(facial_aesthetics_router)
+
 # GAP-15: AI Workflow Compliance Monitor
 from app.api.v1.analytics.workflow_compliance import router as workflow_compliance_router
 
