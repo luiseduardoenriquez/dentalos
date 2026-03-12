@@ -157,8 +157,7 @@ export default function ConsentsListPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Plantilla</TableHead>
-                  <TableHead>Categoría</TableHead>
+                  <TableHead>Título</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Fecha</TableHead>
                 </TableRow>
@@ -174,11 +173,8 @@ export default function ConsentsListPage() {
                         href={`/patients/${patient_id}/consents/${consent.id}`}
                         className="font-medium text-foreground hover:text-primary-600 transition-colors"
                       >
-                        {consent.template_name}
+                        {consent.title}
                       </Link>
-                    </TableCell>
-                    <TableCell className="text-sm text-[hsl(var(--muted-foreground))]">
-                      {CATEGORY_LABELS[consent.category] ?? consent.category}
                     </TableCell>
                     <TableCell>
                       <ConsentStatusBadge status={consent.status} />

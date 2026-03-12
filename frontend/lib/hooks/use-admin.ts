@@ -212,6 +212,52 @@ export function useAdminTOTPVerify() {
   });
 }
 
+// ─── Tenant Detail Types (matches TenantDetailResponse) ──────────────────────
+
+export interface TenantDetailResponse {
+  id: string;
+  name: string;
+  slug: string;
+  schema_name: string;
+  owner_email: string;
+  owner_user_id: string | null;
+  country_code: string;
+  timezone: string;
+  currency_code: string;
+  locale: string;
+  plan_id: string;
+  plan_name: string;
+  status: string;
+  phone: string | null;
+  address: string | null;
+  logo_url: string | null;
+  onboarding_step: number;
+  settings: Record<string, unknown>;
+  addons: Record<string, unknown>;
+  trial_ends_at: string | null;
+  suspended_at: string | null;
+  cancelled_at: string | null;
+  user_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TenantCreatePayload {
+  name: string;
+  owner_email: string;
+  plan_id: string;
+  country_code?: string;
+  timezone?: string;
+  currency_code?: string;
+}
+
+export interface TenantUpdatePayload {
+  name?: string;
+  plan_id?: string;
+  settings?: Record<string, unknown>;
+  is_active?: boolean;
+}
+
 // ─── Tenant Hooks ────────────────────────────────────────────────────────────
 
 /**
@@ -239,6 +285,73 @@ export function useImpersonateTenant() {
       adminApiPost<ImpersonateResponse>(
         `/admin/tenants/${tenantId}/impersonate`,
       ),
+  });
+}
+
+/**
+ * Query for GET /admin/tenants/{id}. Full tenant detail.
+ */
+export function useAdminTenantDetail(id: string) {
+  return useQuery({
+    queryKey: ["admin", "tenants", id],
+    queryFn: () =>
+      adminApiGet<TenantDetailResponse>(`/admin/tenants/${id}`),
+    enabled: !!id,
+  });
+}
+
+/**
+ * Mutation for POST /admin/tenants. Creates a new clinic.
+ */
+export function useCreateTenant() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: TenantCreatePayload) =>
+      adminApiPost<TenantDetailResponse>("/admin/tenants", payload),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "tenants"] });
+    },
+  });
+}
+
+/**
+ * Mutation for PUT /admin/tenants/{id}. Partial update.
+ */
+export function useUpdateTenant() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: TenantUpdatePayload;
+    }) => adminApiPut<TenantDetailResponse>(`/admin/tenants/${id}`, payload),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "tenants"] });
+    },
+  });
+}
+
+/**
+ * Mutation for POST /admin/tenants/{id}/suspend. Toggles suspension.
+ */
+export function useSuspendTenant() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (tenantId: string) =>
+      adminApiPost<TenantDetailResponse>(
+        `/admin/tenants/${tenantId}/suspend`,
+      ),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "tenants"] });
+    },
   });
 }
 

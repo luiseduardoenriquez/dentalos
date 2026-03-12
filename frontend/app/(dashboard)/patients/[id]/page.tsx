@@ -765,12 +765,22 @@ export default function PatientDetailPage() {
 
         {/* ─── Tabs ────────────────────────────────────────────────────────── */}
         <Tabs defaultValue="resumen">
-          <TabsList className="w-full sm:w-auto">
+          <TabsList className="w-full sm:w-auto flex-wrap h-auto gap-1">
             <TabsTrigger value="resumen">Resumen</TabsTrigger>
             <TabsTrigger value="odontograma">Odontograma</TabsTrigger>
+            <TabsTrigger value="periodontal">Periodontal</TabsTrigger>
             <TabsTrigger value="historial">Historial clinico</TabsTrigger>
             <TabsTrigger value="tratamientos">Tratamientos</TabsTrigger>
             <TabsTrigger value="ortodoncia">Ortodoncia</TabsTrigger>
+            <TabsTrigger value="estetica-facial">Estética Facial</TabsTrigger>
+            <TabsTrigger value="cotizaciones">Cotizaciones</TabsTrigger>
+            <TabsTrigger value="recetas">Recetas</TabsTrigger>
+            <TabsTrigger value="consentimientos">Consentimientos</TabsTrigger>
+            <TabsTrigger value="facturas">Facturas</TabsTrigger>
+            <TabsTrigger value="membresia">Membresía</TabsTrigger>
+            <TabsTrigger value="familia">Familia</TabsTrigger>
+            <TabsTrigger value="mensajes">Mensajes</TabsTrigger>
+            <TabsTrigger value="referencias">Referencias</TabsTrigger>
             <TabsTrigger value="citas">Citas</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
           </TabsList>
@@ -973,6 +983,20 @@ export default function PatientDetailPage() {
             </div>
           </TabsContent>
 
+          {/* ── Periodontal Tab ──────────────────────────────────────────── */}
+          <TabsContent value="periodontal" className="mt-4">
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Registros de medición de bolsas periodontales y parámetros clínicos.
+              </p>
+              <Button asChild>
+                <Link href={`/patients/${patient.id}/periodontal`}>
+                  Abrir Periodontograma
+                </Link>
+              </Button>
+            </div>
+          </TabsContent>
+
           {/* ── Historial Tab ────────────────────────────────────────────── */}
           <TabsContent value="historial" className="mt-4 space-y-4">
             {/* Action bar */}
@@ -1009,6 +1033,132 @@ export default function PatientDetailPage() {
           {/* ── Ortodoncia Tab ─────────────────────────────────────────── */}
           <TabsContent value="ortodoncia" className="mt-4">
             <OrtodonciaTab patientId={patient.id} />
+          </TabsContent>
+
+          {/* ── Estética Facial Tab ────────────────────────────────────── */}
+          <TabsContent value="estetica-facial" className="mt-4">
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Registro de inyecciones y seguimiento de sesiones de estética facial.
+              </p>
+              <Button asChild>
+                <Link href={`/patients/${patient.id}/facial-aesthetics`}>
+                  Abrir Estética Facial
+                </Link>
+              </Button>
+            </div>
+          </TabsContent>
+
+          {/* ── Cotizaciones Tab ─────────────────────────────────────────── */}
+          <TabsContent value="cotizaciones" className="mt-4">
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Cotizaciones y presupuestos del paciente.
+              </p>
+              <Button asChild>
+                <Link href={`/patients/${patient.id}/quotations`}>
+                  Ver Cotizaciones
+                </Link>
+              </Button>
+            </div>
+          </TabsContent>
+
+          {/* ── Recetas Tab ───────────────────────────────────────────────── */}
+          <TabsContent value="recetas" className="mt-4">
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Prescripciones médicas del paciente.
+              </p>
+              <Button asChild>
+                <Link href={`/patients/${patient.id}/prescriptions`}>
+                  Ver Recetas
+                </Link>
+              </Button>
+            </div>
+          </TabsContent>
+
+          {/* ── Consentimientos Tab ───────────────────────────────────────── */}
+          <TabsContent value="consentimientos" className="mt-4">
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Consentimientos informados del paciente.
+              </p>
+              <Button asChild>
+                <Link href={`/patients/${patient.id}/consents`}>
+                  Ver Consentimientos
+                </Link>
+              </Button>
+            </div>
+          </TabsContent>
+
+          {/* ── Facturas Tab ─────────────────────────────────────────────── */}
+          <TabsContent value="facturas" className="mt-4">
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Facturas y pagos del paciente.
+              </p>
+              <Button asChild>
+                <Link href={`/patients/${patient.id}/invoices`}>
+                  Ver Facturas
+                </Link>
+              </Button>
+            </div>
+          </TabsContent>
+
+          {/* ── Membresía Tab ────────────────────────────────────────────── */}
+          <TabsContent value="membresia" className="mt-4">
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Plan de membresía y beneficios del paciente.
+              </p>
+              <Button asChild>
+                <Link href={`/patients/${patient.id}/membership`}>
+                  Ver Membresía
+                </Link>
+              </Button>
+            </div>
+          </TabsContent>
+
+          {/* ── Familia Tab ──────────────────────────────────────────────── */}
+          <TabsContent value="familia" className="mt-4">
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Grupo familiar y facturación consolidada.
+              </p>
+              <Button asChild>
+                <Link href={`/patients/${patient.id}/family`}>
+                  Ver Grupo Familiar
+                </Link>
+              </Button>
+            </div>
+          </TabsContent>
+
+          {/* ── Mensajes Tab ─────────────────────────────────────────────── */}
+          <TabsContent value="mensajes" className="mt-4">
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Conversaciones y mensajes con el paciente.
+              </p>
+              <Button asChild>
+                <Link href={`/patients/${patient.id}/messages`}>
+                  Ver Mensajes
+                </Link>
+              </Button>
+            </div>
+          </TabsContent>
+
+          {/* ── Referencias Tab ──────────────────────────────────────────── */}
+          <TabsContent value="referencias" className="mt-4">
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Referencias a especialistas y seguimiento.
+              </p>
+              <Button asChild>
+                <Link href={`/patients/${patient.id}/referrals`}>
+                  Ver Referencias
+                </Link>
+              </Button>
+            </div>
           </TabsContent>
 
           {/* ── Citas Tab ────────────────────────────────────────────────── */}

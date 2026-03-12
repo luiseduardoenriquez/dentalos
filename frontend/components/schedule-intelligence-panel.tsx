@@ -14,37 +14,41 @@ import { Brain, AlertCircle, Users, CalendarX2 } from "lucide-react";
 import { formatTime, cn } from "@/lib/utils";
 import { NoShowRiskBadge } from "@/components/no-show-risk-badge";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types (match backend IntelligenceResponse) ──────────────────────────────
 
 type RiskLevel = "low" | "medium" | "high";
 
 interface NoShowRisk {
   appointment_id: string;
   patient_name: string;
-  appointment_time: string;
   risk_level: RiskLevel;
   risk_score: number;
+  factors: Record<string, unknown>;
 }
 
-interface GapSuggestion {
+interface GapAnalysis {
   slot_start: string;
   slot_end: string;
   doctor_id: string;
   doctor_name: string;
-  suggested_patient_name: string;
-  reason: string;
+  suggested_patients: { patient_id: string; name: string; reason: string }[];
 }
 
-interface DoctorUtilization {
+interface UtilizationMetric {
   doctor_id: string;
   doctor_name: string;
-  utilization_percentage: number;
+  date: string;
+  completed_minutes: number;
+  available_minutes: number;
+  utilization_pct: number;
 }
 
 interface ScheduleIntelligenceData {
+  date: string;
   no_show_risks: NoShowRisk[];
-  gap_suggestions: GapSuggestion[];
-  utilization: DoctorUtilization[];
+  gaps: GapAnalysis[];
+  utilization: UtilizationMetric[];
+  overbooking_suggestions: unknown[];
 }
 
 // ─── Utilization Bar ─────────────────────────────────────────────────────────
@@ -142,9 +146,6 @@ export function ScheduleIntelligencePanel() {
                         <p className="text-xs font-medium text-foreground truncate">
                           {risk.patient_name}
                         </p>
-                        <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                          {formatTime(risk.appointment_time)}
-                        </p>
                       </div>
                       <NoShowRiskBadge
                         riskLevel={risk.risk_level}
@@ -166,13 +167,13 @@ export function ScheduleIntelligencePanel() {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-3 pb-3">
-              {data.gap_suggestions.length === 0 ? (
+              {data.gaps.length === 0 ? (
                 <p className="text-xs text-[hsl(var(--muted-foreground))] py-1">
                   La agenda está bien optimizada.
                 </p>
               ) : (
                 <ul className="space-y-2">
-                  {data.gap_suggestions.slice(0, 4).map((gap, i) => (
+                  {data.gaps.slice(0, 4).map((gap, i) => (
                     <li
                       key={i}
                       className="rounded-md border border-[hsl(var(--border))] p-2 text-xs space-y-0.5"
@@ -183,9 +184,11 @@ export function ScheduleIntelligencePanel() {
                       <p className="text-[hsl(var(--muted-foreground))]">
                         {gap.doctor_name}
                       </p>
-                      <p className="text-primary-600 dark:text-primary-400">
-                        Sugerido: {gap.suggested_patient_name}
-                      </p>
+                      {gap.suggested_patients.length > 0 && (
+                        <p className="text-primary-600 dark:text-primary-400">
+                          Sugerido: {gap.suggested_patients[0].name}
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -210,7 +213,7 @@ export function ScheduleIntelligencePanel() {
                   <UtilizationBar
                     key={u.doctor_id}
                     doctorName={u.doctor_name}
-                    percentage={u.utilization_percentage}
+                    percentage={u.utilization_pct}
                   />
                 ))
               )}

@@ -1,7 +1,9 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "@/lib/api-client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiGet, apiPost } from "@/lib/api-client";
+import { apiClient } from "@/lib/api-client";
+import { useToast } from "@/lib/hooks/use-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -229,6 +231,44 @@ export function useRevenueAnalytics(
   });
 }
 
+// AN-08: Workflow compliance
+export interface ComplianceViolation {
+  patient_id: string;
+  reference_type: string;
+  reference_id: string;
+  days_overdue: number;
+}
+
+export interface ComplianceCheck {
+  check_key: string;
+  check_name: string;
+  violation_count: number;
+  severity: "high" | "medium" | "low";
+  violations: ComplianceViolation[];
+}
+
+export interface WorkflowComplianceResponse {
+  checks: ComplianceCheck[];
+  total_violations: number;
+  lookback_days: number;
+  ai_narrative: string | null;
+}
+
+export function useWorkflowCompliance(
+  lookbackDays: number = 30,
+  enableAi: boolean = false,
+) {
+  return useQuery<WorkflowComplianceResponse>({
+    queryKey: ["analytics", "workflow-compliance", lookbackDays, enableAi],
+    queryFn: () =>
+      apiGet<WorkflowComplianceResponse>("/analytics/workflow-compliance", {
+        lookback_days: lookbackDays,
+        ...(enableAi && { enable_ai: true }),
+      }),
+    staleTime: STALE_TIME,
+  });
+}
+
 export function useAuditTrail(
   cursor?: string,
   userId?: string,
@@ -258,5 +298,141 @@ export function useAuditTrail(
         ...(dateTo && { date_to: dateTo }),
       }),
     staleTime: STALE_TIME,
+  });
+}
+
+// ─── Analytics Export ────────────────────────────────────────────────────────
+
+export type AnalyticsExportType = "patients" | "appointments" | "revenue";
+
+/**
+ * Downloads an analytics CSV export via GET /analytics/export.
+ * Uses the raw axios client to get a blob response and triggers a browser download.
+ */
+export function useAnalyticsExport() {
+  const { success, error } = useToast();
+
+  return useMutation({
+    mutationFn: async (params: {
+      type: AnalyticsExportType;
+      format?: string;
+      date_from?: string;
+      date_to?: string;
+    }) => {
+      const response = await apiClient.get("/analytics/export", {
+        params: {
+          type: params.type,
+          format: params.format ?? "csv",
+          ...(params.date_from && { date_from: params.date_from }),
+          ...(params.date_to && { date_to: params.date_to }),
+        },
+        responseType: "blob",
+      });
+
+      const blob = new Blob([response.data], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `dentalos-${params.type}-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    },
+    onSuccess: () => {
+      success("Exportación completada", "El archivo CSV se descargó correctamente.");
+    },
+    onError: () => {
+      error("Error al exportar", "No se pudo descargar el archivo. Inténtalo de nuevo.");
+    },
+  });
+}
+
+// ─── AI Token Usage ──────────────────────────────────────────────────────────
+
+export interface AIUsageMonthlyBreakdown {
+  month: string;
+  calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+}
+
+export interface AIUsageResponse {
+  total_calls: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cost_usd: number;
+  monthly_breakdown: AIUsageMonthlyBreakdown[];
+  last_call_at: string | null;
+}
+
+export function useAITokenUsage() {
+  return useQuery<AIUsageResponse>({
+    queryKey: ["analytics", "ai-usage"],
+    queryFn: () => apiGet<AIUsageResponse>("/treatment-plans/ai-usage"),
+    staleTime: STALE_TIME,
+  });
+}
+
+// ─── Acceptance Rate ─────────────────────────────────────────────────────────
+
+export interface AcceptanceRateResponse {
+  total_plans: number;
+  accepted_plans: number;
+  pending_plans: number;
+  expired_plans: number;
+  acceptance_rate: number;
+  avg_days_to_accept: number;
+}
+
+export function useAcceptanceRate(dateFrom?: string, dateTo?: string) {
+  return useQuery<AcceptanceRateResponse>({
+    queryKey: ["analytics", "acceptance-rate", dateFrom, dateTo],
+    queryFn: () =>
+      apiGet<AcceptanceRateResponse>("/analytics/acceptance-rate", {
+        ...(dateFrom && { date_from: dateFrom }),
+        ...(dateTo && { date_to: dateTo }),
+      }),
+    staleTime: STALE_TIME,
+  });
+}
+
+// ─── NPS Survey Dispatch ─────────────────────────────────────────────────────
+
+export interface SendNPSSurveyPayload {
+  patient_id: string;
+  doctor_id?: string;
+  channel: "email" | "whatsapp" | "sms";
+}
+
+export interface NPSSurveyResponse {
+  id: string;
+  patient_id: string;
+  doctor_id: string | null;
+  channel: string;
+  status: string;
+  created_at: string;
+}
+
+export function useSendNPSSurvey() {
+  const queryClient = useQueryClient();
+  const { success, error } = useToast();
+
+  return useMutation({
+    mutationFn: (data: SendNPSSurveyPayload) =>
+      apiPost<NPSSurveyResponse>("/surveys/send", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["analytics", "nps"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-nps"] });
+      success("Encuesta enviada", "La encuesta NPS fue enviada al paciente.");
+    },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "No se pudo enviar la encuesta. Inténtalo de nuevo.";
+      error("Error al enviar encuesta", message);
+    },
   });
 }

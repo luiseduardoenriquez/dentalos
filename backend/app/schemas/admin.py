@@ -1,6 +1,6 @@
 """Admin/superadmin request and response schemas."""
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # ─── Auth Schemas ─────────────────────────────────────
@@ -53,6 +53,55 @@ class TenantListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class TenantDetailResponse(BaseModel):
+    id: str
+    name: str
+    slug: str
+    schema_name: str
+    owner_email: str
+    owner_user_id: str | None = None
+    country_code: str
+    timezone: str
+    currency_code: str
+    locale: str
+    plan_id: str
+    plan_name: str
+    status: str
+    phone: str | None = None
+    address: str | None = None
+    logo_url: str | None = None
+    onboarding_step: int
+    settings: dict
+    addons: dict
+    trial_ends_at: str | None = None
+    suspended_at: str | None = None
+    cancelled_at: str | None = None
+    user_count: int
+    created_at: str
+    updated_at: str
+
+
+class TenantCreateRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=200)
+    owner_email: EmailStr
+    plan_id: str
+    country_code: str = Field(default="CO", min_length=2, max_length=2)
+    timezone: str = Field(default="America/Bogota", max_length=50)
+    currency_code: str = Field(default="COP", min_length=3, max_length=3)
+
+    @field_validator("country_code")
+    @classmethod
+    def uppercase_country(cls, v: str) -> str:
+        return v.strip().upper()
+
+
+class TenantUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=200)
+    plan_id: str | None = None
+    settings: dict | None = None
+    is_active: bool | None = None
 
 
 # ─── Plan Management Schemas ─────────────────────────

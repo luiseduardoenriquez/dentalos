@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api-client";
@@ -17,33 +18,52 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, ChevronRight, Clipboard, AlertCircle } from "lucide-react";
 import { formatDate, cn } from "@/lib/utils";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types (aligned with backend schemas/periodontal.py) ─────────────────────
 
 interface PeriodontalMeasurement {
-  tooth_number: string;
-  site: "mb" | "b" | "db" | "ml" | "l" | "dl";
-  pocket_depth: number;
-  bleeding: boolean;
-  recession: number;
-  furcation: 0 | 1 | 2 | 3;
+  id: string;
+  tooth_number: number;
+  site: string; // mesial_buccal | buccal | distal_buccal | mesial_lingual | lingual | distal_lingual
+  pocket_depth: number | null;
+  recession: number | null;
+  clinical_attachment_level: number | null;
+  bleeding_on_probing: boolean | null;
+  plaque_index: boolean | null;
+  mobility: number | null;
+  furcation: number | null;
 }
 
+/** List item — no measurements, just metadata. */
+interface PeriodontalListItem {
+  id: string;
+  recorded_by: string;
+  dentition_type: string; // adult | pediatric | mixed
+  source: string; // manual | voice
+  measurement_count: number;
+  created_at: string;
+}
+
+/** Full record with measurements (detail endpoint). */
 interface PeriodontalRecord {
   id: string;
-  recorded_at: string;
-  recorded_by_name: string;
-  dentition_type: "permanent" | "primary" | "mixed";
-  source: "manual" | "voice";
+  patient_id: string;
+  recorded_by: string;
+  dentition_type: string;
+  source: string;
   notes: string | null;
   measurements: PeriodontalMeasurement[];
+  created_at: string;
+  updated_at: string;
 }
 
 interface PeriodontalListResponse {
-  items: PeriodontalRecord[];
+  items: PeriodontalListItem[];
   total: number;
+  page: number;
+  page_size: number;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 function depthColor(depth: number): string {
   if (depth <= 3) return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
@@ -52,43 +72,49 @@ function depthColor(depth: number): string {
   return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
 }
 
-function dentitionLabel(type: PeriodontalRecord["dentition_type"]): string {
-  const labels: Record<string, string> = {
-    permanent: "Permanente",
-    primary: "Temporal",
-    mixed: "Mixta",
-  };
-  return labels[type] ?? type;
-}
-
-// ─── Measurement Mini Grid ────────────────────────────────────────────────────
-
-const SITES: PeriodontalMeasurement["site"][] = ["mb", "b", "db", "ml", "l", "dl"];
-const SITE_LABELS: Record<string, string> = {
-  mb: "MB",
-  b: "B",
-  db: "DB",
-  ml: "ML",
-  l: "L",
-  dl: "DL",
+const DENTITION_LABELS: Record<string, string> = {
+  adult: "Permanente",
+  pediatric: "Temporal",
+  mixed: "Mixta",
 };
+
+const SITE_ORDER = [
+  "mesial_buccal",
+  "buccal",
+  "distal_buccal",
+  "mesial_lingual",
+  "lingual",
+  "distal_lingual",
+] as const;
+
+const SITE_SHORT_LABELS: Record<string, string> = {
+  mesial_buccal: "MB",
+  buccal: "B",
+  distal_buccal: "DB",
+  mesial_lingual: "ML",
+  lingual: "L",
+  distal_lingual: "DL",
+};
+
+// ─── Measurement Mini Grid ──────────────────────────────────────────────────
 
 function MeasurementMiniGrid({
   measurements,
 }: {
   measurements: PeriodontalMeasurement[];
 }) {
-  // Group by tooth
   const byTooth = React.useMemo(() => {
-    const map: Record<string, PeriodontalMeasurement[]> = {};
+    const map: Record<number, Record<string, PeriodontalMeasurement>> = {};
     for (const m of measurements) {
-      if (!map[m.tooth_number]) map[m.tooth_number] = [];
-      map[m.tooth_number].push(m);
+      if (!map[m.tooth_number]) map[m.tooth_number] = {};
+      map[m.tooth_number][m.site] = m;
     }
     return map;
   }, [measurements]);
 
-  const teeth = Object.keys(byTooth).sort();
+  const teeth = Object.keys(byTooth)
+    .map(Number)
+    .sort((a, b) => a - b);
 
   if (teeth.length === 0) {
     return (
@@ -106,32 +132,29 @@ function MeasurementMiniGrid({
             <th className="text-left px-2 py-1 text-[hsl(var(--muted-foreground))] w-12">
               Diente
             </th>
-            {SITES.map((s) => (
+            {SITE_ORDER.map((s) => (
               <th
                 key={s}
                 className="text-center px-1 py-1 text-[hsl(var(--muted-foreground))] w-10"
               >
-                {SITE_LABELS[s]}
+                {SITE_SHORT_LABELS[s]}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {teeth.slice(0, 8).map((tooth) => {
-            const measureMap: Record<string, PeriodontalMeasurement> = {};
-            for (const m of byTooth[tooth]) {
-              measureMap[m.site] = m;
-            }
+            const siteMap = byTooth[tooth];
             return (
               <tr key={tooth} className="border-t border-[hsl(var(--border))]">
                 <td className="px-2 py-1 font-mono font-semibold text-foreground">
                   {tooth}
                 </td>
-                {SITES.map((site) => {
-                  const m = measureMap[site];
+                {SITE_ORDER.map((site) => {
+                  const m = siteMap[site];
                   return (
                     <td key={site} className="px-1 py-1 text-center">
-                      {m ? (
+                      {m && m.pocket_depth != null ? (
                         <span
                           className={cn(
                             "inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold",
@@ -139,7 +162,7 @@ function MeasurementMiniGrid({
                           )}
                         >
                           {m.pocket_depth}
-                          {m.bleeding && (
+                          {m.bleeding_on_probing && (
                             <span className="ml-0.5 h-1 w-1 rounded-full bg-red-500 inline-block" />
                           )}
                         </span>
@@ -165,17 +188,30 @@ function MeasurementMiniGrid({
   );
 }
 
-// ─── Record Row ───────────────────────────────────────────────────────────────
+// ─── Expandable Record Row ──────────────────────────────────────────────────
 
 function RecordRow({
-  record,
+  item,
+  patientId,
   expanded,
   onToggle,
 }: {
-  record: PeriodontalRecord;
+  item: PeriodontalListItem;
+  patientId: string;
   expanded: boolean;
   onToggle: () => void;
 }) {
+  // Fetch full detail (with measurements) only when expanded
+  const { data: detail, isLoading: detailLoading } = useQuery({
+    queryKey: ["periodontal-record-detail", patientId, item.id],
+    queryFn: () =>
+      apiGet<PeriodontalRecord>(
+        `/patients/${patientId}/periodontal-records/${item.id}`,
+      ),
+    enabled: expanded,
+    staleTime: 60_000,
+  });
+
   return (
     <div className="border border-[hsl(var(--border))] rounded-lg overflow-hidden">
       <button
@@ -186,21 +222,20 @@ function RecordRow({
         <div className="flex items-center gap-4 min-w-0">
           <div className="shrink-0">
             <p className="text-sm font-semibold text-foreground">
-              {formatDate(record.recorded_at)}
-            </p>
-            <p className="text-xs text-[hsl(var(--muted-foreground))]">
-              {record.recorded_by_name}
+              {formatDate(item.created_at)}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="secondary">{dentitionLabel(record.dentition_type)}</Badge>
-            {record.source === "voice" ? (
+            <Badge variant="secondary">
+              {DENTITION_LABELS[item.dentition_type] ?? item.dentition_type}
+            </Badge>
+            {item.source === "voice" ? (
               <Badge variant="default">Voz</Badge>
             ) : (
               <Badge variant="outline">Manual</Badge>
             )}
             <span className="text-xs text-[hsl(var(--muted-foreground))]">
-              {record.measurements.length} mediciones
+              {item.measurement_count} mediciones
             </span>
           </div>
         </div>
@@ -214,30 +249,43 @@ function RecordRow({
 
       {expanded && (
         <div className="px-4 pb-4 pt-1 border-t border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20">
-          {/* Legend */}
-          <div className="flex items-center gap-3 mb-3 flex-wrap">
-            <span className="text-xs text-[hsl(var(--muted-foreground))]">Bolsa:</span>
-            {[
-              { label: "1-3mm", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
-              { label: "4-5mm", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300" },
-              { label: "6-7mm", color: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300" },
-              { label: "8+mm", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
-            ].map((item) => (
-              <span
-                key={item.label}
-                className={cn("text-xs px-1.5 py-0.5 rounded font-medium", item.color)}
-              >
-                {item.label}
-              </span>
-            ))}
-            <span className="text-xs text-[hsl(var(--muted-foreground))] ml-1">
-              · Punto rojo = sangrado
-            </span>
-          </div>
-          <MeasurementMiniGrid measurements={record.measurements} />
-          {record.notes && (
-            <p className="mt-3 text-xs text-[hsl(var(--muted-foreground))] border-t border-[hsl(var(--border))] pt-2">
-              <span className="font-medium text-foreground">Notas:</span> {record.notes}
+          {detailLoading ? (
+            <div className="space-y-2 py-2">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : detail ? (
+            <>
+              {/* Legend */}
+              <div className="flex items-center gap-3 mb-3 flex-wrap">
+                <span className="text-xs text-[hsl(var(--muted-foreground))]">Bolsa:</span>
+                {[
+                  { label: "1-3mm", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
+                  { label: "4-5mm", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300" },
+                  { label: "6-7mm", color: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300" },
+                  { label: "8+mm", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
+                ].map((i) => (
+                  <span
+                    key={i.label}
+                    className={cn("text-xs px-1.5 py-0.5 rounded font-medium", i.color)}
+                  >
+                    {i.label}
+                  </span>
+                ))}
+                <span className="text-xs text-[hsl(var(--muted-foreground))] ml-1">
+                  · Punto rojo = sangrado
+                </span>
+              </div>
+              <MeasurementMiniGrid measurements={detail.measurements} />
+              {detail.notes && (
+                <p className="mt-3 text-xs text-[hsl(var(--muted-foreground))] border-t border-[hsl(var(--border))] pt-2">
+                  <span className="font-medium text-foreground">Notas:</span> {detail.notes}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-[hsl(var(--muted-foreground))] py-2">
+              No se pudieron cargar los detalles.
             </p>
           )}
         </div>
@@ -246,7 +294,7 @@ function RecordRow({
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function PeriodontalPage() {
   const params = useParams<{ id: string }>();
@@ -265,6 +313,25 @@ export default function PeriodontalPage() {
 
   return (
     <div className="space-y-6">
+      {/* ─── Breadcrumb ──────────────────────────────────────────────────── */}
+      <nav
+        className="flex items-center gap-1.5 text-sm text-[hsl(var(--muted-foreground))]"
+        aria-label="Ruta de navegación"
+      >
+        <Link href="/patients" className="hover:text-foreground transition-colors">
+          Pacientes
+        </Link>
+        <ChevronRight className="h-4 w-4" />
+        <Link
+          href={`/patients/${patientId}`}
+          className="hover:text-foreground transition-colors"
+        >
+          Paciente
+        </Link>
+        <ChevronRight className="h-4 w-4" />
+        <span className="text-foreground font-medium">Periodontograma</span>
+      </nav>
+
       {/* ─── Header ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -275,9 +342,11 @@ export default function PeriodontalPage() {
             Registros de medición de bolsas periodontales y parámetros clínicos.
           </p>
         </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Nuevo registro
+        <Button asChild>
+          <Link href={`/patients/${patientId}/periodontal/new`}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo registro
+          </Link>
         </Button>
       </div>
 
@@ -334,9 +403,11 @@ export default function PeriodontalPage() {
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">
                   Crea el primer registro de periodontograma para este paciente.
                 </p>
-                <Button variant="outline" size="sm">
-                  <Plus className="mr-2 h-3.5 w-3.5" />
-                  Nuevo registro
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/patients/${patientId}/periodontal/new`}>
+                    <Plus className="mr-2 h-3.5 w-3.5" />
+                    Nuevo registro
+                  </Link>
                 </Button>
               </div>
             </CardContent>
@@ -345,7 +416,8 @@ export default function PeriodontalPage() {
           records.map((record) => (
             <RecordRow
               key={record.id}
-              record={record}
+              item={record}
+              patientId={patientId}
               expanded={expandedId === record.id}
               onToggle={() =>
                 setExpandedId((prev) => (prev === record.id ? null : record.id))
@@ -361,7 +433,7 @@ export default function PeriodontalPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Resumen</CardTitle>
             <CardDescription className="text-xs">
-              {records.length} registro{records.length !== 1 ? "s" : ""} periodontales en total
+              {data?.total ?? records.length} registro{(data?.total ?? records.length) !== 1 ? "s" : ""} periodontales en total
             </CardDescription>
           </CardHeader>
         </Card>

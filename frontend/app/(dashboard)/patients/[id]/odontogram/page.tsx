@@ -194,7 +194,8 @@ export default function OdontogramPage() {
   const isLoading = isLoadingPatient || isLoadingOdontogram;
   const isMutating = isUpdating || isSnapshotting || isTogglingDentition;
   const hasSelection = selectedTooth !== null && selectedZone !== null;
-  const isAnatomic = viewMode === "anatomic" && !isMobile;
+  // Anatomic arch view only supports adult dentition (positions for teeth 11-48 only)
+  const isAnatomic = viewMode === "anatomic" && !isMobile && dentitionType === "adult";
 
   // Find tooth data for the selected tooth (used in anatomic modal)
   const selectedToothData = React.useMemo(() => {
@@ -429,7 +430,24 @@ export default function OdontogramPage() {
         canUseAnatomic={canUseAnatomic}
       />
 
-      {/* ─── Mobile guard for anatomic view ──────────────────────────── */}
+      {/* ─── Anatomic view guards ─────────────────────────────────────── */}
+      {viewMode === "anatomic" && dentitionType !== "adult" && !isMobile && (
+        <Card>
+          <CardContent className="py-4 text-center">
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">
+              La vista anatomica solo esta disponible para denticion adulta.
+              Mostrando vista clasica.
+            </p>
+            <button
+              type="button"
+              onClick={() => handleDentitionChange("adult")}
+              className="mt-2 text-sm text-primary-600 hover:underline"
+            >
+              Cambiar a denticion adulta
+            </button>
+          </CardContent>
+        </Card>
+      )}
       {viewMode === "anatomic" && isMobile && (
         <Card>
           <CardContent className="py-8 text-center">

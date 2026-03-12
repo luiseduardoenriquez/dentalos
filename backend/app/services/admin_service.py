@@ -27,6 +27,7 @@ from app.schemas.admin import (
     PlanResponse,
     PlatformAnalyticsResponse,
     SystemHealthResponse,
+    TenantDetailResponse,
     TenantListResponse,
     TenantSummary,
 )
@@ -124,6 +125,185 @@ class AdminService:
             page=page,
             page_size=page_size,
         )
+
+    async def get_tenant_detail(
+        self,
+        *,
+        db: AsyncSession,
+        tenant_id: str,
+    ) -> TenantDetailResponse:
+        """Get full detail for a single tenant."""
+        result = await db.execute(
+            select(Tenant).where(Tenant.id == uuid.UUID(tenant_id))
+        )
+        tenant = result.scalar_one_or_none()
+
+        if tenant is None:
+            raise ResourceNotFoundError(
+                error="TENANT_not_found",
+                resource_name="Tenant",
+            )
+
+        # User count
+        count_result = await db.execute(
+            select(func.count(UserTenantMembership.id)).where(
+                UserTenantMembership.tenant_id == tenant.id,
+                UserTenantMembership.status == "active",
+            )
+        )
+        user_count = count_result.scalar() or 0
+
+        plan = tenant.plan
+
+        return TenantDetailResponse(
+            id=str(tenant.id),
+            name=tenant.name,
+            slug=tenant.slug,
+            schema_name=tenant.schema_name,
+            owner_email=tenant.owner_email,
+            owner_user_id=str(tenant.owner_user_id) if tenant.owner_user_id else None,
+            country_code=tenant.country_code,
+            timezone=tenant.timezone,
+            currency_code=tenant.currency_code,
+            locale=tenant.locale,
+            plan_id=str(tenant.plan_id),
+            plan_name=plan.name if plan else "unknown",
+            status=tenant.status,
+            phone=tenant.phone,
+            address=tenant.address,
+            logo_url=tenant.logo_url,
+            onboarding_step=tenant.onboarding_step,
+            settings=tenant.settings or {},
+            addons=tenant.addons or {},
+            trial_ends_at=tenant.trial_ends_at.isoformat() if tenant.trial_ends_at else None,
+            suspended_at=tenant.suspended_at.isoformat() if tenant.suspended_at else None,
+            cancelled_at=tenant.cancelled_at.isoformat() if tenant.cancelled_at else None,
+            user_count=user_count,
+            created_at=tenant.created_at.isoformat(),
+            updated_at=tenant.updated_at.isoformat(),
+        )
+
+    async def create_tenant(
+        self,
+        *,
+        db: AsyncSession,
+        name: str,
+        owner_email: str,
+        plan_id: str,
+        country_code: str = "CO",
+        timezone: str = "America/Bogota",
+        currency_code: str = "COP",
+    ) -> TenantDetailResponse:
+        """Create a new tenant, provision schema, and run migrations."""
+        from app.services.tenant_service import (
+            generate_schema_name,
+            generate_slug,
+            provision_tenant_schema,
+        )
+
+        schema_name = generate_schema_name()
+        slug = generate_slug(name)
+
+        tenant = Tenant(
+            name=name.strip(),
+            slug=slug,
+            schema_name=schema_name,
+            owner_email=owner_email.strip().lower(),
+            plan_id=uuid.UUID(plan_id),
+            country_code=country_code,
+            timezone=timezone,
+            currency_code=currency_code,
+            status="active",
+        )
+        db.add(tenant)
+        await db.flush()
+
+        # Provision the tenant schema and run migrations
+        await provision_tenant_schema(schema_name, db)
+
+        logger.info("Tenant created: %s (schema=%s)", tenant.name, schema_name)
+
+        return await self.get_tenant_detail(db=db, tenant_id=str(tenant.id))
+
+    async def update_tenant(
+        self,
+        *,
+        db: AsyncSession,
+        tenant_id: str,
+        name: str | None = None,
+        plan_id: str | None = None,
+        settings: dict | None = None,
+        is_active: bool | None = None,
+    ) -> TenantDetailResponse:
+        """Partial update of a tenant's name, plan, settings, or status."""
+        from app.services.tenant_service import invalidate_tenant_cache
+
+        result = await db.execute(
+            select(Tenant).where(Tenant.id == uuid.UUID(tenant_id))
+        )
+        tenant = result.scalar_one_or_none()
+
+        if tenant is None:
+            raise ResourceNotFoundError(
+                error="TENANT_not_found",
+                resource_name="Tenant",
+            )
+
+        if name is not None:
+            tenant.name = name.strip()
+        if plan_id is not None:
+            tenant.plan_id = uuid.UUID(plan_id)
+        if settings is not None:
+            tenant.settings = settings
+        if is_active is not None:
+            tenant.status = "active" if is_active else "suspended"
+            if not is_active:
+                tenant.suspended_at = datetime.now(UTC)
+            else:
+                tenant.suspended_at = None
+
+        await db.flush()
+        await invalidate_tenant_cache(tenant_id)
+
+        logger.info("Tenant updated: %s (%s)", tenant.name, tenant.slug)
+
+        return await self.get_tenant_detail(db=db, tenant_id=tenant_id)
+
+    async def suspend_tenant(
+        self,
+        *,
+        db: AsyncSession,
+        tenant_id: str,
+    ) -> TenantDetailResponse:
+        """Toggle tenant suspension — idempotent."""
+        from app.services.tenant_service import invalidate_tenant_cache
+
+        result = await db.execute(
+            select(Tenant).where(Tenant.id == uuid.UUID(tenant_id))
+        )
+        tenant = result.scalar_one_or_none()
+
+        if tenant is None:
+            raise ResourceNotFoundError(
+                error="TENANT_not_found",
+                resource_name="Tenant",
+            )
+
+        if tenant.status == "suspended":
+            # Reactivate
+            tenant.status = "active"
+            tenant.suspended_at = None
+            logger.info("Tenant reactivated: %s", tenant.name)
+        else:
+            # Suspend
+            tenant.status = "suspended"
+            tenant.suspended_at = datetime.now(UTC)
+            logger.info("Tenant suspended: %s", tenant.name)
+
+        await db.flush()
+        await invalidate_tenant_cache(tenant_id)
+
+        return await self.get_tenant_detail(db=db, tenant_id=tenant_id)
 
     # ─── Plan Management ────────────────────────────────
 

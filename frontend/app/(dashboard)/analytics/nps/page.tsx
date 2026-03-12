@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, MessageSquare, Users, RefreshCw, AlertCircle } from "lucide-react";
+import { TrendingUp, MessageSquare, Users, RefreshCw, AlertCircle, Send } from "lucide-react";
 import { apiGet } from "@/lib/api-client";
 import {
   Card,
@@ -20,9 +20,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NpsChart } from "@/components/analytics/nps-chart";
 import { DetractorInbox } from "@/components/analytics/detractor-inbox";
+import { useSendNPSSurvey, type SendNPSSurveyPayload } from "@/lib/hooks/use-analytics";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -101,6 +111,11 @@ function PageSkeleton() {
 
 export default function NpsDashboardPage() {
   const [dateRange, setDateRange] = React.useState<DateRange>("30d");
+  const [showSurveyDialog, setShowSurveyDialog] = React.useState(false);
+  const [surveyPatientId, setSurveyPatientId] = React.useState("");
+  const [surveyChannel, setSurveyChannel] = React.useState<SendNPSSurveyPayload["channel"]>("whatsapp");
+
+  const sendSurvey = useSendNPSSurvey();
 
   const {
     data: npsData,
@@ -161,15 +176,25 @@ export default function NpsDashboardPage() {
             Mide la lealtad y satisfacción de tus pacientes.
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetchNps()}
-          disabled={isLoading}
-        >
-          <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", isLoading && "animate-spin")} />
-          Actualizar
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setShowSurveyDialog(true)}
+          >
+            <Send className="mr-1.5 h-3.5 w-3.5" />
+            Enviar encuesta
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetchNps()}
+            disabled={isLoading}
+          >
+            <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", isLoading && "animate-spin")} />
+            Actualizar
+          </Button>
+        </div>
       </div>
 
       {/* ─── Date range filter ────────────────────────────────────────────── */}
@@ -404,6 +429,76 @@ export default function NpsDashboardPage() {
 
       {/* ─── Detractor inbox ─────────────────────────────────────────────── */}
       <DetractorInbox />
+
+      {/* ─── Send survey dialog (overlay) ──────────────────────────────── */}
+      {showSurveyDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle>Enviar encuesta NPS</CardTitle>
+              <CardDescription>
+                Envía una encuesta de satisfacción a un paciente.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1">
+                <Label htmlFor="survey-patient">ID del paciente</Label>
+                <Input
+                  id="survey-patient"
+                  placeholder="UUID del paciente"
+                  value={surveyPatientId}
+                  onChange={(e) => setSurveyPatientId(e.target.value.trim())}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="survey-channel">Canal de envío</Label>
+                <Select
+                  value={surveyChannel}
+                  onValueChange={(v) => setSurveyChannel(v as SendNPSSurveyPayload["channel"])}
+                >
+                  <SelectTrigger id="survey-channel">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="sms">SMS</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowSurveyDialog(false);
+                    setSurveyPatientId("");
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  disabled={!surveyPatientId || sendSurvey.isPending}
+                  onClick={() => {
+                    sendSurvey.mutate(
+                      { patient_id: surveyPatientId, channel: surveyChannel },
+                      {
+                        onSuccess: () => {
+                          setShowSurveyDialog(false);
+                          setSurveyPatientId("");
+                        },
+                      },
+                    );
+                  }}
+                >
+                  {sendSurvey.isPending ? "Enviando..." : "Enviar"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

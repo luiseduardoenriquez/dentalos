@@ -50,6 +50,7 @@ const PAGE_SIZE = 50;
 
 const STATUS_OPTIONS = [
   { value: "all", label: "Todos los estados" },
+  { value: "overdue", label: "Vencidas" },
   { value: "pending", label: "Pendiente" },
   { value: "sent_to_lab", label: "Enviada al lab" },
   { value: "in_progress", label: "En proceso" },
@@ -98,20 +99,25 @@ export default function LabOrdersPage() {
   const [labFilter, setLabFilter] = React.useState("all");
   const [viewMode, setViewMode] = React.useState<"kanban" | "table">("kanban");
 
+  const isOverdueFilter = statusFilter === "overdue";
+
   const { data: labsData, isLoading: labsLoading } = useDentalLabs();
   const { data: overdueOrders } = useOverdueLabOrders();
 
   const { data, isLoading: ordersLoading } = useLabOrders(
     page,
     PAGE_SIZE,
-    statusFilter !== "all" ? statusFilter : undefined,
+    !isOverdueFilter && statusFilter !== "all" ? statusFilter : undefined,
     labFilter !== "all" ? labFilter : undefined,
   );
 
   const labs = labsData ?? [];
-  const orders = data?.items ?? [];
-  const total = data?.total ?? 0;
-  const overdueCount = overdueOrders?.length ?? 0;
+  const overdueList = overdueOrders ?? [];
+  const overdueCount = overdueList.length;
+
+  // When "Vencidas" is selected, show overdue orders; otherwise show paginated data
+  const orders = isOverdueFilter ? overdueList : (data?.items ?? []);
+  const total = isOverdueFilter ? overdueCount : (data?.total ?? 0);
 
   const isLoading = labsLoading || (ordersLoading && !data);
 
@@ -360,8 +366,8 @@ export default function LabOrdersPage() {
         </Card>
       )}
 
-      {/* Pagination */}
-      {total > PAGE_SIZE && (
+      {/* Pagination (hidden in overdue mode — not paginated) */}
+      {!isOverdueFilter && total > PAGE_SIZE && (
         <Pagination
           page={page}
           pageSize={PAGE_SIZE}

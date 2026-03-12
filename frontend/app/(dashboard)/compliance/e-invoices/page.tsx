@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useCreateEInvoice } from "@/lib/hooks/use-compliance";
 import {
   Card,
   CardContent,
@@ -56,6 +57,57 @@ function getEInvoiceStatusBadge(status: string) {
   }
 }
 
+// ─── Submit Button Cell ──────────────────────────────────────────────────────
+
+function SubmitToDianButton({ invoiceId, status }: { invoiceId: string; status: string }) {
+  const [showConfirm, setShowConfirm] = React.useState(false);
+  const submitMutation = useCreateEInvoice();
+
+  if (status !== "pending") return null;
+
+  if (showConfirm) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <Button
+          size="sm"
+          variant="destructive"
+          className="h-7 text-xs"
+          disabled={submitMutation.isPending}
+          onClick={() => {
+            submitMutation.mutate(invoiceId, {
+              onSuccess: () => setShowConfirm(false),
+            });
+          }}
+        >
+          {submitMutation.isPending ? "Enviando..." : "Confirmar"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          onClick={() => setShowConfirm(false)}
+        >
+          No
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="h-7 text-xs"
+      onClick={(e) => {
+        e.stopPropagation();
+        setShowConfirm(true);
+      }}
+    >
+      Enviar a DIAN
+    </Button>
+  );
+}
+
 // ─── Column Definitions ──────────────────────────────────────────────────────
 
 const columns: ColumnDef<EInvoiceListItem>[] = [
@@ -107,6 +159,13 @@ const columns: ColumnDef<EInvoiceListItem>[] = [
       ) : (
         <span className="text-xs text-[hsl(var(--muted-foreground))]">—</span>
       ),
+  },
+  {
+    key: "actions" as keyof EInvoiceListItem,
+    header: "Acciones",
+    cell: (row) => (
+      <SubmitToDianButton invoiceId={row.invoice_id} status={row.status} />
+    ),
   },
 ];
 

@@ -13,11 +13,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Search, Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -26,8 +28,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAdminTenants, type TenantSummary } from "@/lib/hooks/use-admin";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  useAdminTenants,
+  useAdminPlans,
+  useCreateTenant,
+  type TenantSummary,
+} from "@/lib/hooks/use-admin";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -192,6 +208,152 @@ function TenantsTable({ tenants, isLoading, pageSize }: TenantsTableProps) {
   );
 }
 
+// ─── Create Tenant Dialog ─────────────────────────────────────────────────────
+
+interface CreateTenantDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function CreateTenantDialog({ open, onOpenChange }: CreateTenantDialogProps) {
+  const router = useRouter();
+  const { data: plans = [] } = useAdminPlans();
+  const { mutate: createTenant, isPending } = useCreateTenant();
+
+  const [name, setName] = useState("");
+  const [ownerEmail, setOwnerEmail] = useState("");
+  const [planId, setPlanId] = useState("");
+  const [countryCode, setCountryCode] = useState("CO");
+  const [timezone, setTimezone] = useState("America/Bogota");
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    createTenant(
+      {
+        name: name.trim(),
+        owner_email: ownerEmail.trim(),
+        plan_id: planId,
+        country_code: countryCode,
+        timezone,
+      },
+      {
+        onSuccess: (data) => {
+          toast.success(`Clinica "${data.name}" creada correctamente.`);
+          onOpenChange(false);
+          setName("");
+          setOwnerEmail("");
+          setPlanId("");
+          router.push(`/admin/tenants/${data.id}`);
+        },
+        onError: (err) => {
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : "No se pudo crear la clinica. Intentalo de nuevo.",
+          );
+        },
+      },
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Nueva clinica</DialogTitle>
+          <DialogDescription>
+            Crea una nueva clinica con su esquema de base de datos.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="create-name">Nombre de la clinica</Label>
+            <Input
+              id="create-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ej: Odontologia Sonrisa"
+              required
+              minLength={2}
+              maxLength={200}
+              disabled={isPending}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="create-email">Correo del propietario</Label>
+            <Input
+              id="create-email"
+              type="email"
+              value={ownerEmail}
+              onChange={(e) => setOwnerEmail(e.target.value)}
+              placeholder="admin@clinica.com"
+              required
+              disabled={isPending}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="create-plan">Plan</Label>
+            <Select value={planId} onValueChange={setPlanId} disabled={isPending} required>
+              <SelectTrigger id="create-plan">
+                <SelectValue placeholder="Selecciona un plan" />
+              </SelectTrigger>
+              <SelectContent>
+                {plans.map((plan) => (
+                  <SelectItem key={plan.id} value={plan.id}>
+                    {plan.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="create-country">Pais</Label>
+              <Input
+                id="create-country"
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value.toUpperCase())}
+                placeholder="CO"
+                maxLength={2}
+                disabled={isPending}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-tz">Zona horaria</Label>
+              <Input
+                id="create-tz"
+                value={timezone}
+                onChange={(e) => setTimezone(e.target.value)}
+                placeholder="America/Bogota"
+                disabled={isPending}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isPending}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isPending || !planId}>
+              {isPending ? "Creando..." : "Crear clinica"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -210,6 +372,7 @@ export default function AdminTenantsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [createOpen, setCreateOpen] = useState(false);
 
   // Debounce the search input by 300ms
   useEffect(() => {
@@ -245,12 +408,21 @@ export default function AdminTenantsPage() {
   return (
     <div className="space-y-6">
       {/* ── Page title ── */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Clinicas</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {data ? `${data.total} clinicas en total` : "Listado de todas las clinicas de la plataforma"}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Clinicas</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {data ? `${data.total} clinicas en total` : "Listado de todas las clinicas de la plataforma"}
+          </p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)} size="sm">
+          <Plus className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+          Nueva Clinica
+        </Button>
       </div>
+
+      {/* ── Create Dialog ── */}
+      <CreateTenantDialog open={createOpen} onOpenChange={setCreateOpen} />
 
       {/* ── Filters ── */}
       <div className="flex flex-col sm:flex-row gap-3">

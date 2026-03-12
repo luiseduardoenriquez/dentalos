@@ -19,6 +19,9 @@ import {
   Scale,
   ScrollText,
   Gift,
+  ClipboardList,
+  HeartPulse,
+  BookOpen,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -42,6 +45,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSettings, useUpdateSettings } from "@/lib/hooks/use-settings";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { useAITokenUsage, type AIUsageResponse } from "@/lib/hooks/use-analytics";
 import { cn } from "@/lib/utils";
 
 // ─── Options ──────────────────────────────────────────────────────────────────
@@ -211,6 +215,24 @@ const SETTINGS_GROUPS: SettingsLinkGroup[] = [
         description: "Resolución 1888, RIPS y normativa",
         ownerOnly: true,
       },
+      {
+        href: "/settings/intake-templates",
+        icon: ClipboardList,
+        label: "Formularios de ingreso",
+        description: "Plantillas de anamnesis y formularios de intake",
+      },
+      {
+        href: "/settings/postop-templates",
+        icon: FileText,
+        label: "Post-operatorio",
+        description: "Plantillas de instrucciones post-operatorias",
+      },
+      {
+        href: "/settings/catalog",
+        icon: BookOpen,
+        label: "Catálogo de precios",
+        description: "Servicios, procedimientos y precios del catálogo",
+      },
     ],
   },
   {
@@ -221,6 +243,20 @@ const SETTINGS_GROUPS: SettingsLinkGroup[] = [
         icon: Gift,
         label: "Programa de referidos",
         description: "Códigos, estadísticas y activación del programa",
+        ownerOnly: true,
+      },
+      {
+        href: "/settings/loyalty",
+        icon: HeartPulse,
+        label: "Puntos y lealtad",
+        description: "Configuración del programa de puntos de fidelización",
+        ownerOnly: true,
+      },
+      {
+        href: "/settings/memberships",
+        icon: CreditCard,
+        label: "Membresías",
+        description: "Planes de membresía y beneficios para pacientes",
         ownerOnly: true,
       },
     ],
@@ -250,6 +286,100 @@ const SETTINGS_GROUPS: SettingsLinkGroup[] = [
     ],
   },
 ];
+
+// ─── AI Usage Section ────────────────────────────────────────────────────────
+
+function AIUsageSection() {
+  const { data: aiUsage, isLoading } = useAITokenUsage();
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Uso de IA</CardTitle>
+          <CardDescription>Cargando estadísticas de uso...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-16 rounded-lg" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!aiUsage) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Uso de IA</CardTitle>
+        <CardDescription>
+          Resumen del consumo de tokens del asistente de IA.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* KPI row */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <div className="rounded-lg border border-[hsl(var(--border))] p-3">
+            <p className="text-xs text-[hsl(var(--muted-foreground))]">Llamadas totales</p>
+            <p className="text-2xl font-bold tabular-nums text-foreground">
+              {aiUsage.total_calls.toLocaleString("es-CO")}
+            </p>
+          </div>
+          <div className="rounded-lg border border-[hsl(var(--border))] p-3">
+            <p className="text-xs text-[hsl(var(--muted-foreground))]">Tokens (entrada + salida)</p>
+            <p className="text-2xl font-bold tabular-nums text-foreground">
+              {(aiUsage.total_input_tokens + aiUsage.total_output_tokens).toLocaleString("es-CO")}
+            </p>
+          </div>
+          <div className="rounded-lg border border-[hsl(var(--border))] p-3">
+            <p className="text-xs text-[hsl(var(--muted-foreground))]">Costo estimado (USD)</p>
+            <p className="text-2xl font-bold tabular-nums text-foreground">
+              ${aiUsage.total_cost_usd.toFixed(2)}
+            </p>
+          </div>
+        </div>
+
+        {/* Monthly breakdown table */}
+        {aiUsage.monthly_breakdown.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[hsl(var(--border))]">
+                  <th className="pb-2 text-left font-medium text-[hsl(var(--muted-foreground))]">Mes</th>
+                  <th className="pb-2 text-right font-medium text-[hsl(var(--muted-foreground))]">Llamadas</th>
+                  <th className="pb-2 text-right font-medium text-[hsl(var(--muted-foreground))]">Tokens</th>
+                  <th className="pb-2 text-right font-medium text-[hsl(var(--muted-foreground))]">Costo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aiUsage.monthly_breakdown.map((row) => (
+                  <tr key={row.month} className="border-b border-[hsl(var(--border))]/50">
+                    <td className="py-2 text-foreground">{row.month}</td>
+                    <td className="py-2 text-right tabular-nums text-foreground">{row.calls.toLocaleString("es-CO")}</td>
+                    <td className="py-2 text-right tabular-nums text-[hsl(var(--muted-foreground))]">
+                      {(row.input_tokens + row.output_tokens).toLocaleString("es-CO")}
+                    </td>
+                    <td className="py-2 text-right tabular-nums text-foreground">${row.cost_usd.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {aiUsage.last_call_at && (
+          <p className="text-xs text-[hsl(var(--muted-foreground))]">
+            Última consulta: {new Date(aiUsage.last_call_at).toLocaleDateString("es-CO", { dateStyle: "medium" })}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 const linkCardClasses = cn(
   "flex items-center gap-4 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4",
@@ -508,6 +638,9 @@ export default function ClinicSettingsPage() {
           </div>
         )}
       </form>
+
+      {/* ─── AI Usage ──────────────────────────────────────────────────────── */}
+      <AIUsageSection />
 
       {/* ─── Other settings sections ─────────────────────────────────────── */}
       <SettingsLinkGrid isOwner={isOwner} />

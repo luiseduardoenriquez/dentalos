@@ -165,7 +165,7 @@ export default function ConsentDetailPage() {
           </Link>
           <ChevronRight className="h-4 w-4" />
           <span className="text-foreground font-medium truncate max-w-[180px]">
-            {consent.template_name}
+            {consent.title}
           </span>
         </nav>
 
@@ -176,13 +176,10 @@ export default function ConsentDetailPage() {
               {/* Title + Status */}
               <div className="space-y-2 min-w-0">
                 <h1 className="text-lg font-bold text-foreground">
-                  {consent.template_name}
+                  {consent.title}
                 </h1>
                 <div className="flex items-center gap-2 flex-wrap">
                   <ConsentStatusBadge status={consent.status} />
-                  <span className="text-xs text-[hsl(var(--muted-foreground))]">
-                    {CATEGORY_LABELS[consent.category] ?? consent.category}
-                  </span>
                 </div>
               </div>
 

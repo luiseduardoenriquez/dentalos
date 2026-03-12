@@ -29,6 +29,7 @@ import {
   Handshake,
   Wallet,
   Bot,
+  Gift,
   Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -204,6 +205,14 @@ const NAV_ITEMS: NavItem[] = [
     label: "Reputación",
     icon: Star,
     roles: ["clinic_owner"],
+    requiredFeature: "patient_portal",
+    minimumPlanLabel: "Pro",
+  },
+  {
+    href: "/referral-program",
+    label: "Referidos",
+    icon: Gift,
+    roles: ["clinic_owner"] as UserRole[],
     requiredFeature: "patient_portal",
     minimumPlanLabel: "Pro",
   },

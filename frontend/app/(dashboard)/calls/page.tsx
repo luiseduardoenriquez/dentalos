@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Phone } from "lucide-react";
 import {
   Card,
@@ -17,7 +18,6 @@ import {
 } from "@/components/ui/select";
 import { Pagination } from "@/components/pagination";
 import { CallLogTable } from "@/components/calls/call-log-table";
-import { CallNotesDialog } from "@/components/calls/call-notes-dialog";
 import { useCallLogs, type CallLogResponse } from "@/lib/hooks/use-calls";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -31,14 +31,10 @@ const PAGE_SIZE = 20;
  * status filters. Clicking a row opens the notes edit dialog.
  */
 export default function CallsPage() {
+  const router = useRouter();
   const [page, setPage] = React.useState(1);
   const [direction, setDirection] = React.useState<string>("all");
   const [status, setStatus] = React.useState<string>("all");
-
-  // Dialog state
-  const [selectedCall, setSelectedCall] =
-    React.useState<CallLogResponse | null>(null);
-  const [notesDialogOpen, setNotesDialogOpen] = React.useState(false);
 
   const { data, isLoading } = useCallLogs(page, PAGE_SIZE, direction, status);
 
@@ -56,8 +52,7 @@ export default function CallsPage() {
   }
 
   function handleRowClick(call: CallLogResponse) {
-    setSelectedCall(call);
-    setNotesDialogOpen(true);
+    router.push(`/calls/${call.id}`);
   }
 
   return (
@@ -144,18 +139,6 @@ export default function CallsPage() {
         />
       )}
 
-      {/* Notes dialog */}
-      {selectedCall && (
-        <CallNotesDialog
-          callId={selectedCall.id}
-          currentNotes={selectedCall.notes ?? ""}
-          open={notesDialogOpen}
-          onOpenChange={(open) => {
-            setNotesDialogOpen(open);
-            if (!open) setSelectedCall(null);
-          }}
-        />
-      )}
     </div>
   );
 }

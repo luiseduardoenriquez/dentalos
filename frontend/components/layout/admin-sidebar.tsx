@@ -22,6 +22,7 @@ import {
   Flag,
   Activity,
   ShieldCheck,
+  Shield,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -77,6 +78,11 @@ const ADMIN_NAV: AdminNavItem[] = [
     href: "/admin/health",
     label: "Salud del Sistema",
     icon: Activity,
+  },
+  {
+    href: "/admin/security",
+    label: "Seguridad",
+    icon: Shield,
   },
 ];
 

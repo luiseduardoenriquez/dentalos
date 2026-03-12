@@ -9,7 +9,9 @@ import {
   RefreshCw,
   AlertCircle,
   Eye,
+  Settings,
 } from "lucide-react";
+import Link from "next/link";
 import { apiGet, apiPost } from "@/lib/api-client";
 import {
   Card,
@@ -166,10 +168,18 @@ export default function ChatbotMonitorPage() {
             Supervisa las conversaciones del asistente virtual.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
-          <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", isLoading && "animate-spin")} />
-          Actualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+            <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", isLoading && "animate-spin")} />
+            Actualizar
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/chatbot/config">
+              <Settings className="mr-1.5 h-3.5 w-3.5" />
+              Configuración
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* ─── Filter tabs ─────────────────────────────────────────────────── */}

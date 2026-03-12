@@ -12,6 +12,9 @@ const TABS = [
   { href: "/analytics/revenue", label: "Ingresos" },
   { href: "/analytics/profit-loss", label: "P&G" },
   { href: "/analytics/nps", label: "NPS" },
+  { href: "/analytics/acceptance-rate", label: "Aceptación" },
+  { href: "/analytics/compliance", label: "Cumplimiento" },
+  { href: "/analytics/schedule-intelligence", label: "Inteligencia" },
 ];
 
 export default function AnalyticsLayout({

@@ -74,6 +74,20 @@ export function useCallLogs(
   });
 }
 
+// ─── useCallDetail ───────────────────────────────────────────────────────────
+
+/**
+ * GET /calls/{callId} — fetches full detail for a single call log entry.
+ */
+export function useCallDetail(callId: string) {
+  return useQuery({
+    queryKey: callLogQueryKey(callId),
+    queryFn: () => apiGet<CallLogResponse>(`/calls/${callId}`),
+    enabled: Boolean(callId),
+    staleTime: 30_000,
+  });
+}
+
 // ─── useUpdateCallNotes ───────────────────────────────────────────────────────
 
 /**

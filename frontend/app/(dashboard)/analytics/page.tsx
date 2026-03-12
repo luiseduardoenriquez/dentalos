@@ -3,7 +3,9 @@
 import * as React from "react";
 import {
   useAnalyticsDashboard,
+  useAnalyticsExport,
   type AnalyticsPeriod,
+  type AnalyticsExportType,
 } from "@/lib/hooks/use-analytics";
 import {
   Card,
@@ -20,7 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { RefreshCw, TrendingUp, TrendingDown } from "lucide-react";
+import { RefreshCw, TrendingUp, TrendingDown, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AIQueryBar, type AIQueryResponse } from "@/components/analytics/ai-query-bar";
 import { AIResponseDisplay } from "@/components/analytics/ai-response-display";
@@ -64,12 +67,32 @@ const PERIOD_OPTIONS: { value: AnalyticsPeriod; label: string }[] = [
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const EXPORT_OPTIONS: { value: AnalyticsExportType; label: string }[] = [
+  { value: "patients", label: "Pacientes" },
+  { value: "appointments", label: "Citas" },
+  { value: "revenue", label: "Ingresos" },
+];
+
 export default function AnalyticsDashboardPage() {
   const [period, setPeriod] = React.useState<AnalyticsPeriod>("month");
   const [aiResponse, setAiResponse] = React.useState<AIQueryResponse | null>(null);
   const [aiLoading, setAiLoading] = React.useState(false);
+  const [showExportMenu, setShowExportMenu] = React.useState(false);
+  const exportRef = React.useRef<HTMLDivElement>(null);
 
   const { data, isLoading, isError } = useAnalyticsDashboard(period);
+  const exportMutation = useAnalyticsExport();
+
+  // Close export menu on outside click
+  React.useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleAIResponse = (response: AIQueryResponse) => {
     setAiLoading(false);
@@ -106,7 +129,7 @@ export default function AnalyticsDashboardPage() {
         isLoading={aiLoading}
       />
 
-      {/* Period selector */}
+      {/* Period selector + export */}
       <div className="flex items-center gap-3">
         <label
           htmlFor="period-select"
@@ -133,6 +156,40 @@ export default function AnalyticsDashboardPage() {
         <span className="text-xs text-[hsl(var(--muted-foreground))]">
           {data.period.date_from} — {data.period.date_to}
         </span>
+
+        {/* Export dropdown */}
+        <div className="relative ml-auto" ref={exportRef}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowExportMenu((prev) => !prev)}
+            disabled={exportMutation.isPending}
+          >
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            {exportMutation.isPending ? "Exportando..." : "Exportar"}
+          </Button>
+          {showExportMenu && (
+            <div className="absolute right-0 top-full z-10 mt-1 w-44 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))] py-1 shadow-lg">
+              {EXPORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className="flex w-full items-center px-3 py-2 text-sm text-foreground hover:bg-[hsl(var(--muted))] transition-colors"
+                  onClick={() => {
+                    setShowExportMenu(false);
+                    exportMutation.mutate({
+                      type: opt.value,
+                      date_from: data.period.date_from,
+                      date_to: data.period.date_to,
+                    });
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* KPI Cards */}

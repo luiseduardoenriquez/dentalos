@@ -41,7 +41,10 @@ from app.schemas.admin import (
     PlanUpdateRequest,
     PlatformAnalyticsResponse,
     SystemHealthResponse,
+    TenantCreateRequest,
+    TenantDetailResponse,
     TenantListResponse,
+    TenantUpdateRequest,
 )
 from app.services.admin_auth_service import admin_auth_service
 from app.services.admin_service import admin_service
@@ -194,6 +197,75 @@ async def list_tenants(
         search=search,
         status=status,
     )
+
+
+@router.get("/tenants/{tenant_id}", response_model=TenantDetailResponse)
+async def get_tenant_detail(
+    tenant_id: str,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> TenantDetailResponse:
+    """Get full tenant detail by ID."""
+    return await admin_service.get_tenant_detail(db=db, tenant_id=tenant_id)
+
+
+@router.post(
+    "/tenants",
+    response_model=TenantDetailResponse,
+    status_code=201,
+)
+async def create_tenant(
+    body: TenantCreateRequest,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> TenantDetailResponse:
+    """Create a new tenant (clinic) with schema provisioning."""
+    result = await admin_service.create_tenant(
+        db=db,
+        name=body.name,
+        owner_email=body.owner_email,
+        plan_id=body.plan_id,
+        country_code=body.country_code,
+        timezone=body.timezone,
+        currency_code=body.currency_code,
+    )
+    await db.commit()
+    return result
+
+
+@router.put("/tenants/{tenant_id}", response_model=TenantDetailResponse)
+async def update_tenant(
+    tenant_id: str,
+    body: TenantUpdateRequest,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> TenantDetailResponse:
+    """Update a tenant's name, plan, settings, or status."""
+    result = await admin_service.update_tenant(
+        db=db,
+        tenant_id=tenant_id,
+        name=body.name,
+        plan_id=body.plan_id,
+        settings=body.settings,
+        is_active=body.is_active,
+    )
+    await db.commit()
+    return result
+
+
+@router.post(
+    "/tenants/{tenant_id}/suspend",
+    response_model=TenantDetailResponse,
+)
+async def suspend_tenant(
+    tenant_id: str,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> TenantDetailResponse:
+    """Toggle tenant suspension (idempotent)."""
+    result = await admin_service.suspend_tenant(db=db, tenant_id=tenant_id)
+    await db.commit()
+    return result
 
 
 # ─── AD-03: Plan Management ─────────────────────────────────────────────────

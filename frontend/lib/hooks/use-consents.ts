@@ -12,13 +12,14 @@ export type ConsentStatus = "draft" | "pending_signatures" | "signed" | "voided"
 export interface ConsentResponse {
   id: string;
   patient_id: string;
-  template_id: string;
-  template_name: string;
-  category: string;
+  doctor_id: string;
+  template_id: string | null;
+  title: string;
   status: ConsentStatus;
   content_rendered: string; // HTML with patient data injected
   content_hash: string | null;
   signed_at: string | null;
+  locked_at: string | null;
   voided_at: string | null;
   voided_by: string | null;
   void_reason: string | null;

@@ -1096,6 +1096,7 @@ class OdontogramService:
 
         state.dentition_type = dentition_type
         await db.flush()
+        await db.refresh(state)
 
         # Invalidate cache
         await cache_delete(_odontogram_cache_key(tenant_id, patient_id))
