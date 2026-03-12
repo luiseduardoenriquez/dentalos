@@ -43,17 +43,20 @@ export default function AcceptanceRatePage() {
     );
   }
 
+  // Backend returns rate as 0.0–1.0 ratio, convert to percentage for display
+  const ratePct = data.acceptance_rate * 100;
+
   const rateColor =
-    data.acceptance_rate >= 70
+    ratePct >= 70
       ? "text-green-600 dark:text-green-400"
-      : data.acceptance_rate >= 40
+      : ratePct >= 40
         ? "text-yellow-600 dark:text-yellow-400"
         : "text-red-600 dark:text-red-400";
 
   const rateBarColor =
-    data.acceptance_rate >= 70
+    ratePct >= 70
       ? "bg-green-500"
-      : data.acceptance_rate >= 40
+      : ratePct >= 40
         ? "bg-yellow-500"
         : "bg-red-500";
 
@@ -98,7 +101,7 @@ export default function AcceptanceRatePage() {
         <CardContent className="space-y-4">
           <div className="flex items-baseline gap-3">
             <span className={cn("text-5xl font-bold tabular-nums", rateColor)}>
-              {data.acceptance_rate.toFixed(1)}%
+              {ratePct.toFixed(1)}%
             </span>
             <span className="text-sm text-[hsl(var(--muted-foreground))]">
               de planes aceptados
@@ -108,7 +111,7 @@ export default function AcceptanceRatePage() {
           <div className="h-3 w-full rounded-full bg-[hsl(var(--muted))]">
             <div
               className={cn("h-3 rounded-full transition-all", rateBarColor)}
-              style={{ width: `${Math.min(data.acceptance_rate, 100)}%` }}
+              style={{ width: `${Math.min(ratePct, 100)}%` }}
             />
           </div>
         </CardContent>
@@ -120,10 +123,10 @@ export default function AcceptanceRatePage() {
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-2">
               <FileText className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-              <p className="text-xs text-[hsl(var(--muted-foreground))]">Total planes</p>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">Total cotizaciones</p>
             </div>
             <p className="text-3xl font-bold tabular-nums text-foreground">
-              {data.total_plans.toLocaleString("es-CO")}
+              {data.total_quotations.toLocaleString("es-CO")}
             </p>
           </CardContent>
         </Card>
@@ -135,7 +138,7 @@ export default function AcceptanceRatePage() {
               <p className="text-xs text-[hsl(var(--muted-foreground))]">Aceptados</p>
             </div>
             <p className="text-3xl font-bold tabular-nums text-green-600 dark:text-green-400">
-              {data.accepted_plans.toLocaleString("es-CO")}
+              {data.accepted_count.toLocaleString("es-CO")}
             </p>
           </CardContent>
         </Card>
@@ -147,7 +150,7 @@ export default function AcceptanceRatePage() {
               <p className="text-xs text-[hsl(var(--muted-foreground))]">Pendientes</p>
             </div>
             <p className="text-3xl font-bold tabular-nums text-yellow-600 dark:text-yellow-400">
-              {data.pending_plans.toLocaleString("es-CO")}
+              {data.pending_count.toLocaleString("es-CO")}
             </p>
           </CardContent>
         </Card>
@@ -159,7 +162,7 @@ export default function AcceptanceRatePage() {
               <p className="text-xs text-[hsl(var(--muted-foreground))]">Expirados</p>
             </div>
             <p className="text-3xl font-bold tabular-nums text-red-600 dark:text-red-400">
-              {data.expired_plans.toLocaleString("es-CO")}
+              {data.expired_count.toLocaleString("es-CO")}
             </p>
           </CardContent>
         </Card>
@@ -171,7 +174,7 @@ export default function AcceptanceRatePage() {
               <p className="text-xs text-[hsl(var(--muted-foreground))]">Días promedio</p>
             </div>
             <p className="text-3xl font-bold tabular-nums text-foreground">
-              {data.avg_days_to_accept.toFixed(1)}
+              {data.average_days_to_accept != null ? data.average_days_to_accept.toFixed(1) : "—"}
             </p>
             <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
               para aceptar

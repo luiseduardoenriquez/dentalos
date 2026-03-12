@@ -378,12 +378,12 @@ export function useAITokenUsage() {
 // ─── Acceptance Rate ─────────────────────────────────────────────────────────
 
 export interface AcceptanceRateResponse {
-  total_plans: number;
-  accepted_plans: number;
-  pending_plans: number;
-  expired_plans: number;
+  total_quotations: number;
+  accepted_count: number;
+  pending_count: number;
+  expired_count: number;
   acceptance_rate: number;
-  avg_days_to_accept: number;
+  average_days_to_accept: number | null;
 }
 
 export function useAcceptanceRate(dateFrom?: string, dateTo?: string) {
