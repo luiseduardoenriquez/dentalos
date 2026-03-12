@@ -350,27 +350,29 @@ export function useAnalyticsExport() {
 
 // ─── AI Token Usage ──────────────────────────────────────────────────────────
 
-export interface AIUsageMonthlyBreakdown {
-  month: string;
-  calls: number;
-  input_tokens: number;
-  output_tokens: number;
-  cost_usd: number;
-}
-
 export interface AIUsageResponse {
   total_calls: number;
   total_input_tokens: number;
   total_output_tokens: number;
-  total_cost_usd: number;
-  monthly_breakdown: AIUsageMonthlyBreakdown[];
-  last_call_at: string | null;
+  period_from: string;
+  period_to: string;
 }
 
 export function useAITokenUsage() {
+  // Backend requires date_from and date_to — default to last 12 months
+  const now = new Date();
+  const dateTo = now.toISOString().slice(0, 10);
+  const dateFrom = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
+    .toISOString()
+    .slice(0, 10);
+
   return useQuery<AIUsageResponse>({
-    queryKey: ["analytics", "ai-usage"],
-    queryFn: () => apiGet<AIUsageResponse>("/treatment-plans/ai-usage"),
+    queryKey: ["analytics", "ai-usage", dateFrom, dateTo],
+    queryFn: () =>
+      apiGet<AIUsageResponse>("/treatment-plans/ai-usage", {
+        date_from: dateFrom,
+        date_to: dateTo,
+      }),
     staleTime: STALE_TIME,
   });
 }

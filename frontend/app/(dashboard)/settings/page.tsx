@@ -45,7 +45,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSettings, useUpdateSettings } from "@/lib/hooks/use-settings";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { useAITokenUsage, type AIUsageResponse } from "@/lib/hooks/use-analytics";
+import { useAITokenUsage } from "@/lib/hooks/use-analytics";
 import { cn } from "@/lib/utils";
 
 // ─── Options ──────────────────────────────────────────────────────────────────
@@ -312,6 +312,8 @@ function AIUsageSection() {
 
   if (!aiUsage) return null;
 
+  const totalTokens = aiUsage.total_input_tokens + aiUsage.total_output_tokens;
+
   return (
     <Card>
       <CardHeader>
@@ -321,7 +323,6 @@ function AIUsageSection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* KPI row */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <div className="rounded-lg border border-[hsl(var(--border))] p-3">
             <p className="text-xs text-[hsl(var(--muted-foreground))]">Llamadas totales</p>
@@ -330,52 +331,22 @@ function AIUsageSection() {
             </p>
           </div>
           <div className="rounded-lg border border-[hsl(var(--border))] p-3">
-            <p className="text-xs text-[hsl(var(--muted-foreground))]">Tokens (entrada + salida)</p>
+            <p className="text-xs text-[hsl(var(--muted-foreground))]">Tokens entrada</p>
             <p className="text-2xl font-bold tabular-nums text-foreground">
-              {(aiUsage.total_input_tokens + aiUsage.total_output_tokens).toLocaleString("es-CO")}
+              {aiUsage.total_input_tokens.toLocaleString("es-CO")}
             </p>
           </div>
           <div className="rounded-lg border border-[hsl(var(--border))] p-3">
-            <p className="text-xs text-[hsl(var(--muted-foreground))]">Costo estimado (USD)</p>
+            <p className="text-xs text-[hsl(var(--muted-foreground))]">Tokens salida</p>
             <p className="text-2xl font-bold tabular-nums text-foreground">
-              ${aiUsage.total_cost_usd.toFixed(2)}
+              {aiUsage.total_output_tokens.toLocaleString("es-CO")}
             </p>
           </div>
         </div>
 
-        {/* Monthly breakdown table */}
-        {aiUsage.monthly_breakdown.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[hsl(var(--border))]">
-                  <th className="pb-2 text-left font-medium text-[hsl(var(--muted-foreground))]">Mes</th>
-                  <th className="pb-2 text-right font-medium text-[hsl(var(--muted-foreground))]">Llamadas</th>
-                  <th className="pb-2 text-right font-medium text-[hsl(var(--muted-foreground))]">Tokens</th>
-                  <th className="pb-2 text-right font-medium text-[hsl(var(--muted-foreground))]">Costo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {aiUsage.monthly_breakdown.map((row) => (
-                  <tr key={row.month} className="border-b border-[hsl(var(--border))]/50">
-                    <td className="py-2 text-foreground">{row.month}</td>
-                    <td className="py-2 text-right tabular-nums text-foreground">{row.calls.toLocaleString("es-CO")}</td>
-                    <td className="py-2 text-right tabular-nums text-[hsl(var(--muted-foreground))]">
-                      {(row.input_tokens + row.output_tokens).toLocaleString("es-CO")}
-                    </td>
-                    <td className="py-2 text-right tabular-nums text-foreground">${row.cost_usd.toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {aiUsage.last_call_at && (
-          <p className="text-xs text-[hsl(var(--muted-foreground))]">
-            Última consulta: {new Date(aiUsage.last_call_at).toLocaleDateString("es-CO", { dateStyle: "medium" })}
-          </p>
-        )}
+        <p className="text-xs text-[hsl(var(--muted-foreground))]">
+          Período: {aiUsage.period_from} — {aiUsage.period_to} · Total tokens: {totalTokens.toLocaleString("es-CO")}
+        </p>
       </CardContent>
     </Card>
   );
