@@ -1,6 +1,10 @@
 """Admin/superadmin request and response schemas."""
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+import uuid
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from uuid import UUID
 
 
 # ─── Auth Schemas ─────────────────────────────────────
@@ -45,6 +49,7 @@ class TenantSummary(BaseModel):
     status: str
     user_count: int
     patient_count: int
+    doctor_count: int = 0
     created_at: str
 
 
@@ -112,6 +117,9 @@ class PlanResponse(BaseModel):
     name: str
     slug: str
     price_cents: int
+    pricing_model: str = "per_doctor"
+    included_doctors: int = 1
+    additional_doctor_price_cents: int = 0
     max_patients: int
     max_doctors: int
     features: dict
@@ -129,6 +137,23 @@ class PlanUpdateRequest(BaseModel):
 # ─── Analytics Schemas ────────────────────────────────
 
 
+class PlanDistributionItem(BaseModel):
+    plan_name: str
+    count: int
+
+
+class TopTenantItem(BaseModel):
+    tenant_id: str
+    name: str
+    mrr_cents: int
+    patients: int
+
+
+class CountryDistributionItem(BaseModel):
+    country: str
+    count: int
+
+
 class PlatformAnalyticsResponse(BaseModel):
     total_tenants: int
     active_tenants: int
@@ -137,6 +162,10 @@ class PlatformAnalyticsResponse(BaseModel):
     mrr_cents: int
     mau: int
     churn_rate: float
+    new_signups_30d: int = 0
+    plan_distribution: list[PlanDistributionItem] = []
+    top_tenants: list[TopTenantItem] = []
+    country_distribution: list[CountryDistributionItem] = []
 
 
 # ─── Feature Flag Schemas ────────────────────────────
@@ -150,6 +179,8 @@ class FeatureFlagResponse(BaseModel):
     tenant_id: str | None = None
     enabled: bool
     description: str | None = None
+    expires_at: str | None = None
+    reason: str | None = None
 
 
 class FeatureFlagUpdateRequest(BaseModel):
@@ -158,6 +189,8 @@ class FeatureFlagUpdateRequest(BaseModel):
     plan_filter: str | None = None
     tenant_id: str | None = None
     description: str | None = None
+    expires_at: str | None = None
+    reason: str | None = None
 
 
 class FeatureFlagCreateRequest(BaseModel):
@@ -167,9 +200,18 @@ class FeatureFlagCreateRequest(BaseModel):
     plan_filter: str | None = None
     tenant_id: str | None = None
     description: str | None = None
+    expires_at: str | None = None
+    reason: str | None = None
 
 
 # ─── System Health Schemas ────────────────────────────
+
+
+class ServiceHealthDetail(BaseModel):
+    healthy: bool
+    latency_ms: float = 0.0
+    version: str | None = None
+    details: dict = {}
 
 
 class SystemHealthResponse(BaseModel):
@@ -179,13 +221,15 @@ class SystemHealthResponse(BaseModel):
     rabbitmq: bool
     storage: bool
     timestamp: str
+    service_details: dict[str, ServiceHealthDetail] = {}
 
 
 # ─── Impersonation Schemas ────────────────────────────
 
 
 class ImpersonateRequest(BaseModel):
-    pass
+    reason: str = Field(min_length=10, max_length=500)
+    duration_minutes: int = Field(default=60, ge=15, le=480)
 
 
 class ImpersonateResponse(BaseModel):
@@ -193,3 +237,113 @@ class ImpersonateResponse(BaseModel):
     token_type: str = "bearer"
     tenant_id: str
     impersonated_as: str = "clinic_owner"
+    session_id: str | None = None
+    expires_at: str | None = None
+
+
+# ─── Audit Log Schemas ──────────────────────────────
+
+
+class AuditLogEntry(BaseModel):
+    id: str
+    admin_id: str
+    admin_email: str | None = None
+    action: str
+    resource_type: str | None = None
+    resource_id: str | None = None
+    details: dict = {}
+    ip_address: str | None = None
+    created_at: str
+
+
+class AuditLogListResponse(BaseModel):
+    items: list[AuditLogEntry]
+    total: int
+    page: int
+    page_size: int
+
+
+# ─── Plan Change History Schemas ─────────────────────
+
+
+class PlanChangeHistoryEntry(BaseModel):
+    id: str
+    plan_id: str
+    admin_id: str
+    field_changed: str
+    old_value: str | None = None
+    new_value: str | None = None
+    created_at: str
+
+
+class PlanChangeHistoryResponse(BaseModel):
+    items: list[PlanChangeHistoryEntry]
+    total: int
+
+
+# ─── Feature Flag Change History ─────────────────────
+
+
+class FlagChangeHistoryEntry(BaseModel):
+    id: str
+    flag_id: str
+    admin_id: str
+    field_changed: str
+    old_value: str | None = None
+    new_value: str | None = None
+    created_at: str
+
+
+# ─── Export Schemas ──────────────────────────────────
+
+
+class ExportRequest(BaseModel):
+    export_type: str = Field(pattern="^(tenants|audit)$")
+
+
+# ─── Superadmin CRUD Schemas ────────────────────────
+
+
+class SuperadminCreateRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=12, max_length=128)
+    name: str = Field(min_length=2, max_length=200)
+
+
+class SuperadminResponse(BaseModel):
+    id: str
+    email: str
+    name: str
+    totp_enabled: bool
+    is_active: bool
+    last_login_at: str | None = None
+    created_at: str
+
+
+class SuperadminUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=200)
+    is_active: bool | None = None
+
+
+# ── Notifications ────────────────────────────────────────────────────────────
+
+class AdminNotificationResponse(BaseModel):
+    """Single admin notification."""
+    id: UUID
+    admin_id: UUID | None = None
+    title: str
+    message: str
+    notification_type: str  # info, warning, error, success
+    resource_type: str | None = None
+    resource_id: UUID | None = None
+    is_read: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminNotificationListResponse(BaseModel):
+    """Paginated notification list."""
+    items: list[AdminNotificationResponse]
+    unread_count: int
+    total: int

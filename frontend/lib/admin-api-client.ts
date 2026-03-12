@@ -124,4 +124,14 @@ export async function adminApiPut<T>(url: string, body?: unknown): Promise<T> {
   return data;
 }
 
+/**
+ * Typed DELETE request via the admin Axios client.
+ *
+ * @param url - Path relative to /api/v1
+ */
+export async function adminApiDelete<T>(url: string): Promise<T> {
+  const { data } = await adminApiClient.delete<T>(url);
+  return data;
+}
+
 export type { ApiError as AdminApiError };

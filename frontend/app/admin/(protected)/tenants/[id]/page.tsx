@@ -398,6 +398,14 @@ interface ImpersonationDialogProps {
   tenant: TenantDetailResponse;
 }
 
+const DURATION_OPTIONS = [
+  { label: "30 min", value: 30 },
+  { label: "1 hora", value: 60 },
+  { label: "2 horas", value: 120 },
+  { label: "4 horas", value: 240 },
+  { label: "8 horas", value: 480 },
+] as const;
+
 function ImpersonationDialog({
   open,
   onOpenChange,
@@ -405,15 +413,38 @@ function ImpersonationDialog({
 }: ImpersonationDialogProps) {
   const router = useRouter();
   const { enter } = useImpersonationStore();
-  const { mutate: impersonate, isPending, error } = useImpersonateTenant();
+  const { mutate: impersonate, isPending, error, data: impersonateData, isSuccess } =
+    useImpersonateTenant();
+
+  const [impersonateReason, setImpersonateReason] = useState("");
+  const [impersonateDuration, setImpersonateDuration] = useState(60);
+
+  const isReasonValid = impersonateReason.trim().length >= 10;
 
   function handleConfirm() {
-    impersonate(tenant.id, {
-      onSuccess: (data) => {
-        enter(data.access_token, `/admin/tenants/${tenant.id}`);
-        router.push("/dashboard");
+    impersonate(
+      {
+        tenantId: tenant.id,
+        payload: {
+          reason: impersonateReason.trim(),
+          duration_minutes: impersonateDuration,
+        },
       },
-    });
+      {
+        onSuccess: (data) => {
+          enter(data.access_token, `/admin/tenants/${tenant.id}`);
+          router.push("/dashboard");
+        },
+      },
+    );
+  }
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen && !isPending) {
+      setImpersonateReason("");
+      setImpersonateDuration(60);
+    }
+    onOpenChange(nextOpen);
   }
 
   const errorMessage =
@@ -424,7 +455,7 @@ function ImpersonationDialog({
         : null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Impersonar clinica</DialogTitle>
@@ -447,6 +478,75 @@ function ImpersonationDialog({
             </p>
           </div>
 
+          {/* Razon de impersonacion */}
+          <div className="space-y-2">
+            <Label htmlFor="impersonate-reason">
+              Razon de impersonacion <span className="text-destructive">*</span>
+            </Label>
+            <textarea
+              id="impersonate-reason"
+              value={impersonateReason}
+              onChange={(e) => setImpersonateReason(e.target.value)}
+              placeholder="Describe el motivo de acceso a esta clinica (minimo 10 caracteres)..."
+              minLength={10}
+              maxLength={500}
+              rows={3}
+              disabled={isPending}
+              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            <p className="text-xs text-muted-foreground text-right">
+              {impersonateReason.trim().length}/500 caracteres
+              {impersonateReason.trim().length > 0 &&
+                impersonateReason.trim().length < 10 && (
+                  <span className="ml-2 text-destructive">
+                    Minimo 10 caracteres
+                  </span>
+                )}
+            </p>
+          </div>
+
+          {/* Duracion */}
+          <div className="space-y-2">
+            <Label htmlFor="impersonate-duration">Duracion</Label>
+            <Select
+              value={String(impersonateDuration)}
+              onValueChange={(val) => setImpersonateDuration(Number(val))}
+              disabled={isPending}
+            >
+              <SelectTrigger id="impersonate-duration">
+                <SelectValue placeholder="Selecciona la duracion" />
+              </SelectTrigger>
+              <SelectContent>
+                {DURATION_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={String(opt.value)}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Session info after success */}
+          {isSuccess && impersonateData && (
+            <div className="rounded-md border border-green-200 bg-green-50 dark:border-green-700/40 dark:bg-green-900/20 p-3 space-y-1">
+              <p className="text-sm font-medium text-green-800 dark:text-green-300">
+                Sesion de impersonacion iniciada
+              </p>
+              {impersonateData.session_id && (
+                <p className="text-xs text-green-700 dark:text-green-400">
+                  <span className="font-medium">ID de sesion:</span>{" "}
+                  <code className="font-mono">{impersonateData.session_id}</code>
+                </p>
+              )}
+              {impersonateData.expires_at && (
+                <p className="text-xs text-green-700 dark:text-green-400">
+                  <span className="font-medium">Expira:</span>{" "}
+                  {formatDateTime(impersonateData.expires_at)}
+                </p>
+              )}
+            </div>
+          )}
+
           {errorMessage && (
             <p className="text-sm text-destructive">{errorMessage}</p>
           )}
@@ -456,7 +556,7 @@ function ImpersonationDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={() => handleOpenChange(false)}
             disabled={isPending}
           >
             Cancelar
@@ -464,8 +564,8 @@ function ImpersonationDialog({
           <Button
             type="button"
             onClick={handleConfirm}
-            disabled={isPending}
-            className="bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-600 dark:hover:bg-amber-700"
+            disabled={isPending || !isReasonValid}
+            className="bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-600 dark:hover:bg-amber-700 disabled:opacity-50"
           >
             {isPending ? "Redirigiendo..." : "Iniciar Impersonacion"}
           </Button>

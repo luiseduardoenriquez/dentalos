@@ -1,8 +1,9 @@
 """Feature flag model — platform-wide feature toggles (public schema)."""
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Boolean, String, Text
+from sqlalchemy import Boolean, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -17,6 +18,7 @@ class FeatureFlag(UUIDPrimaryKeyMixin, TimestampMixin, PublicBase):
       - scope="plan": applies to tenants on a matching plan (plan_filter)
       - scope="tenant": applies to a specific tenant (tenant_id)
 
+    Inheritance resolution: tenant override → plan default → global default.
     When enabled=False, the feature is off regardless of scope.
     """
 
@@ -32,6 +34,10 @@ class FeatureFlag(UUIDPrimaryKeyMixin, TimestampMixin, PublicBase):
     )
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     def __repr__(self) -> str:
         return f"<FeatureFlag {self.flag_name} enabled={self.enabled}>"

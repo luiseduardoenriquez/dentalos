@@ -23,6 +23,8 @@ import {
   Activity,
   ShieldCheck,
   Shield,
+  ClipboardList,
+  Users,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -78,6 +80,16 @@ const ADMIN_NAV: AdminNavItem[] = [
     href: "/admin/health",
     label: "Salud del Sistema",
     icon: Activity,
+  },
+  {
+    href: "/admin/audit-log",
+    label: "Registro de Auditoría",
+    icon: ClipboardList,
+  },
+  {
+    href: "/admin/superadmins",
+    label: "Superadmins",
+    icon: Users,
   },
   {
     href: "/admin/security",

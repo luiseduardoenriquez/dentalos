@@ -4,8 +4,10 @@ import * as React from "react";
 import {
   useAdminPlans,
   useUpdatePlan,
+  usePlanChangeHistory,
   type PlanResponse,
   type PlanUpdatePayload,
+  type PlanChangeHistoryEntry,
 } from "@/lib/hooks/use-admin";
 import {
   Card,
@@ -40,6 +42,27 @@ function formatUSD(cents: number): string {
   });
 }
 
+function formatPricingModel(pricingModel: string): string {
+  if (pricingModel === "per_doctor") return "Por doctor";
+  if (pricingModel === "flat") return "Tarifa plana";
+  return pricingModel;
+}
+
+function formatDateTime(isoString: string): string {
+  try {
+    return new Intl.DateTimeFormat("es-CO", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date(isoString));
+  } catch {
+    return isoString;
+  }
+}
+
 // ─── Skeleton Grid ─────────────────────────────────────────────────────────────
 
 function PlansLoadingSkeleton() {
@@ -61,6 +84,112 @@ function PlansLoadingSkeleton() {
         </Card>
       ))}
     </div>
+  );
+}
+
+// ─── Plan History Modal ────────────────────────────────────────────────────────
+
+interface PlanHistoryModalProps {
+  plan: PlanResponse;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function PlanHistoryModal({ plan, open, onOpenChange }: PlanHistoryModalProps) {
+  // enabled is gated on open so the query only fires when the modal is visible
+  const { data, isLoading, isError } = usePlanChangeHistory(
+    open ? plan.id : "",
+  );
+
+  const entries: PlanChangeHistoryEntry[] = data?.items ?? [];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent size="lg">
+        <DialogHeader>
+          <DialogTitle>Historial de cambios: {plan.name}</DialogTitle>
+          <DialogDescription>
+            Registro de todas las modificaciones realizadas a este plan.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="max-h-[420px] overflow-y-auto">
+          {isLoading && (
+            <div className="space-y-2 py-4">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          )}
+
+          {isError && (
+            <p className="py-8 text-center text-sm text-[hsl(var(--muted-foreground))]">
+              Error al cargar el historial. Intenta de nuevo.
+            </p>
+          )}
+
+          {!isLoading && !isError && entries.length === 0 && (
+            <p className="py-10 text-center text-sm text-[hsl(var(--muted-foreground))]">
+              Sin cambios registrados
+            </p>
+          )}
+
+          {!isLoading && !isError && entries.length > 0 && (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[hsl(var(--border))]">
+                  <th className="py-2 pr-4 text-left font-semibold text-[hsl(var(--muted-foreground))] whitespace-nowrap">
+                    Fecha
+                  </th>
+                  <th className="py-2 pr-4 text-left font-semibold text-[hsl(var(--muted-foreground))]">
+                    Campo cambiado
+                  </th>
+                  <th className="py-2 pr-4 text-left font-semibold text-[hsl(var(--muted-foreground))]">
+                    Valor anterior
+                  </th>
+                  <th className="py-2 text-left font-semibold text-[hsl(var(--muted-foreground))]">
+                    Valor nuevo
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map((entry) => (
+                  <tr
+                    key={entry.id}
+                    className="border-b border-[hsl(var(--border))] last:border-0"
+                  >
+                    <td className="py-2 pr-4 text-xs text-[hsl(var(--muted-foreground))] whitespace-nowrap">
+                      {formatDateTime(entry.created_at)}
+                    </td>
+                    <td className="py-2 pr-4 font-mono text-xs">
+                      {entry.field_changed}
+                    </td>
+                    <td className="py-2 pr-4 text-xs text-[hsl(var(--muted-foreground))]">
+                      {entry.old_value ?? (
+                        <span className="italic">vacío</span>
+                      )}
+                    </td>
+                    <td className="py-2 text-xs font-medium text-foreground">
+                      {entry.new_value ?? (
+                        <span className="italic font-normal text-[hsl(var(--muted-foreground))]">
+                          vacío
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -262,13 +391,16 @@ function EditPlanDialog({ plan, open, onOpenChange }: EditPlanDialogProps) {
 interface PlanCardProps {
   plan: PlanResponse;
   onEdit: (plan: PlanResponse) => void;
+  onHistory: (plan: PlanResponse) => void;
 }
 
-function PlanCard({ plan, onEdit }: PlanCardProps) {
+function PlanCard({ plan, onEdit, onHistory }: PlanCardProps) {
   // Collect truthy feature keys for display
   const enabledFeatures = Object.entries(plan.features)
     .filter(([, value]) => Boolean(value))
     .map(([key]) => key);
+
+  const isPerDoctor = plan.pricing_model === "per_doctor";
 
   return (
     <Card className="flex flex-col">
@@ -293,6 +425,28 @@ function PlanCard({ plan, onEdit }: PlanCardProps) {
             /mes
           </span>
         </p>
+
+        {/* Pricing model */}
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center rounded-full bg-[hsl(var(--muted))] px-2.5 py-0.5 text-xs font-medium text-[hsl(var(--muted-foreground))]">
+            {formatPricingModel(plan.pricing_model)}
+          </span>
+        </div>
+
+        {/* Per-doctor pricing breakdown */}
+        {isPerDoctor && (
+          <p className="text-xs text-[hsl(var(--muted-foreground))]">
+            Incluye{" "}
+            <span className="font-medium text-foreground">
+              {plan.included_doctors}{" "}
+              {plan.included_doctors === 1 ? "doctor" : "doctor(es)"}
+            </span>
+            ,{" "}
+            <span className="font-medium text-foreground">
+              {formatUSD(plan.additional_doctor_price_cents)}/doctor adicional
+            </span>
+          </p>
+        )}
 
         {/* Limits */}
         <div className="space-y-1 text-sm text-[hsl(var(--muted-foreground))]">
@@ -333,12 +487,20 @@ function PlanCard({ plan, onEdit }: PlanCardProps) {
           </div>
         )}
 
-        {/* Edit button pinned to bottom */}
-        <div className="mt-auto pt-3">
+        {/* Action buttons pinned to bottom */}
+        <div className="mt-auto pt-3 flex gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="w-full"
+            className="flex-1"
+            onClick={() => onHistory(plan)}
+          >
+            Historial
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1"
             onClick={() => onEdit(plan)}
           >
             Editar
@@ -354,6 +516,7 @@ function PlanCard({ plan, onEdit }: PlanCardProps) {
 export default function AdminPlansPage() {
   const { data: plans, isLoading, isError, refetch } = useAdminPlans();
   const [editingPlan, setEditingPlan] = React.useState<PlanResponse | null>(null);
+  const [historyPlan, setHistoryPlan] = React.useState<PlanResponse | null>(null);
 
   if (isLoading) {
     return (
@@ -412,7 +575,12 @@ export default function AdminPlansPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} onEdit={setEditingPlan} />
+            <PlanCard
+              key={plan.id}
+              plan={plan}
+              onEdit={setEditingPlan}
+              onHistory={setHistoryPlan}
+            />
           ))}
         </div>
       )}
@@ -424,6 +592,17 @@ export default function AdminPlansPage() {
           open={editingPlan !== null}
           onOpenChange={(open) => {
             if (!open) setEditingPlan(null);
+          }}
+        />
+      )}
+
+      {/* History modal — rendered once, driven by historyPlan state */}
+      {historyPlan && (
+        <PlanHistoryModal
+          plan={historyPlan}
+          open={historyPlan !== null}
+          onOpenChange={(open) => {
+            if (!open) setHistoryPlan(null);
           }}
         />
       )}

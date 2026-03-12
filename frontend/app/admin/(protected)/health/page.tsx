@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -31,41 +31,220 @@ function formatTimestamp(iso: string): string {
   }
 }
 
+/**
+ * Returns Tailwind classes for a latency badge based on ms thresholds.
+ * green ≤100ms | amber ≤500ms | red >500ms
+ */
+function latencyBadgeClasses(ms: number): string {
+  if (ms <= 100) {
+    return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+  }
+  if (ms <= 500) {
+    return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300";
+  }
+  return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+}
+
+/**
+ * Formats a latency value for display.
+ */
+function formatLatency(ms: number): string {
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms / 1000).toFixed(1)} s`;
+}
+
 // ─── Service Card ──────────────────────────────────────────────────────────────
+
+interface ServiceDetail {
+  healthy: boolean;
+  latency_ms: number;
+  version?: string;
+  details?: Record<string, unknown>;
+}
 
 interface ServiceCardProps {
   label: string;
   connected: boolean;
+  detail?: ServiceDetail;
 }
 
-function ServiceCard({ label, connected }: ServiceCardProps) {
+function ServiceCard({ label, connected, detail }: ServiceCardProps) {
+  const [expanded, setExpanded] = React.useState(false);
+  const hasDetails = detail?.details && Object.keys(detail.details).length > 0;
+
   return (
     <Card>
-      <CardContent className="flex items-center gap-4 py-5">
-        {/* Status dot */}
-        <span
-          className={cn(
-            "h-4 w-4 rounded-full shrink-0",
-            connected ? "bg-green-500" : "bg-red-500",
-          )}
-          aria-hidden="true"
-        />
-
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground">{label}</p>
-          <p
+      <CardContent className="py-5">
+        {/* Main row */}
+        <div className="flex items-start gap-4">
+          {/* Status dot */}
+          <span
             className={cn(
-              "text-xs font-medium mt-0.5",
-              connected
-                ? "text-green-600 dark:text-green-400"
-                : "text-red-600 dark:text-red-400",
+              "mt-0.5 h-4 w-4 rounded-full shrink-0",
+              connected ? "bg-green-500" : "bg-red-500",
             )}
-          >
-            {connected ? "Conectado" : "Sin conexion"}
-          </p>
+            aria-hidden="true"
+          />
+
+          {/* Label + version + status */}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground">{label}</p>
+
+            {detail?.version && (
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+                v{detail.version}
+              </p>
+            )}
+
+            <p
+              className={cn(
+                "text-xs font-medium mt-0.5",
+                connected
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-red-600 dark:text-red-400",
+              )}
+            >
+              {connected ? "Conectado" : "Sin conexion"}
+            </p>
+          </div>
+
+          {/* Right side: latency badge + expand toggle */}
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            {detail !== undefined && (
+              <span
+                className={cn(
+                  "inline-block rounded-full px-2 py-0.5 text-xs font-medium tabular-nums",
+                  latencyBadgeClasses(detail.latency_ms),
+                )}
+              >
+                {formatLatency(detail.latency_ms)}
+              </span>
+            )}
+
+            {hasDetails && (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="text-xs text-[hsl(var(--muted-foreground))] hover:text-foreground flex items-center gap-0.5 transition-colors"
+                aria-expanded={expanded}
+                aria-label={expanded ? "Ocultar detalles" : "Ver detalles"}
+              >
+                {expanded ? (
+                  <>
+                    Ocultar <ChevronUp className="h-3 w-3" />
+                  </>
+                ) : (
+                  <>
+                    Detalles <ChevronDown className="h-3 w-3" />
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Expandable details panel */}
+        {hasDetails && expanded && (
+          <div className="mt-3 ml-8 rounded-md border border-border bg-muted/40 px-3 py-2">
+            <dl className="space-y-1">
+              {Object.entries(detail!.details!).map(([key, value]) => (
+                <div key={key} className="flex justify-between gap-4 text-xs">
+                  <dt className="text-[hsl(var(--muted-foreground))] shrink-0">{key}</dt>
+                  <dd className="font-medium text-foreground text-right break-all">
+                    {String(value)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+// ─── Latency Summary Bar ───────────────────────────────────────────────────────
+
+interface LatencySummaryBarProps {
+  serviceDetails: SystemHealthResponse["service_details"];
+}
+
+function LatencySummaryBar({ serviceDetails }: LatencySummaryBarProps) {
+  const entries = Object.entries(serviceDetails);
+  if (entries.length === 0) return null;
+
+  const totalMs = entries.reduce((sum, [, d]) => sum + d.latency_ms, 0);
+  const maxMs = Math.max(...entries.map(([, d]) => d.latency_ms));
+  const avgMs = Math.round(totalMs / entries.length);
+
+  return (
+    <div className="rounded-lg border border-border bg-card px-5 py-4">
+      <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
+        <h3 className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide">
+          Resumen de latencia
+        </h3>
+        <div className="flex items-center gap-4 text-xs text-[hsl(var(--muted-foreground))]">
+          <span>
+            Total:{" "}
+            <span className={cn("font-semibold", latencyBadgeClasses(totalMs).split(" ")[1])}>
+              {formatLatency(totalMs)}
+            </span>
+          </span>
+          <span>
+            Promedio:{" "}
+            <span className={cn("font-semibold", latencyBadgeClasses(avgMs).split(" ")[1])}>
+              {formatLatency(avgMs)}
+            </span>
+          </span>
+          <span>
+            Maximo:{" "}
+            <span className={cn("font-semibold", latencyBadgeClasses(maxMs).split(" ")[1])}>
+              {formatLatency(maxMs)}
+            </span>
+          </span>
+        </div>
+      </div>
+
+      {/* Per-service latency bars */}
+      <div className="space-y-2">
+        {entries.map(([key, detail]) => {
+          const pct = totalMs > 0 ? Math.round((detail.latency_ms / totalMs) * 100) : 0;
+          const label = SERVICE_LABEL_MAP[key] ?? key;
+          return (
+            <div key={key} className="flex items-center gap-3 text-xs">
+              <span className="w-28 shrink-0 text-[hsl(var(--muted-foreground))] truncate">
+                {label}
+              </span>
+              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-500",
+                    detail.latency_ms <= 100
+                      ? "bg-green-500"
+                      : detail.latency_ms <= 500
+                        ? "bg-amber-500"
+                        : "bg-red-500",
+                  )}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span
+                className={cn(
+                  "w-14 shrink-0 text-right font-medium tabular-nums",
+                  detail.latency_ms <= 100
+                    ? "text-green-600 dark:text-green-400"
+                    : detail.latency_ms <= 500
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-red-600 dark:text-red-400",
+                )}
+              >
+                {formatLatency(detail.latency_ms)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -133,16 +312,21 @@ function HealthLoadingSkeleton() {
       {/* Banner skeleton */}
       <Skeleton className="h-16 w-full rounded-lg" />
 
+      {/* Latency summary bar skeleton */}
+      <Skeleton className="h-24 w-full rounded-lg" />
+
       {/* Service cards skeleton */}
       <div className="grid gap-4 sm:grid-cols-2">
         {[1, 2, 3, 4].map((i) => (
           <Card key={i}>
-            <CardContent className="flex items-center gap-4 py-5">
-              <Skeleton className="h-4 w-4 rounded-full shrink-0" />
+            <CardContent className="flex items-start gap-4 py-5">
+              <Skeleton className="mt-0.5 h-4 w-4 rounded-full shrink-0" />
               <div className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-28" />
                 <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-3 w-20" />
               </div>
+              <Skeleton className="h-5 w-14 rounded-full shrink-0" />
             </CardContent>
           </Card>
         ))}
@@ -155,12 +339,22 @@ function HealthLoadingSkeleton() {
 
 type ServiceKey = "postgres" | "redis" | "rabbitmq" | "storage";
 
-const SERVICES: Array<{ key: ServiceKey; label: string }> = [
-  { key: "postgres", label: "PostgreSQL" },
-  { key: "redis", label: "Redis" },
-  { key: "rabbitmq", label: "RabbitMQ" },
-  { key: "storage", label: "Almacenamiento" },
+const SERVICES: Array<{ key: ServiceKey; label: string; detailKey: string }> = [
+  { key: "postgres", label: "PostgreSQL", detailKey: "postgres" },
+  { key: "redis", label: "Redis", detailKey: "redis" },
+  { key: "rabbitmq", label: "RabbitMQ", detailKey: "rabbitmq" },
+  { key: "storage", label: "Almacenamiento", detailKey: "storage" },
 ];
+
+/**
+ * Maps service_details keys to display labels for the latency summary bar.
+ */
+const SERVICE_LABEL_MAP: Record<string, string> = {
+  postgres: "PostgreSQL",
+  redis: "Redis",
+  rabbitmq: "RabbitMQ",
+  storage: "Almacenamiento",
+};
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -227,17 +421,24 @@ export default function AdminHealthPage() {
           {/* Status banner */}
           <StatusBanner health={health} />
 
+          {/* Latency summary bar — only when service_details is available */}
+          {health.service_details &&
+            Object.keys(health.service_details).length > 0 && (
+              <LatencySummaryBar serviceDetails={health.service_details} />
+            )}
+
           {/* Service cards grid */}
           <div>
             <h2 className="mb-3 text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide">
               Servicios
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              {SERVICES.map(({ key, label }) => (
+              {SERVICES.map(({ key, label, detailKey }) => (
                 <ServiceCard
                   key={key}
                   label={label}
                   connected={health[key]}
+                  detail={health.service_details?.[detailKey]}
                 />
               ))}
             </div>

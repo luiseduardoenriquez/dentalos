@@ -801,6 +801,46 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 - [x] **FE-AD-07** System health page (component cards: DB, Redis, RabbitMQ, Storage, App)
 - [x] **FE-AD-08** Platform analytics page (MRR trends, churn, signups, distributions)
 
+### Admin Portal Hardening (Phase 1-7)
+
+- [x] **ADH-01** Real MRR calculation (per-doctor pricing model, additional doctor pricing)
+- [x] **ADH-02** Real patient count (cross-schema query with Redis caching)
+- [x] **ADH-03** Real churn rate calculation (cancelled in 30d / active at period start)
+- [x] **ADH-04** Enhanced analytics response (plan_distribution, top_tenants, country_distribution, new_signups_30d)
+- [x] **ADH-05** Real health checks (PostgreSQL version, Redis memory/version, RabbitMQ connectivity, latency per service)
+- [x] **ADH-06** Admin audit log migration (admin_audit_logs table + indexes)
+- [x] **ADH-07** Admin audit log model (AdminAuditLog)
+- [x] **ADH-08** Audit log service methods (log_admin_action, get_admin_audit_logs with pagination/filters)
+- [x] **ADH-09** `GET /api/v1/admin/audit-log` endpoint with action/admin/date filters
+- [x] **ADH-10** Instrument all mutation endpoints with audit logging (create/update/suspend tenant, update plan, create/update flag, impersonate)
+- [x] **ADH-11** Impersonation session tracking table (admin_impersonation_sessions)
+- [x] **ADH-12** Impersonation requires reason (min 10 chars) and duration (15-480 min)
+- [x] **ADH-13** Concurrent impersonation session limit (max 3)
+- [x] **ADH-14** Enhanced tenant filtering (plan_id, country_code, created_after/before, sort_by, sort_order)
+- [x] **ADH-15** Feature flag inheritance resolution (tenant → plan → global) with expiry support
+- [x] **ADH-16** Feature flag change history table and tracking
+- [x] **ADH-17** Feature flag expires_at and reason fields
+- [x] **ADH-18** Plan change history table and field-level diff tracking
+- [x] **ADH-19** `GET /api/v1/admin/plans/{plan_id}/history` endpoint
+- [x] **ADH-20** CSV export endpoints (`GET /admin/export?export_type=tenants|audit`)
+- [x] **ADH-21** Superadmin CRUD (`GET/POST /admin/superadmins`, `PUT/DELETE /admin/superadmins/{id}`)
+- [x] **ADH-22** FE: Enhanced analytics page (plan distribution bars, top tenants table, country distribution)
+- [x] **ADH-23** FE: Real health checks page (latency badges, version info, memory details, expandable details)
+- [x] **ADH-24** FE: Tenant list advanced filters (plan, country, sort dropdowns)
+- [x] **ADH-25** FE: Impersonation dialog with reason textarea and duration selector
+- [x] **ADH-26** FE: Feature flags with scope badges, expiry indicators, reason column, change history modal
+- [x] **ADH-27** FE: Plans page with pricing model display and change history modal
+- [x] **ADH-28** FE: Audit log page (filterable table, expandable JSON details, CSV export)
+- [x] **ADH-29** FE: Sidebar audit log navigation item
+- [x] **ADH-30** FE: Admin hooks updated (audit log, plan/flag history, superadmin CRUD, export)
+- [x] **ADH-31** Public schema migration 006 (audit logs, impersonation sessions, plan history, flag history, FF columns)
+- [x] **ADH-32** FE: Superadmin management page (CRUD table with create/edit/delete dialogs, self-deletion guard)
+- [x] **ADH-33** FE: Sidebar superadmins navigation item
+- [x] **ADH-34** Admin notifications backend (model, migration, service, API endpoints)
+- [x] **ADH-35** Admin notifications frontend (bell icon in header, dropdown, mark read/all-read)
+- [x] **ADH-36** Notification instrumentation (suspend_tenant, create_tenant emit notifications)
+- [x] **ADH-37** FE: Multi-step tenant onboarding wizard (3 steps: basic info, plan/location, initial config)
+
 ### Email Templates
 
 - [x] **E-16** Daily clinic summary email

@@ -4,12 +4,17 @@
  * TanStack Query hooks for all admin API endpoints.
  *
  * Types match the backend Pydantic schemas in app/schemas/admin.py EXACTLY.
- * All queries use adminApiGet/adminApiPost/adminApiPut — never the clinic API client.
+ * All queries use adminApiGet/adminApiPost/adminApiPut/adminApiDelete — never the clinic API client.
  * Query keys use an "admin" namespace prefix so they are isolated from clinic caches.
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { adminApiGet, adminApiPost, adminApiPut } from "@/lib/admin-api-client";
+import {
+  adminApiGet,
+  adminApiPost,
+  adminApiPut,
+  adminApiDelete,
+} from "@/lib/admin-api-client";
 import {
   setAdminToken,
   useAdminAuthStore,
@@ -59,6 +64,7 @@ export interface TenantSummary {
   status: string;
   user_count: number;
   patient_count: number;
+  doctor_count: number;
   created_at: string;
 }
 
@@ -74,6 +80,12 @@ export interface AdminTenantsParams {
   page_size?: number;
   search?: string;
   status?: string;
+  planId?: string;
+  countryCode?: string;
+  createdAfter?: string;
+  createdBefore?: string;
+  sortBy?: string;
+  sortOrder?: string;
 }
 
 // ─── Plan Types (matches PlanResponse + PlanUpdateRequest) ──────────────────
@@ -87,6 +99,9 @@ export interface PlanResponse {
   max_doctors: number;
   features: Record<string, unknown>;
   is_active: boolean;
+  pricing_model: string;
+  included_doctors: number;
+  additional_doctor_price_cents: number;
 }
 
 export interface PlanUpdatePayload {
@@ -107,6 +122,15 @@ export interface PlatformAnalyticsResponse {
   mrr_cents: number;
   mau: number;
   churn_rate: number;
+  new_signups_30d: number;
+  plan_distribution: { plan_name: string; count: number }[];
+  top_tenants: {
+    tenant_id: string;
+    name: string;
+    mrr_cents: number;
+    patients: number;
+  }[];
+  country_distribution: { country: string; count: number }[];
 }
 
 // ─── Feature Flag Types (matches FeatureFlagResponse + Create/Update) ───────
@@ -119,6 +143,8 @@ export interface FeatureFlagResponse {
   tenant_id: string | null;
   enabled: boolean;
   description: string | null;
+  expires_at: string | null;
+  reason: string | null;
 }
 
 export interface FeatureFlagCreatePayload {
@@ -128,6 +154,8 @@ export interface FeatureFlagCreatePayload {
   plan_filter?: string;
   tenant_id?: string;
   description?: string;
+  expires_at?: string;
+  reason?: string;
 }
 
 export interface FeatureFlagUpdatePayload {
@@ -136,6 +164,8 @@ export interface FeatureFlagUpdatePayload {
   plan_filter?: string;
   tenant_id?: string;
   description?: string;
+  expires_at?: string;
+  reason?: string;
 }
 
 // ─── Health Types (matches SystemHealthResponse) ─────────────────────────────
@@ -147,15 +177,104 @@ export interface SystemHealthResponse {
   rabbitmq: boolean;
   storage: boolean;
   timestamp: string;
+  service_details: Record<
+    string,
+    {
+      healthy: boolean;
+      latency_ms: number;
+      version?: string;
+      details?: Record<string, unknown>;
+    }
+  >;
 }
 
 // ─── Impersonation Types (matches ImpersonateResponse) ──────────────────────
+
+export interface ImpersonatePayload {
+  reason: string;
+  duration_minutes?: number;
+}
 
 export interface ImpersonateResponse {
   access_token: string;
   token_type: string;
   tenant_id: string;
   impersonated_as: string;
+  session_id: string | null;
+  expires_at: string | null;
+}
+
+// ─── Audit Log Types ─────────────────────────────────────────────────────────
+
+export interface AuditLogEntry {
+  id: string;
+  admin_id: string;
+  admin_email: string | null;
+  action: string;
+  resource_type: string | null;
+  resource_id: string | null;
+  details: Record<string, unknown>;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export interface AuditLogListResponse {
+  items: AuditLogEntry[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+// ─── Plan Change History Types ───────────────────────────────────────────────
+
+export interface PlanChangeHistoryEntry {
+  id: string;
+  plan_id: string;
+  admin_id: string;
+  field_changed: string;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: string;
+}
+
+export interface PlanChangeHistoryResponse {
+  items: PlanChangeHistoryEntry[];
+  total: number;
+}
+
+// ─── Flag Change History Types ───────────────────────────────────────────────
+
+export interface FlagChangeHistoryEntry {
+  id: string;
+  flag_id: string;
+  admin_id: string;
+  field_changed: string;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: string;
+}
+
+// ─── Superadmin Types ────────────────────────────────────────────────────────
+
+export interface SuperadminResponse {
+  id: string;
+  email: string;
+  name: string;
+  totp_enabled: boolean;
+  is_active: boolean;
+  last_login_at: string | null;
+  created_at: string;
+}
+
+export interface SuperadminCreatePayload {
+  email: string;
+  password: string;
+  name: string;
+}
+
+export interface SuperadminUpdatePayload {
+  name?: string;
+  is_active?: boolean;
 }
 
 // ─── Auth Hooks ──────────────────────────────────────────────────────────────
@@ -261,7 +380,8 @@ export interface TenantUpdatePayload {
 // ─── Tenant Hooks ────────────────────────────────────────────────────────────
 
 /**
- * Query for GET /admin/tenants. Supports pagination, search, and status filter.
+ * Query for GET /admin/tenants.
+ * Supports pagination, search, status, plan, country, date range, and sort filters.
  */
 export function useAdminTenants(params: AdminTenantsParams = {}) {
   return useQuery({
@@ -272,18 +392,34 @@ export function useAdminTenants(params: AdminTenantsParams = {}) {
         page_size: params.page_size ?? 20,
         ...(params.search ? { search: params.search } : {}),
         ...(params.status ? { status: params.status } : {}),
+        ...(params.planId ? { plan_id: params.planId } : {}),
+        ...(params.countryCode ? { country_code: params.countryCode } : {}),
+        ...(params.createdAfter ? { created_after: params.createdAfter } : {}),
+        ...(params.createdBefore
+          ? { created_before: params.createdBefore }
+          : {}),
+        ...(params.sortBy ? { sort_by: params.sortBy } : {}),
+        ...(params.sortOrder ? { sort_order: params.sortOrder } : {}),
       }),
   });
 }
 
 /**
  * Mutation for POST /admin/tenants/{id}/impersonate.
+ * Accepts a reason and optional duration so the backend can audit the session.
  */
 export function useImpersonateTenant() {
   return useMutation({
-    mutationFn: (tenantId: string) =>
+    mutationFn: ({
+      tenantId,
+      payload,
+    }: {
+      tenantId: string;
+      payload: ImpersonatePayload;
+    }) =>
       adminApiPost<ImpersonateResponse>(
         `/admin/tenants/${tenantId}/impersonate`,
+        payload,
       ),
   });
 }
@@ -383,6 +519,21 @@ export function useUpdatePlan() {
   });
 }
 
+/**
+ * Query for GET /admin/plans/{planId}/history.
+ * Returns the full change history for a plan.
+ */
+export function usePlanChangeHistory(planId: string) {
+  return useQuery({
+    queryKey: ["admin", "plans", planId, "history"],
+    queryFn: () =>
+      adminApiGet<PlanChangeHistoryResponse>(
+        `/admin/plans/${planId}/history`,
+      ),
+    enabled: !!planId,
+  });
+}
+
 // ─── Analytics Hooks ─────────────────────────────────────────────────────────
 
 /**
@@ -447,6 +598,21 @@ export function useUpdateFeatureFlag() {
   });
 }
 
+/**
+ * Query for GET /admin/feature-flags/{flagId}/history.
+ * Returns the full change history for a feature flag.
+ */
+export function useFlagChangeHistory(flagId: string) {
+  return useQuery({
+    queryKey: ["admin", "feature-flags", flagId, "history"],
+    queryFn: () =>
+      adminApiGet<FlagChangeHistoryEntry[]>(
+        `/admin/feature-flags/${flagId}/history`,
+      ),
+    enabled: !!flagId,
+  });
+}
+
 // ─── Health Hooks ────────────────────────────────────────────────────────────
 
 /**
@@ -458,5 +624,192 @@ export function useAdminHealth() {
     queryFn: () => adminApiGet<SystemHealthResponse>("/admin/health"),
     refetchInterval: 30_000,
     staleTime: 0,
+  });
+}
+
+// ─── Audit Log Hooks ─────────────────────────────────────────────────────────
+
+export interface AdminAuditLogParams {
+  page: number;
+  pageSize: number;
+  action?: string;
+  adminId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+/**
+ * Query for GET /admin/audit-log.
+ * Supports pagination and filtering by action, admin, and date range.
+ */
+export function useAdminAuditLog(params: AdminAuditLogParams) {
+  return useQuery({
+    queryKey: ["admin", "audit-log", params],
+    queryFn: () =>
+      adminApiGet<AuditLogListResponse>("/admin/audit-log", {
+        page: params.page,
+        page_size: params.pageSize,
+        ...(params.action ? { action: params.action } : {}),
+        ...(params.adminId ? { admin_id: params.adminId } : {}),
+        ...(params.dateFrom ? { date_from: params.dateFrom } : {}),
+        ...(params.dateTo ? { date_to: params.dateTo } : {}),
+      }),
+  });
+}
+
+// ─── Superadmin Management Hooks ─────────────────────────────────────────────
+
+/**
+ * Query for GET /admin/superadmins.
+ */
+export function useAdminSuperadmins() {
+  return useQuery({
+    queryKey: ["admin", "superadmins"],
+    queryFn: () => adminApiGet<SuperadminResponse[]>("/admin/superadmins"),
+  });
+}
+
+/**
+ * Mutation for POST /admin/superadmins. Creates a new superadmin account.
+ */
+export function useCreateSuperadmin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: SuperadminCreatePayload) =>
+      adminApiPost<SuperadminResponse>("/admin/superadmins", payload),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "superadmins"] });
+    },
+  });
+}
+
+/**
+ * Mutation for PUT /admin/superadmins/{id}. Updates name or active status.
+ */
+export function useUpdateSuperadmin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: SuperadminUpdatePayload;
+    }) =>
+      adminApiPut<SuperadminResponse>(`/admin/superadmins/${id}`, payload),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "superadmins"] });
+    },
+  });
+}
+
+/**
+ * Mutation for DELETE /admin/superadmins/{id}. Soft-deletes the superadmin account.
+ */
+export function useDeleteSuperadmin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      adminApiDelete<{ status: string }>(`/admin/superadmins/${id}`),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "superadmins"] });
+    },
+  });
+}
+
+// ─── Export Hook ─────────────────────────────────────────────────────────────
+
+/**
+ * Mutation for GET /admin/export?export_type=...
+ * Returns a Blob so the caller can trigger a browser download.
+ * Used as a mutation (not a query) because export is an on-demand action.
+ */
+export function useExportData() {
+  return useMutation({
+    mutationFn: (exportType: string) =>
+      adminApiGet<Blob>("/admin/export", { export_type: exportType }),
+  });
+}
+
+// ── Notification Types ──────────────────────────────────────────────────────
+
+export interface AdminNotificationItem {
+  id: string;
+  admin_id: string | null;
+  title: string;
+  message: string;
+  notification_type: string; // info, warning, error, success
+  resource_type: string | null;
+  resource_id: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface AdminNotificationListResponse {
+  items: AdminNotificationItem[];
+  unread_count: number;
+  total: number;
+}
+
+// ── Notification Hooks ──────────────────────────────────────────────────────
+
+/**
+ * Query for GET /admin/notifications.
+ * Auto-refetches every 60 seconds to pick up new notifications.
+ */
+export function useAdminNotifications(
+  params: { page?: number; pageSize?: number; unreadOnly?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: ["admin", "notifications", params],
+    queryFn: () =>
+      adminApiGet<AdminNotificationListResponse>("/admin/notifications", {
+        page: params.page ?? 1,
+        page_size: params.pageSize ?? 20,
+        ...(params.unreadOnly ? { unread_only: true } : {}),
+      }),
+    refetchInterval: 60_000,
+  });
+}
+
+/**
+ * Mutation for POST /admin/notifications/{id}/read.
+ */
+export function useMarkNotificationRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (notificationId: string) =>
+      adminApiPost<{ status: string }>(
+        `/admin/notifications/${notificationId}/read`,
+      ),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "notifications"] });
+    },
+  });
+}
+
+/**
+ * Mutation for POST /admin/notifications/read-all.
+ */
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () =>
+      adminApiPost<{ status: string; marked_count: number }>(
+        "/admin/notifications/read-all",
+      ),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "notifications"] });
+    },
   });
 }

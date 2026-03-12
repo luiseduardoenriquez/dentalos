@@ -32,6 +32,21 @@ function formatPercent(value: number): string {
   return `${value.toFixed(1)}%`;
 }
 
+// ─── Plan color mapping ────────────────────────────────────────────────────────
+
+const PLAN_COLORS: Record<string, string> = {
+  free: "bg-slate-400",
+  starter: "bg-sky-500",
+  pro: "bg-violet-500",
+  clinica: "bg-teal-500",
+  enterprise: "bg-amber-500",
+};
+
+function planBarColor(planName: string): string {
+  const key = planName.toLowerCase();
+  return PLAN_COLORS[key] ?? "bg-slate-400";
+}
+
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 
 interface KpiCardProps {
@@ -74,7 +89,7 @@ function AnalyticsLoadingSkeleton() {
     <div className="flex flex-col gap-6">
       {/* KPI skeletons */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+        {[1, 2, 3, 4, 5, 6, 7].map((i) => (
           <Card key={i}>
             <CardHeader className="pb-2">
               <Skeleton className="h-4 w-32" />
@@ -101,6 +116,35 @@ function AnalyticsLoadingSkeleton() {
           </Card>
         ))}
       </div>
+
+      {/* Plan distribution skeleton */}
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-40" />
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex flex-col gap-1">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-4 w-full" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Top tenants skeleton */}
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-52" />
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -150,6 +194,255 @@ function ChurnRateCard({ churn_rate }: ChurnRateCardProps) {
               ? "Moderado — entre 5% y 10%"
               : "Critico — por encima del 10%"}
         </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Plan Distribution ────────────────────────────────────────────────────────
+
+interface PlanDistributionProps {
+  distribution: { plan_name: string; count: number }[];
+}
+
+function PlanDistributionSection({ distribution }: PlanDistributionProps) {
+  const total = distribution.reduce((sum, d) => sum + d.count, 0);
+  const sorted = [...distribution].sort((a, b) => b.count - a.count);
+
+  if (total === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">
+            Distribucion por plan
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">
+            Sin datos disponibles.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold">
+          Distribucion por plan
+        </CardTitle>
+        <CardDescription>
+          {formatNumber(total)} clinicas en total
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col gap-4">
+          {sorted.map((item) => {
+            const pct = total > 0 ? (item.count / total) * 100 : 0;
+            const barColor = planBarColor(item.plan_name);
+            return (
+              <div key={item.plan_name} className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-white",
+                        barColor,
+                      )}
+                    >
+                      {item.plan_name}
+                    </span>
+                    <span className="font-medium tabular-nums">
+                      {formatNumber(item.count)} clinicas
+                    </span>
+                  </div>
+                  <span className="text-xs text-[hsl(var(--muted-foreground))] tabular-nums">
+                    {formatPercent(pct)}
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[hsl(var(--muted))]">
+                  <div
+                    className={cn("h-2 rounded-full transition-all", barColor)}
+                    style={{ width: `${pct.toFixed(1)}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Top Tenants Table ─────────────────────────────────────────────────────────
+
+interface TopTenantsProps {
+  tenants: {
+    tenant_id: string;
+    name: string;
+    mrr_cents: number;
+    patients: number;
+  }[];
+}
+
+function TopTenantsTable({ tenants }: TopTenantsProps) {
+  const sorted = [...tenants]
+    .sort((a, b) => b.mrr_cents - a.mrr_cents)
+    .slice(0, 10);
+
+  if (sorted.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">
+            Top 10 clinicas por MRR
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">
+            Sin datos disponibles.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const maxMrr = sorted[0].mrr_cents;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold">
+          Top 10 clinicas por MRR
+        </CardTitle>
+        <CardDescription>Ordenadas por ingresos recurrentes mensuales</CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-[hsl(var(--muted)/0.4)]">
+                <th className="px-4 py-2.5 text-left font-medium text-[hsl(var(--muted-foreground))]">
+                  #
+                </th>
+                <th className="px-4 py-2.5 text-left font-medium text-[hsl(var(--muted-foreground))]">
+                  Clinica
+                </th>
+                <th className="px-4 py-2.5 text-right font-medium text-[hsl(var(--muted-foreground))]">
+                  MRR
+                </th>
+                <th className="px-4 py-2.5 text-right font-medium text-[hsl(var(--muted-foreground))]">
+                  Pacientes
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((tenant, idx) => {
+                const barPct =
+                  maxMrr > 0 ? (tenant.mrr_cents / maxMrr) * 100 : 0;
+                return (
+                  <tr
+                    key={tenant.tenant_id}
+                    className="border-b last:border-0 hover:bg-[hsl(var(--muted)/0.3)] transition-colors"
+                  >
+                    <td className="px-4 py-2.5 tabular-nums text-[hsl(var(--muted-foreground))]">
+                      {idx + 1}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium leading-tight">
+                          {tenant.name}
+                        </span>
+                        {/* Mini MRR bar inside the row */}
+                        <div className="h-1 w-full max-w-[120px] overflow-hidden rounded-full bg-[hsl(var(--muted))]">
+                          <div
+                            className="h-1 rounded-full bg-[hsl(var(--primary))] transition-all"
+                            style={{ width: `${barPct.toFixed(1)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium">
+                      {formatUSD(tenant.mrr_cents)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-[hsl(var(--muted-foreground))]">
+                      {formatNumber(tenant.patients)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Country Distribution ─────────────────────────────────────────────────────
+
+interface CountryDistributionProps {
+  distribution: { country: string; count: number }[];
+}
+
+function CountryDistributionSection({ distribution }: CountryDistributionProps) {
+  const total = distribution.reduce((sum, d) => sum + d.count, 0);
+  const sorted = [...distribution].sort((a, b) => b.count - a.count);
+
+  if (total === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">
+            Distribucion por pais
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">
+            Sin datos disponibles.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold">
+          Distribucion por pais
+        </CardTitle>
+        <CardDescription>
+          {sorted.length} {sorted.length === 1 ? "pais" : "paises"} activos
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul className="flex flex-col divide-y divide-[hsl(var(--border))]">
+          {sorted.map((item) => {
+            const pct = total > 0 ? (item.count / total) * 100 : 0;
+            return (
+              <li
+                key={item.country}
+                className="flex items-center justify-between py-2.5 text-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-semibold uppercase tracking-widest rounded bg-[hsl(var(--muted))] px-1.5 py-0.5">
+                    {item.country}
+                  </span>
+                  <span className="text-[hsl(var(--muted-foreground))]">
+                    {formatNumber(item.count)}{" "}
+                    {item.count === 1 ? "clinica" : "clinicas"}
+                  </span>
+                </div>
+                <span className="tabular-nums text-xs font-medium">
+                  {formatPercent(pct)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       </CardContent>
     </Card>
   );
@@ -217,7 +510,7 @@ export default function AdminAnalyticsPage() {
         </p>
       </div>
 
-      {/* Main KPI grid — 6 cards */}
+      {/* Main KPI grid — 7 cards (6 original + new_signups_30d) */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <KpiCard
           title="Total clinicas"
@@ -254,6 +547,17 @@ export default function AdminAnalyticsPage() {
           value={formatNumber(analytics.mau)}
           subtitle="Usuarios activos mensuales"
         />
+
+        <KpiCard
+          title="Nuevas clinicas (30 dias)"
+          value={formatNumber(analytics.new_signups_30d)}
+          subtitle="Registros en el ultimo mes"
+          valueClassName={
+            analytics.new_signups_30d > 0
+              ? "text-teal-600 dark:text-teal-400"
+              : undefined
+          }
+        />
       </div>
 
       {/* Secondary metrics */}
@@ -275,6 +579,28 @@ export default function AdminAnalyticsPage() {
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Plan distribution */}
+      {analytics.plan_distribution && analytics.plan_distribution.length > 0 && (
+        <PlanDistributionSection distribution={analytics.plan_distribution} />
+      )}
+
+      {/* Top tenants table + Country distribution side by side on wide screens */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          {analytics.top_tenants && analytics.top_tenants.length > 0 && (
+            <TopTenantsTable tenants={analytics.top_tenants} />
+          )}
+        </div>
+        <div>
+          {analytics.country_distribution &&
+            analytics.country_distribution.length > 0 && (
+              <CountryDistributionSection
+                distribution={analytics.country_distribution}
+              />
+            )}
+        </div>
       </div>
     </div>
   );

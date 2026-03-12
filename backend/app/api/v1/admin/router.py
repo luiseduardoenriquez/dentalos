@@ -4,21 +4,34 @@ Endpoint map:
   POST /admin/auth/login              — AD-01: Admin login (rate limited)
   POST /admin/auth/totp/setup         — TOTP setup
   POST /admin/auth/totp/verify        — TOTP verify
-  GET  /admin/tenants                 — AD-02: List tenants
+  GET  /admin/tenants                 — AD-02: List tenants (with filters)
+  GET  /admin/tenants/{tenant_id}     — AD-02: Tenant detail
+  POST /admin/tenants                 — AD-02: Create tenant
+  PUT  /admin/tenants/{tenant_id}     — AD-02: Update tenant
+  POST /admin/tenants/{tenant_id}/suspend — AD-02: Toggle suspension
   GET  /admin/plans                   — AD-03: List plans
   PUT  /admin/plans/{plan_id}         — AD-03: Update plan
+  GET  /admin/plans/{plan_id}/history — AD-03: Plan change history
   GET  /admin/analytics               — AD-04: Platform analytics
   GET  /admin/feature-flags           — AD-05: List feature flags
   POST /admin/feature-flags           — AD-05: Create feature flag
   PUT  /admin/feature-flags/{flag_id} — AD-05: Update feature flag
+  GET  /admin/feature-flags/{flag_id}/history — AD-05: Flag change history
   GET  /admin/health                  — AD-06: System health check
   POST /admin/tenants/{tenant_id}/impersonate — AD-07: Impersonate tenant
+  GET  /admin/audit-log               — Audit log
+  GET  /admin/export                  — CSV export
+  GET  /admin/superadmins             — Superadmin list
+  POST /admin/superadmins             — Create superadmin
+  PUT  /admin/superadmins/{admin_id}  — Update superadmin
+  DELETE /admin/superadmins/{admin_id} — Deactivate superadmin
 """
 
 import uuid
-from typing import Any
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from jose import JWTError, jwt as jose_jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,15 +44,23 @@ from app.models.public.superadmin import Superadmin
 from app.schemas.admin import (
     AdminLoginRequest,
     AdminLoginResponse,
+    AdminNotificationListResponse,
     AdminTOTPSetupResponse,
     AdminTOTPVerifyRequest,
+    AuditLogListResponse,
     FeatureFlagCreateRequest,
     FeatureFlagResponse,
     FeatureFlagUpdateRequest,
+    FlagChangeHistoryEntry,
+    ImpersonateRequest,
     ImpersonateResponse,
+    PlanChangeHistoryResponse,
     PlanResponse,
     PlanUpdateRequest,
     PlatformAnalyticsResponse,
+    SuperadminCreateRequest,
+    SuperadminResponse,
+    SuperadminUpdateRequest,
     SystemHealthResponse,
     TenantCreateRequest,
     TenantDetailResponse,
@@ -59,10 +80,7 @@ async def get_current_admin(
     authorization: str = Header(..., description="Bearer <admin_jwt>"),
     db: AsyncSession = Depends(get_public_db),
 ) -> Superadmin:
-    """Extract and validate admin JWT, return the Superadmin model instance.
-
-    Admin tokens use aud="dentalos-admin" and role="superadmin".
-    """
+    """Extract and validate admin JWT, return the Superadmin model instance."""
     if not authorization.startswith("Bearer "):
         raise AuthError(
             error="AUTH_invalid_token",
@@ -92,7 +110,6 @@ async def get_current_admin(
             status_code=403,
         )
 
-    # Extract admin_id from sub claim (format: "admin_{uuid}")
     sub: str = payload.get("sub", "")
     if not sub.startswith("admin_"):
         raise AuthError(
@@ -119,6 +136,16 @@ async def get_current_admin(
     return admin
 
 
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+
+def _get_client_info(request: Request) -> tuple[str, str | None]:
+    """Extract IP address and user-agent from request."""
+    ip = request.client.host if request.client else "unknown"
+    ua = request.headers.get("user-agent")
+    return ip, ua
+
+
 # ─── AD-01: Admin Login ─────────────────────────────────────────────────────
 
 
@@ -129,8 +156,7 @@ async def admin_login(
     db: AsyncSession = Depends(get_public_db),
 ) -> AdminLoginResponse:
     """Authenticate a superadmin (email + password + optional TOTP)."""
-    ip_address = request.client.host if request.client else "unknown"
-    user_agent = request.headers.get("user-agent")
+    ip_address, user_agent = _get_client_info(request)
 
     result = await admin_auth_service.authenticate_admin(
         db=db,
@@ -186,16 +212,28 @@ async def list_tenants(
     page_size: int = Query(default=20, ge=1, le=100),
     search: str | None = Query(default=None),
     status: str | None = Query(default=None),
+    plan_id: str | None = Query(default=None),
+    country_code: str | None = Query(default=None),
+    created_after: str | None = Query(default=None),
+    created_before: str | None = Query(default=None),
+    sort_by: str = Query(default="created_at", pattern="^(name|created_at|status)$"),
+    sort_order: str = Query(default="desc", pattern="^(asc|desc)$"),
     admin: Superadmin = Depends(get_current_admin),
     db: AsyncSession = Depends(get_public_db),
 ) -> TenantListResponse:
-    """List tenants with optional search and status filter."""
+    """List tenants with optional search, status, plan, country, date filters."""
     return await admin_service.list_tenants(
         db=db,
         page=page,
         page_size=page_size,
         search=search,
         status=status,
+        plan_id=plan_id,
+        country_code=country_code,
+        created_after=created_after,
+        created_before=created_before,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
 
 
@@ -216,6 +254,7 @@ async def get_tenant_detail(
 )
 async def create_tenant(
     body: TenantCreateRequest,
+    request: Request,
     admin: Superadmin = Depends(get_current_admin),
     db: AsyncSession = Depends(get_public_db),
 ) -> TenantDetailResponse:
@@ -229,6 +268,25 @@ async def create_tenant(
         timezone=body.timezone,
         currency_code=body.currency_code,
     )
+    ip, ua = _get_client_info(request)
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action="create_tenant",
+        resource_type="tenant",
+        resource_id=result.id,
+        details={"name": body.name, "owner_email": body.owner_email},
+        ip_address=ip,
+        user_agent=ua,
+    )
+    await admin_service.create_admin_notification(
+        db=db,
+        title="Nueva clinica registrada",
+        message=f"La clinica {body.name} ({body.owner_email}) fue creada exitosamente.",
+        notification_type="success",
+        resource_type="tenant",
+        resource_id=uuid.UUID(result.id),
+    )
     await db.commit()
     return result
 
@@ -237,6 +295,7 @@ async def create_tenant(
 async def update_tenant(
     tenant_id: str,
     body: TenantUpdateRequest,
+    request: Request,
     admin: Superadmin = Depends(get_current_admin),
     db: AsyncSession = Depends(get_public_db),
 ) -> TenantDetailResponse:
@@ -249,6 +308,17 @@ async def update_tenant(
         settings=body.settings,
         is_active=body.is_active,
     )
+    ip, ua = _get_client_info(request)
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action="update_tenant",
+        resource_type="tenant",
+        resource_id=tenant_id,
+        details=body.model_dump(exclude_none=True),
+        ip_address=ip,
+        user_agent=ua,
+    )
     await db.commit()
     return result
 
@@ -259,11 +329,32 @@ async def update_tenant(
 )
 async def suspend_tenant(
     tenant_id: str,
+    request: Request,
     admin: Superadmin = Depends(get_current_admin),
     db: AsyncSession = Depends(get_public_db),
 ) -> TenantDetailResponse:
     """Toggle tenant suspension (idempotent)."""
     result = await admin_service.suspend_tenant(db=db, tenant_id=tenant_id)
+    ip, ua = _get_client_info(request)
+    action = "unsuspend_tenant" if result.status == "active" else "suspend_tenant"
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action=action,
+        resource_type="tenant",
+        resource_id=tenant_id,
+        ip_address=ip,
+        user_agent=ua,
+    )
+    if result.status == "suspended":
+        await admin_service.create_admin_notification(
+            db=db,
+            title="Clinica suspendida",
+            message=f"La clinica {result.name} fue suspendida.",
+            notification_type="warning",
+            resource_type="tenant",
+            resource_id=uuid.UUID(result.id),
+        )
     await db.commit()
     return result
 
@@ -284,21 +375,44 @@ async def list_plans(
 async def update_plan(
     plan_id: str,
     body: PlanUpdateRequest,
+    request: Request,
     admin: Superadmin = Depends(get_current_admin),
     db: AsyncSession = Depends(get_public_db),
 ) -> PlanResponse:
-    """Update a subscription plan."""
+    """Update a subscription plan (changes are tracked)."""
     result = await admin_service.update_plan(
         db=db,
         plan_id=plan_id,
+        admin_id=str(admin.id),
         price_cents=body.price_cents,
         max_patients=body.max_patients,
         max_doctors=body.max_doctors,
         features=body.features,
         is_active=body.is_active,
     )
+    ip, ua = _get_client_info(request)
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action="update_plan",
+        resource_type="plan",
+        resource_id=plan_id,
+        details=body.model_dump(exclude_none=True),
+        ip_address=ip,
+        user_agent=ua,
+    )
     await db.commit()
     return result
+
+
+@router.get("/plans/{plan_id}/history", response_model=PlanChangeHistoryResponse)
+async def plan_change_history(
+    plan_id: str,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> PlanChangeHistoryResponse:
+    """Get change history for a plan."""
+    return await admin_service.get_plan_change_history(db=db, plan_id=plan_id)
 
 
 # ─── AD-04: Platform Analytics ───────────────────────────────────────────────
@@ -309,7 +423,7 @@ async def platform_analytics(
     admin: Superadmin = Depends(get_current_admin),
     db: AsyncSession = Depends(get_public_db),
 ) -> PlatformAnalyticsResponse:
-    """Platform-level analytics: tenants, users, MRR, MAU."""
+    """Platform-level analytics: tenants, users, MRR, MAU, churn, distributions."""
     return await admin_service.get_platform_analytics(db=db)
 
 
@@ -332,6 +446,7 @@ async def list_feature_flags(
 )
 async def create_feature_flag(
     body: FeatureFlagCreateRequest,
+    request: Request,
     admin: Superadmin = Depends(get_current_admin),
     db: AsyncSession = Depends(get_public_db),
 ) -> FeatureFlagResponse:
@@ -344,6 +459,19 @@ async def create_feature_flag(
         plan_filter=body.plan_filter,
         tenant_id=body.tenant_id,
         description=body.description,
+        expires_at=body.expires_at,
+        reason=body.reason,
+    )
+    ip, ua = _get_client_info(request)
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action="create_flag",
+        resource_type="feature_flag",
+        resource_id=result.id,
+        details={"flag_name": body.flag_name, "enabled": body.enabled},
+        ip_address=ip,
+        user_agent=ua,
     )
     await db.commit()
     return result
@@ -353,21 +481,49 @@ async def create_feature_flag(
 async def update_feature_flag(
     flag_id: str,
     body: FeatureFlagUpdateRequest,
+    request: Request,
     admin: Superadmin = Depends(get_current_admin),
     db: AsyncSession = Depends(get_public_db),
 ) -> FeatureFlagResponse:
-    """Update an existing feature flag."""
+    """Update an existing feature flag (changes are tracked)."""
     result = await admin_service.update_feature_flag(
         db=db,
         flag_id=flag_id,
+        admin_id=str(admin.id),
         enabled=body.enabled,
         scope=body.scope,
         plan_filter=body.plan_filter,
         tenant_id=body.tenant_id,
         description=body.description,
+        expires_at=body.expires_at,
+        reason=body.reason,
+    )
+    ip, ua = _get_client_info(request)
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action="update_flag",
+        resource_type="feature_flag",
+        resource_id=flag_id,
+        details=body.model_dump(exclude_none=True),
+        ip_address=ip,
+        user_agent=ua,
     )
     await db.commit()
     return result
+
+
+@router.get(
+    "/feature-flags/{flag_id}/history",
+    response_model=list[FlagChangeHistoryEntry],
+)
+async def feature_flag_history(
+    flag_id: str,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> list[FlagChangeHistoryEntry]:
+    """Get change history for a feature flag."""
+    return await admin_service.get_flag_change_history(db=db, flag_id=flag_id)
 
 
 # ─── AD-06: System Health ───────────────────────────────────────────────────
@@ -378,7 +534,7 @@ async def system_health(
     admin: Superadmin = Depends(get_current_admin),
     db: AsyncSession = Depends(get_public_db),
 ) -> SystemHealthResponse:
-    """Check health of all platform dependencies."""
+    """Check health of all platform dependencies with latency details."""
     return await admin_service.check_system_health(db=db)
 
 
@@ -391,14 +547,226 @@ async def system_health(
 )
 async def impersonate_tenant(
     tenant_id: str,
+    body: ImpersonateRequest,
+    request: Request,
     admin: Superadmin = Depends(get_current_admin),
     db: AsyncSession = Depends(get_public_db),
 ) -> ImpersonateResponse:
-    """Generate a tenant-scoped JWT for support/debugging."""
+    """Generate a tenant-scoped JWT for support/debugging (requires reason)."""
     result = await admin_service.impersonate_tenant(
         db=db,
         admin_id=str(admin.id),
         tenant_id=tenant_id,
+        reason=body.reason,
+        duration_minutes=body.duration_minutes,
+    )
+    ip, ua = _get_client_info(request)
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action="impersonate",
+        resource_type="tenant",
+        resource_id=tenant_id,
+        details={"reason": body.reason, "duration_minutes": body.duration_minutes},
+        ip_address=ip,
+        user_agent=ua,
     )
     await db.commit()
     return result
+
+
+# ─── Audit Log ──────────────────────────────────────────────────────────────
+
+
+@router.get("/audit-log", response_model=AuditLogListResponse)
+async def get_audit_log(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    action: str | None = Query(default=None),
+    admin_id: str | None = Query(default=None),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> AuditLogListResponse:
+    """Get paginated admin audit log with filters."""
+    return await admin_service.get_admin_audit_logs(
+        db=db,
+        page=page,
+        page_size=page_size,
+        action_filter=action,
+        admin_id_filter=admin_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+
+# ─── Export ─────────────────────────────────────────────────────────────────
+
+
+@router.get("/export")
+async def export_data(
+    export_type: str = Query(pattern="^(tenants|audit)$"),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> StreamingResponse:
+    """Export tenants or audit log as CSV."""
+    if export_type == "tenants":
+        csv_data = await admin_service.export_tenants_csv(db=db)
+        filename = "dentalos_tenants.csv"
+    else:
+        csv_data = await admin_service.export_audit_csv(db=db)
+        filename = "dentalos_audit_log.csv"
+
+    return StreamingResponse(
+        iter([csv_data]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+# ─── Superadmin Management ──────────────────────────────────────────────────
+
+
+@router.get("/superadmins", response_model=list[SuperadminResponse])
+async def list_superadmins(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> list[SuperadminResponse]:
+    """List all superadmin accounts."""
+    return await admin_service.list_superadmins(db=db)
+
+
+@router.post(
+    "/superadmins",
+    response_model=SuperadminResponse,
+    status_code=201,
+)
+async def create_superadmin(
+    body: SuperadminCreateRequest,
+    request: Request,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> SuperadminResponse:
+    """Create a new superadmin account."""
+    result = await admin_service.create_superadmin(
+        db=db,
+        email=body.email,
+        password=body.password,
+        name=body.name,
+    )
+    ip, ua = _get_client_info(request)
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action="create_superadmin",
+        resource_type="superadmin",
+        resource_id=result.id,
+        details={"email": body.email},
+        ip_address=ip,
+        user_agent=ua,
+    )
+    await db.commit()
+    return result
+
+
+@router.put("/superadmins/{admin_id}", response_model=SuperadminResponse)
+async def update_superadmin(
+    admin_id: str,
+    body: SuperadminUpdateRequest,
+    request: Request,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> SuperadminResponse:
+    """Update a superadmin account."""
+    result = await admin_service.update_superadmin(
+        db=db,
+        admin_id=admin_id,
+        name=body.name,
+        is_active=body.is_active,
+    )
+    ip, ua = _get_client_info(request)
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action="update_superadmin",
+        resource_type="superadmin",
+        resource_id=admin_id,
+        details=body.model_dump(exclude_none=True),
+        ip_address=ip,
+        user_agent=ua,
+    )
+    await db.commit()
+    return result
+
+
+@router.delete("/superadmins/{admin_id}", status_code=200)
+async def delete_superadmin(
+    admin_id: str,
+    request: Request,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> dict[str, str]:
+    """Deactivate a superadmin account (cannot deactivate yourself)."""
+    await admin_service.delete_superadmin(
+        db=db,
+        admin_id=admin_id,
+        current_admin_id=str(admin.id),
+    )
+    ip, ua = _get_client_info(request)
+    await admin_service.log_admin_action(
+        db=db,
+        admin_id=str(admin.id),
+        action="delete_superadmin",
+        resource_type="superadmin",
+        resource_id=admin_id,
+        ip_address=ip,
+        user_agent=ua,
+    )
+    await db.commit()
+    return {"status": "deactivated"}
+
+
+# ── Notifications ────────────────────────────────────────────────────────────
+
+
+@router.get("/notifications", response_model=AdminNotificationListResponse, tags=["admin-notifications"])
+async def list_admin_notifications(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    unread_only: bool = Query(False),
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> AdminNotificationListResponse:
+    """List notifications for the current admin."""
+    result = await admin_service.get_admin_notifications(
+        db=db, admin_id=admin.id, page=page, page_size=page_size, unread_only=unread_only
+    )
+    return result
+
+
+@router.post("/notifications/{notification_id}/read", tags=["admin-notifications"])
+async def mark_notification_read(
+    notification_id: UUID,
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> dict[str, str]:
+    """Mark a single notification as read."""
+    success = await admin_service.mark_notification_read(
+        db=db, notification_id=notification_id, admin_id=admin.id
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    await db.commit()
+    return {"status": "ok"}
+
+
+@router.post("/notifications/read-all", tags=["admin-notifications"])
+async def mark_all_notifications_read(
+    admin: Superadmin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_public_db),
+) -> dict[str, object]:
+    """Mark all notifications as read for the current admin."""
+    count = await admin_service.mark_all_notifications_read(db=db, admin_id=admin.id)
+    await db.commit()
+    return {"status": "ok", "marked_count": count}

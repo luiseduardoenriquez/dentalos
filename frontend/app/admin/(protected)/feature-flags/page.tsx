@@ -5,16 +5,17 @@ import {
   useAdminFeatureFlags,
   useCreateFeatureFlag,
   useUpdateFeatureFlag,
+  useFlagChangeHistory,
   type FeatureFlagResponse,
   type FeatureFlagCreatePayload,
   type FeatureFlagUpdatePayload,
+  type FlagChangeHistoryEntry,
 } from "@/lib/hooks/use-admin";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,13 +65,226 @@ function truncate(text: string | null, max: number): string {
 
 function shortUUID(id: string | null): string {
   if (!id) return "-";
-  // Show first 8 chars of UUID for readability
   return id.slice(0, 8) + "…";
 }
 
 function getScopeLabel(scope: string | null): string {
   if (!scope) return "Global";
   return SCOPE_LABELS[scope] ?? scope;
+}
+
+/**
+ * Format an ISO date string to a localized display string (es-419).
+ * Returns null if the input is null.
+ */
+function formatDate(iso: string | null): string | null {
+  if (!iso) return null;
+  try {
+    return new Intl.DateTimeFormat("es-419", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
+
+/**
+ * Returns true if the given ISO date string is in the past.
+ */
+function isExpired(iso: string): boolean {
+  return new Date(iso) < new Date();
+}
+
+// ─── Scope Badge ──────────────────────────────────────────────────────────────
+
+function ScopeBadge({ scope }: { scope: string | null }) {
+  if (!scope) {
+    return (
+      <Badge
+        variant="outline"
+        className="border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 text-xs"
+      >
+        Sin scope
+      </Badge>
+    );
+  }
+
+  if (scope === "global") {
+    return (
+      <Badge
+        variant="outline"
+        className="border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300 text-xs"
+      >
+        {getScopeLabel(scope)}
+      </Badge>
+    );
+  }
+
+  if (scope === "plan") {
+    return (
+      <Badge
+        variant="outline"
+        className="border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300 text-xs"
+      >
+        {getScopeLabel(scope)}
+      </Badge>
+    );
+  }
+
+  if (scope === "tenant") {
+    return (
+      <Badge
+        variant="outline"
+        className="border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300 text-xs"
+      >
+        {getScopeLabel(scope)}
+      </Badge>
+    );
+  }
+
+  // Fallback for unknown scopes
+  return (
+    <Badge variant="outline" className="text-xs">
+      {getScopeLabel(scope)}
+    </Badge>
+  );
+}
+
+// ─── Expiry Badge ─────────────────────────────────────────────────────────────
+
+function ExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
+  if (!expiresAt) return null;
+
+  const expired = isExpired(expiresAt);
+
+  if (expired) {
+    return (
+      <Badge
+        variant="outline"
+        className="border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-950 dark:text-red-300 text-xs"
+      >
+        Expirado
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge
+      variant="outline"
+      className="border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300 text-xs"
+    >
+      Expira: {formatDate(expiresAt)}
+    </Badge>
+  );
+}
+
+// ─── Flag Change History Modal ─────────────────────────────────────────────────
+
+interface FlagHistoryModalProps {
+  flag: FeatureFlagResponse;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function FlagHistoryModal({ flag, open, onOpenChange }: FlagHistoryModalProps) {
+  const { data: history, isLoading, isError } = useFlagChangeHistory(
+    open ? flag.id : "",
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent size="lg">
+        <DialogHeader>
+          <DialogTitle>Historial de cambios</DialogTitle>
+          <DialogDescription>
+            Cambios registrados para el flag{" "}
+            <code className="rounded bg-[hsl(var(--muted))] px-1.5 py-0.5 font-mono text-xs">
+              {flag.flag_name}
+            </code>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="min-h-[120px]">
+          {isLoading && (
+            <div className="flex flex-col gap-3 py-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-4 w-4" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {isError && !isLoading && (
+            <p className="py-6 text-center text-sm text-[hsl(var(--muted-foreground))]">
+              Error al cargar el historial. Intenta de nuevo.
+            </p>
+          )}
+
+          {!isLoading && !isError && history && history.length === 0 && (
+            <p className="py-6 text-center text-sm text-[hsl(var(--muted-foreground))]">
+              No hay cambios registrados para este flag.
+            </p>
+          )}
+
+          {!isLoading && !isError && history && history.length > 0 && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Fecha</TableHead>
+                    <TableHead>Campo</TableHead>
+                    <TableHead>Valor anterior</TableHead>
+                    <TableHead className="text-center">→</TableHead>
+                    <TableHead>Valor nuevo</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {history.map((entry: FlagChangeHistoryEntry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell className="whitespace-nowrap text-xs text-[hsl(var(--muted-foreground))]">
+                        {formatDate(entry.created_at) ?? entry.created_at}
+                      </TableCell>
+                      <TableCell>
+                        <code className="rounded bg-[hsl(var(--muted))] px-1 py-0.5 font-mono text-xs">
+                          {entry.field_changed}
+                        </code>
+                      </TableCell>
+                      <TableCell className="text-sm text-[hsl(var(--muted-foreground))]">
+                        {entry.old_value ?? (
+                          <span className="italic opacity-60">vacío</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center text-[hsl(var(--muted-foreground))]">
+                        →
+                      </TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {entry.new_value ?? (
+                          <span className="italic opacity-60">vacío</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 // ─── Loading Skeleton ──────────────────────────────────────────────────────────
@@ -102,7 +316,9 @@ interface FlagFormState {
   description: string;
   scope: string;
   enabled: boolean;
-  tenant_id: string; // single tenant UUID or empty string
+  tenant_id: string;
+  expires_at: string; // ISO date string (YYYY-MM-DD) or empty string
+  reason: string;
 }
 
 interface FlagFormFieldsProps {
@@ -196,6 +412,44 @@ function FlagFormFields({ state, onChange, nameReadOnly = false }: FlagFormField
         </div>
       )}
 
+      {/* Expiry date */}
+      <div className="space-y-1.5">
+        <Label htmlFor="flag-expires-at">
+          Fecha de expiracion{" "}
+          <span className="text-[hsl(var(--muted-foreground))]">(opcional)</span>
+        </Label>
+        <Input
+          id="flag-expires-at"
+          type="date"
+          value={state.expires_at}
+          onChange={(e) => onChange({ expires_at: e.target.value })}
+          className="text-sm"
+        />
+        <p className="text-xs text-[hsl(var(--muted-foreground))]">
+          El flag se desactivara automaticamente despues de esta fecha.
+        </p>
+      </div>
+
+      {/* Reason */}
+      <div className="space-y-1.5">
+        <Label htmlFor="flag-reason">
+          Razon del cambio{" "}
+          <span className="text-[hsl(var(--muted-foreground))]">(opcional)</span>
+        </Label>
+        <textarea
+          id="flag-reason"
+          rows={2}
+          value={state.reason}
+          onChange={(e) => onChange({ reason: e.target.value })}
+          placeholder="ej: Activado para prueba A/B en clinicas piloto..."
+          className={cn(
+            "w-full rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--background))]",
+            "px-3 py-2 text-sm text-foreground shadow-sm resize-y",
+            "focus:outline-none focus:ring-2 focus:ring-primary-600",
+          )}
+        />
+      </div>
+
       {/* Enabled toggle */}
       <div className="flex items-center gap-2">
         <Checkbox
@@ -224,6 +478,8 @@ const EMPTY_CREATE_STATE: FlagFormState = {
   scope: "global",
   enabled: false,
   tenant_id: "",
+  expires_at: "",
+  reason: "",
 };
 
 function CreateFlagDialog({ open, onOpenChange }: CreateFlagDialogProps) {
@@ -245,6 +501,8 @@ function CreateFlagDialog({ open, onOpenChange }: CreateFlagDialogProps) {
       scope: form.scope || undefined,
       enabled: form.enabled,
       tenant_id: form.tenant_id.trim() || undefined,
+      expires_at: form.expires_at.trim() || undefined,
+      reason: form.reason.trim() || undefined,
     };
 
     createFlag.mutate(payload, {
@@ -307,12 +565,24 @@ function EditFlagDialog({ flag, open, onOpenChange }: EditFlagDialogProps) {
   const { success, error } = useToast();
   const updateFlag = useUpdateFeatureFlag();
 
+  // Convert ISO datetime to YYYY-MM-DD for the date input
+  function toDateInputValue(iso: string | null): string {
+    if (!iso) return "";
+    try {
+      return iso.slice(0, 10); // "2026-06-15T00:00:00Z" → "2026-06-15"
+    } catch {
+      return "";
+    }
+  }
+
   const [form, setForm] = React.useState<FlagFormState>({
     flag_name: flag.flag_name,
     description: flag.description ?? "",
     scope: flag.scope ?? "global",
     enabled: flag.enabled,
     tenant_id: flag.tenant_id ?? "",
+    expires_at: toDateInputValue(flag.expires_at),
+    reason: flag.reason ?? "",
   });
 
   // Sync form when the dialog re-opens with a (possibly different) flag
@@ -324,6 +594,8 @@ function EditFlagDialog({ flag, open, onOpenChange }: EditFlagDialogProps) {
         scope: flag.scope ?? "global",
         enabled: flag.enabled,
         tenant_id: flag.tenant_id ?? "",
+        expires_at: toDateInputValue(flag.expires_at),
+        reason: flag.reason ?? "",
       });
     }
   }, [open, flag]);
@@ -334,6 +606,8 @@ function EditFlagDialog({ flag, open, onOpenChange }: EditFlagDialogProps) {
       enabled: form.enabled,
       scope: form.scope || undefined,
       tenant_id: form.tenant_id.trim() || undefined,
+      expires_at: form.expires_at.trim() || undefined,
+      reason: form.reason.trim() || undefined,
     };
 
     updateFlag.mutate(
@@ -388,9 +662,8 @@ function EditFlagDialog({ flag, open, onOpenChange }: EditFlagDialogProps) {
 export default function AdminFeatureFlagsPage() {
   const { data: flags, isLoading, isError, refetch } = useAdminFeatureFlags();
   const [createOpen, setCreateOpen] = React.useState(false);
-  const [editingFlag, setEditingFlag] = React.useState<FeatureFlagResponse | null>(
-    null,
-  );
+  const [editingFlag, setEditingFlag] = React.useState<FeatureFlagResponse | null>(null);
+  const [historyFlag, setHistoryFlag] = React.useState<FeatureFlagResponse | null>(null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -448,9 +721,9 @@ export default function AdminFeatureFlagsPage() {
                         <TableHead>Alcance</TableHead>
                         <TableHead>Clínica / Plan</TableHead>
                         <TableHead>Estado</TableHead>
-                        <TableHead className="max-w-[220px]">
-                          Descripcion
-                        </TableHead>
+                        <TableHead>Expiracion</TableHead>
+                        <TableHead className="max-w-[180px]">Descripcion</TableHead>
+                        <TableHead className="max-w-[180px]">Razon</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -464,11 +737,9 @@ export default function AdminFeatureFlagsPage() {
                             </code>
                           </TableCell>
 
-                          {/* Scope badge */}
+                          {/* Scope badge — colored by scope type */}
                           <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {getScopeLabel(flag.scope)}
-                            </Badge>
+                            <ScopeBadge scope={flag.scope} />
                           </TableCell>
 
                           {/* Tenant ID or plan_filter */}
@@ -493,23 +764,50 @@ export default function AdminFeatureFlagsPage() {
                             </Badge>
                           </TableCell>
 
-                          {/* Description (truncated) */}
+                          {/* Expiry indicator */}
+                          <TableCell>
+                            <ExpiryBadge expiresAt={flag.expires_at} />
+                            {!flag.expires_at && (
+                              <span className="text-sm text-[hsl(var(--muted-foreground))]">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+
+                          {/* Description (truncated, tooltip on hover) */}
                           <TableCell
-                            className="max-w-[220px] text-sm text-[hsl(var(--muted-foreground))]"
+                            className="max-w-[180px] text-sm text-[hsl(var(--muted-foreground))]"
                             title={flag.description ?? undefined}
                           >
                             {truncate(flag.description, 60)}
                           </TableCell>
 
+                          {/* Reason (truncated to 50 chars, tooltip on hover) */}
+                          <TableCell
+                            className="max-w-[180px] text-sm text-[hsl(var(--muted-foreground))]"
+                            title={flag.reason ?? undefined}
+                          >
+                            {truncate(flag.reason, 50)}
+                          </TableCell>
+
                           {/* Actions */}
                           <TableCell className="text-right">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setEditingFlag(flag)}
-                            >
-                              Editar
-                            </Button>
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setHistoryFlag(flag)}
+                              >
+                                Historial
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setEditingFlag(flag)}
+                              >
+                                Editar
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -532,6 +830,17 @@ export default function AdminFeatureFlagsPage() {
           open={editingFlag !== null}
           onOpenChange={(open) => {
             if (!open) setEditingFlag(null);
+          }}
+        />
+      )}
+
+      {/* Change history modal — lazy: only mounts when historyFlag is set */}
+      {historyFlag && (
+        <FlagHistoryModal
+          flag={historyFlag}
+          open={historyFlag !== null}
+          onOpenChange={(open) => {
+            if (!open) setHistoryFlag(null);
           }}
         />
       )}
