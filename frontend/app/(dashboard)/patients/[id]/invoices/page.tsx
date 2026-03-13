@@ -86,14 +86,28 @@ export default function InvoicesPage() {
   const PAGE_SIZE = 20;
 
   const { data: patient, isLoading: isLoadingPatient } = usePatient(patientId);
-  const { data: invoicesData, isLoading: isLoadingInvoices } =
-    useInvoices(patientId, page, PAGE_SIZE);
+  const {
+    data: invoicesData,
+    isLoading: isLoadingInvoices,
+    isError: isErrorInvoices,
+  } = useInvoices(patientId, page, PAGE_SIZE);
 
   const isLoading = isLoadingPatient || isLoadingInvoices;
   const invoices = invoicesData?.items ?? [];
 
   if (isLoading) {
     return <InvoicesListSkeleton />;
+  }
+
+  if (isErrorInvoices) {
+    return (
+      <EmptyState
+        icon={AlertCircle}
+        title="Error al cargar facturas"
+        description="No se pudieron cargar las facturas. Intenta recargar la página."
+        action={{ label: "Recargar", href: `/patients/${patientId}/invoices` }}
+      />
+    );
   }
 
   if (!patient) {

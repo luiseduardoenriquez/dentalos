@@ -93,6 +93,8 @@ async def create_invoice(
         items=items,
         due_date=body.due_date,
         notes=body.notes,
+        include_tax=body.include_tax,
+        tax_rate=body.tax_rate,
     )
 
     await audit_action(

@@ -305,7 +305,7 @@ async def get_treatment_plan_pdf(
 
     watermark = "BORRADOR" if result["status"] == "draft" else None
 
-    pdf_bytes = treatment_plan_service.generate_pdf(
+    pdf_bytes = await treatment_plan_service.generate_pdf(
         plan_data=result,
         watermark=watermark,
     )

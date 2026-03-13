@@ -325,8 +325,12 @@ class AITreatmentService:
 
             # Use catalog price if AI did not provide or provided incorrect price
             estimated_cost = raw.get("estimated_cost")
+            catalog_price = catalog_match["default_price"]
             if not isinstance(estimated_cost, int) or estimated_cost <= 0:
-                estimated_cost = catalog_match["default_price"]
+                estimated_cost = catalog_price
+            elif catalog_price > 0 and estimated_cost < catalog_price // 2:
+                # AI likely returned pesos instead of cents — multiply by 100
+                estimated_cost = estimated_cost * 100
 
             # Normalize tooth_number to string or None
             tooth_number = raw.get("tooth_number")

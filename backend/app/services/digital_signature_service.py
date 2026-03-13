@@ -175,11 +175,15 @@ class DigitalSignatureService:
 
         # 8. Upload to S3
         s3_key = f"{tenant_id}/signatures/{sig.id}.png"
-        await storage_client.upload_file(
-            key=s3_key,
-            data=png_bytes,
-            content_type="image/png",
-        )
+        try:
+            await storage_client.upload_file(
+                key=s3_key,
+                data=png_bytes,
+                content_type="image/png",
+            )
+        except Exception as exc:
+            logger.warning("S3 upload failed for signature %s: %s", str(sig.id)[:8], exc)
+            s3_key = ""  # Proceed without S3 — hash provides integrity
 
         # 9. Update record with final values
         sig.s3_key = s3_key

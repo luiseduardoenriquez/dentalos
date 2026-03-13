@@ -218,6 +218,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "lab_orders:read",
         # Sprint 33: GAP-07 Orthodontics
         "ortho:read",
+        # Flow 18.7: Receptionist needs to browse treatment plans for invoicing
+        "treatment_plans:read",
     }),
     "patient": frozenset({
         "patients:read",

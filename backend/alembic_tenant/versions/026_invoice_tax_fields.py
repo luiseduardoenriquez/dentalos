@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers
 revision = "026"
-down_revision = "025"
+down_revision = "025_invoice_item_ortho_link"
 branch_labels = None
 depends_on = None
 

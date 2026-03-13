@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import {
   ChevronRight,
   AlertCircle,
@@ -101,6 +101,8 @@ function InvoiceDetailSkeleton() {
 export default function InvoiceDetailPage() {
   const params = useParams<{ id: string; invoiceId: string }>();
   const { id: patientId, invoiceId } = params;
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [showPaymentModal, setShowPaymentModal] = React.useState(false);
   const [showPlanModal, setShowPlanModal] = React.useState(false);
@@ -116,6 +118,24 @@ export default function InvoiceDetailPage() {
   const { mutate: cancelInvoice, isPending: isCancelling } = useCancelInvoice(patientId, invoiceId);
 
   const isLoading = isLoadingPatient || isLoadingInvoice;
+  const autoSendFired = React.useRef(false);
+
+  // Auto-send when navigated with ?send=true (e.g. from "Guardar y enviar")
+  React.useEffect(() => {
+    if (
+      searchParams.get("send") === "true" &&
+      invoice?.status === "draft" &&
+      !isSending &&
+      !autoSendFired.current
+    ) {
+      autoSendFired.current = true;
+      sendInvoice(undefined, {
+        onSettled: () => {
+          router.replace(`/patients/${patientId}/invoices/${invoiceId}`);
+        },
+      });
+    }
+  }, [searchParams, invoice?.status, isSending, sendInvoice, router, patientId, invoiceId]);
   const payments = paymentsData?.items ?? [];
 
   function handlePayInstallment(installment: InstallmentResponse) {

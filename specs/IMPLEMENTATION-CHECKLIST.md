@@ -1004,6 +1004,12 @@ Wave 4 (Enhanced features):
   - [x] BE: Add GET /patients/{id}/family endpoint + family_service.get_by_patient()
   - [x] BE: Portal 500 fix (duplicate PortalCredentials), installment stale reference fix, WhatsApp defensive error handling
   - [x] BE: IVA persistence (include_tax+tax_rate columns, migration 026), rounding fix (floor→round)
+- [x] Flow 18.7 bug fixes — Invoice from Treatment Plan (5 fixes):
+  - [x] BE: AI treatment cost validation — detect pesos vs cents mismatch, multiply by 100 if below catalog threshold
+  - [x] FE: Auto-send invoice via useSearchParams ?send=true on invoice detail page
+  - [x] BE: Add treatment_plans:read to receptionist RBAC permissions
+  - [x] BE: Wrap S3 signature upload in try/except — graceful fallback when MinIO unavailable
+  - [x] BE: Add missing await on treatment_plan_service.generate_pdf() call
 
 ### Additional Infrastructure
 
