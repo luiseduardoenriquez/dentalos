@@ -76,22 +76,39 @@ def _extract_json_array(content: str) -> list[dict[str, Any]]:
 # ── Public API ────────────────────────────────────────────────────────────
 
 
+class ParseResult:
+    """Result of an NLP parse including findings and token usage metadata."""
+
+    __slots__ = ("findings", "input_tokens", "output_tokens")
+
+    def __init__(
+        self,
+        findings: list[dict[str, Any]],
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+    ):
+        self.findings = findings
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
+
+
 async def parse_dental_text(
     text: str,
     prompt: str,
-) -> list[dict[str, Any]]:
+) -> ParseResult:
     """Parse dental dictation text into structured findings.
 
     Dispatches based on ``settings.voice_nlp_provider``:
       - ``"local"``: Ollama (Qwen2.5 via OpenAI-compatible API)
       - ``"anthropic"``: Claude Haiku API
 
-    Returns a list of finding dicts, or empty list on failure.
+    Returns a ParseResult with findings list and token usage metadata.
     """
     provider = settings.voice_nlp_provider
 
     if provider == "local":
-        return await _parse_with_ollama(text, prompt)
+        findings = await _parse_with_ollama(text, prompt)
+        return ParseResult(findings)
 
     if provider == "anthropic":
         return await _parse_with_anthropic(text, prompt)
@@ -182,13 +199,13 @@ async def _parse_with_ollama(
 async def _parse_with_anthropic(
     text: str,
     prompt: str,
-) -> list[dict[str, Any]]:
+) -> "ParseResult":
     """Call the Anthropic Messages API directly via httpx."""
     url = "https://api.anthropic.com/v1/messages"
 
     if not settings.anthropic_api_key:
         logger.error("ANTHROPIC_API_KEY not set — cannot use anthropic NLP provider")
-        return []
+        return ParseResult([])
 
     headers = {
         "x-api-key": settings.anthropic_api_key,
@@ -210,22 +227,28 @@ async def _parse_with_anthropic(
             response.raise_for_status()
 
         data = response.json()
+        usage = data.get("usage", {})
+        inp_tokens = usage.get("input_tokens", 0)
+        out_tokens = usage.get("output_tokens", 0)
 
         # M4: Guard against empty content list
         content_blocks = data.get("content", [])
         if not content_blocks:
             logger.warning("Anthropic returned empty content list")
-            return []
+            return ParseResult([], inp_tokens, out_tokens)
 
         content = content_blocks[0].get("text", "")
         if not content:
             logger.warning("Anthropic returned empty text in first content block")
-            return []
+            return ParseResult([], inp_tokens, out_tokens)
 
         findings = _extract_json_array(content)
 
-        logger.info("Anthropic NLP completed: findings=%d", len(findings))
-        return findings
+        logger.info(
+            "Anthropic NLP completed: findings=%d input_tokens=%d output_tokens=%d",
+            len(findings), inp_tokens, out_tokens,
+        )
+        return ParseResult(findings, inp_tokens, out_tokens)
 
     except httpx.HTTPStatusError as e:
         logger.error(
@@ -233,10 +256,10 @@ async def _parse_with_anthropic(
             e.response.status_code,
             e.response.text[:200],
         )
-        return []
+        return ParseResult([])
     except Exception:
         logger.exception("Unexpected error calling Anthropic API")
-        return []
+        return ParseResult([])
 
 
 def get_model_identifier() -> str:

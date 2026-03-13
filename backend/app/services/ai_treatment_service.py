@@ -25,7 +25,9 @@ from app.core.config import settings
 from app.core.error_codes import AITreatmentErrors
 from app.core.exceptions import DentalOSError, ResourceNotFoundError
 from app.models.tenant.ai_treatment import AITreatmentSuggestion
+from app.models.tenant.chatbot import ChatbotMessage
 from app.models.tenant.odontogram import OdontogramCondition
+from app.models.tenant.voice_session import VoiceParse, VoiceSession
 from app.models.tenant.patient import Patient
 from app.models.tenant.service_catalog import ServiceCatalog
 from app.services.ai_claude_client import call_claude, extract_json_array
@@ -615,35 +617,68 @@ class AITreatmentService:
         date_from: str,
         date_to: str,
     ) -> dict[str, Any]:
-        """Aggregate AI token usage for a doctor within a date range.
+        """Aggregate AI usage across ALL features for a doctor within a date range.
 
-        Returns total calls, input tokens, and output tokens.
+        Sources:
+          - ai_treatment_suggestions: Treatment Advisor (Claude) — has token counts
+          - voice_parses: Voice-to-Odontogram NLP (Claude/Ollama) — count as calls
+          - chatbot_messages: AI Chatbot (Claude Haiku) — count assistant messages
         """
         did = uuid.UUID(doctor_id)
         dt_from = datetime.fromisoformat(date_from)
         dt_to = datetime.fromisoformat(date_to)
 
-        result = await db.execute(
+        # 1. Treatment suggestions (has full token tracking)
+        treatment_result = await db.execute(
             select(
-                func.count(AITreatmentSuggestion.id).label("total_calls"),
-                func.coalesce(
-                    func.sum(AITreatmentSuggestion.input_tokens), 0
-                ).label("total_input_tokens"),
-                func.coalesce(
-                    func.sum(AITreatmentSuggestion.output_tokens), 0
-                ).label("total_output_tokens"),
+                func.count(AITreatmentSuggestion.id).label("calls"),
+                func.coalesce(func.sum(AITreatmentSuggestion.input_tokens), 0).label("inp"),
+                func.coalesce(func.sum(AITreatmentSuggestion.output_tokens), 0).label("out"),
             ).where(
                 AITreatmentSuggestion.doctor_id == did,
                 AITreatmentSuggestion.created_at >= dt_from,
                 AITreatmentSuggestion.created_at <= dt_to,
             )
         )
-        row = result.one()
+        t_row = treatment_result.one()
+
+        # 2. Voice parses (each parse = 1 Claude/Ollama API call)
+        voice_result = await db.execute(
+            select(
+                func.count(VoiceParse.id).label("calls"),
+                func.coalesce(func.sum(VoiceParse.input_tokens), 0).label("inp"),
+                func.coalesce(func.sum(VoiceParse.output_tokens), 0).label("out"),
+            ).join(
+                VoiceSession, VoiceParse.session_id == VoiceSession.id,
+            ).where(
+                VoiceSession.doctor_id == did,
+                VoiceParse.created_at >= dt_from,
+                VoiceParse.created_at <= dt_to,
+                VoiceParse.status.in_(["success", "partial"]),
+            )
+        )
+        v_row = voice_result.one()
+
+        # 3. Chatbot messages (each assistant message = 1 Claude Haiku call)
+        chatbot_result = await db.execute(
+            select(
+                func.count(ChatbotMessage.id).label("calls"),
+            ).where(
+                ChatbotMessage.role == "assistant",
+                ChatbotMessage.created_at >= dt_from,
+                ChatbotMessage.created_at <= dt_to,
+            )
+        )
+        c_row = chatbot_result.one()
+
+        total_calls = t_row.calls + v_row.calls + c_row.calls
+        total_input = t_row.inp + v_row.inp
+        total_output = t_row.out + v_row.out
 
         return {
-            "total_calls": row.total_calls,
-            "total_input_tokens": row.total_input_tokens,
-            "total_output_tokens": row.total_output_tokens,
+            "total_calls": total_calls,
+            "total_input_tokens": total_input,
+            "total_output_tokens": total_output,
             "period_from": date_from,
             "period_to": date_to,
         }

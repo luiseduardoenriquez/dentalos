@@ -701,6 +701,8 @@ class VoiceService:
             warnings=parse_warnings,
             llm_model=get_model_identifier(),
             status=parse_status,
+            input_tokens=parse_result.get("input_tokens", 0),
+            output_tokens=parse_result.get("output_tokens", 0),
         )
         db.add(parse)
         await db.flush()
@@ -1004,7 +1006,7 @@ class VoiceService:
     async def _parse_dental_text(self, text: str) -> dict[str, Any]:
         """Parse dental dictation text into structured findings via NLP provider.
 
-        Returns a dict with keys: findings, warnings, status.
+        Returns a dict with keys: findings, warnings, status, input_tokens, output_tokens.
         C4: On NLP failure, returns status='failed' with a warning instead
         of silently returning empty.
         H2: Validates findings against odontogram constants.
@@ -1012,14 +1014,18 @@ class VoiceService:
         from app.services.voice_nlp import parse_dental_text
 
         try:
-            raw_findings = await parse_dental_text(text, DENTAL_NLP_PROMPT)
+            parse_result = await parse_dental_text(text, DENTAL_NLP_PROMPT)
         except Exception:
             logger.exception("NLP parse failed")
             return {
                 "findings": [],
                 "warnings": ["NLP parse failed: el servicio de análisis no respondió"],
                 "status": "failed",
+                "input_tokens": 0,
+                "output_tokens": 0,
             }
+
+        raw_findings = parse_result.findings
 
         # H2: Validate findings
         valid_findings, validation_warnings = _validate_findings(raw_findings)
@@ -1030,6 +1036,8 @@ class VoiceService:
                 "findings": [],
                 "warnings": validation_warnings,
                 "status": "partial",
+                "input_tokens": parse_result.input_tokens,
+                "output_tokens": parse_result.output_tokens,
             }
 
         if not valid_findings and raw_findings:
@@ -1038,6 +1046,8 @@ class VoiceService:
                 "findings": [],
                 "warnings": validation_warnings,
                 "status": "partial",
+                "input_tokens": parse_result.input_tokens,
+                "output_tokens": parse_result.output_tokens,
             }
 
         status = "success" if valid_findings else "partial"
@@ -1045,6 +1055,8 @@ class VoiceService:
             "findings": valid_findings,
             "warnings": validation_warnings,
             "status": status,
+            "input_tokens": parse_result.input_tokens,
+            "output_tokens": parse_result.output_tokens,
         }
 
 

@@ -237,6 +237,8 @@ class VoiceParse(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
     # LLM metadata
     llm_model: Mapped[str] = mapped_column(String(50), nullable=False)
     llm_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(10, 6), nullable=True)
+    input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Parse result quality
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="success")
