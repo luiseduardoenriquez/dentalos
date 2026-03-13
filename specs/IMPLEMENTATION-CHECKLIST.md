@@ -1010,6 +1010,8 @@ Wave 4 (Enhanced features):
   - [x] BE: Add treatment_plans:read to receptionist RBAC permissions
   - [x] BE: Wrap S3 signature upload in try/except — graceful fallback when MinIO unavailable
   - [x] BE: Add missing await on treatment_plan_service.generate_pdf() call
+- [x] Flow 18.33 Bug#1 — Dashboard KPIs showing 0 for receptionist:
+  - [x] BE: Add analytics:read to receptionist RBAC permissions (root cause: 403 silent fail → ?? 0 fallback)
 
 ### Additional Infrastructure
 

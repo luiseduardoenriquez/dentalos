@@ -220,6 +220,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "ortho:read",
         # Flow 18.7: Receptionist needs to browse treatment plans for invoicing
         "treatment_plans:read",
+        # Flow 18.33: Dashboard KPIs (clinic-wide, read-only)
+        "analytics:read",
     }),
     "patient": frozenset({
         "patients:read",
