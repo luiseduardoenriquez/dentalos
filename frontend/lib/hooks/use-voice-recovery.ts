@@ -10,7 +10,7 @@ import {
   updateRecordingSessionId,
   type VoiceRecordingMeta,
 } from "@/lib/voice-persistence";
-import { useCreateVoiceSession, useUploadAudio } from "@/lib/hooks/use-voice";
+import { useCreateVoiceSession, useUploadAudio, useParseTranscription } from "@/lib/hooks/use-voice";
 import { useToast } from "@/lib/hooks/use-toast";
 
 interface UseVoiceRecoveryReturn {
@@ -25,6 +25,7 @@ export function useVoiceRecovery(): UseVoiceRecoveryReturn {
   const [isLoading, setIsLoading] = React.useState(true);
   const { mutateAsync: createSession } = useCreateVoiceSession();
   const { mutateAsync: uploadAudio } = useUploadAudio();
+  const { mutateAsync: parseTranscription } = useParseTranscription();
   const { success, error: showError } = useToast();
 
   // On mount: clean stale recordings and find orphans
@@ -84,13 +85,20 @@ export function useVoiceRecovery(): UseVoiceRecoveryReturn {
           idempotencyKey: recording.idempotency_key,
         });
 
+        // Trigger parse so findings are extracted
+        try {
+          await parseTranscription(sessionId);
+        } catch {
+          // Parse may fail but upload succeeded — still clean up
+        }
+
         // Success — clean up IDB
         await updateRecordingStatus(recording.recording_id, "uploaded");
         await cleanupRecording(recording.recording_id);
         setPendingRecordings((prev) =>
           prev.filter((r) => r.recording_id !== recording.recording_id),
         );
-        success("Audio subido", "La grabacion recuperada se subio correctamente.");
+        success("Audio recuperado", "La grabacion se subio y proceso correctamente.");
       } catch {
         await updateRecordingStatus(
           recording.recording_id,
@@ -100,7 +108,7 @@ export function useVoiceRecovery(): UseVoiceRecoveryReturn {
         showError("Error al subir", "No se pudo subir la grabacion. Intente de nuevo.");
       }
     },
-    [createSession, uploadAudio, success, showError],
+    [createSession, uploadAudio, parseTranscription, success, showError],
   );
 
   const discardRecording = React.useCallback(async (recording_id: string) => {

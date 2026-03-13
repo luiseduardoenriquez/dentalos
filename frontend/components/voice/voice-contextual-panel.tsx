@@ -53,6 +53,7 @@ export function VoiceContextualPanel({
 
   const orchestrator = useVoiceOrchestrator({
     patient_id,
+    patient_name,
     context: "odontogram",
     on_session_created: (sid) => {
       voiceStore.set_session(sid);
