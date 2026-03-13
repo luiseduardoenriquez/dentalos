@@ -50,6 +50,8 @@ export const invoiceItemSchema = z.object({
     .refine((v) => v === null || (v >= 11 && v <= 88), {
       message: "Número de diente inválido (11–88)",
     }),
+
+  treatment_plan_item_id: z.string().uuid().optional().nullable(),
 });
 
 export type InvoiceItemFormValues = z.infer<typeof invoiceItemSchema>;

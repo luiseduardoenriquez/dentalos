@@ -163,7 +163,7 @@ async def send_campaign(
     result = await email_campaign_service.send_campaign(
         db=db,
         campaign_id=campaign_id,
-        tenant_id=str(current_user.tenant_id),
+        tenant_id=str(current_user.tenant.tenant_id),
     )
     return JSONResponse(
         status_code=202,

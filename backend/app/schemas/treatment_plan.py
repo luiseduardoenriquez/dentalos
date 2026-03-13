@@ -46,6 +46,7 @@ class TreatmentPlanItemResponse(BaseModel):
     actual_cost: int
     priority_order: int
     status: str
+    payment_status: str = "unpaid"
     procedure_id: str | None = None
     notes: str | None = None
     created_at: datetime

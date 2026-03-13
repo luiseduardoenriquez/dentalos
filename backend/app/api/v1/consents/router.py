@@ -122,7 +122,7 @@ async def sign_consent(
     """Sign a consent document."""
     result = await consent_service.sign_consent(
         db=db,
-        tenant_id=current_user.tenant_id,
+        tenant_id=current_user.tenant.tenant_id,
         patient_id=patient_id,
         consent_id=consent_id,
         signer_id=current_user.user_id,

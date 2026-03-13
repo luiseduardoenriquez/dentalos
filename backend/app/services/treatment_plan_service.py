@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.error_codes import TreatmentPlanErrors
 from app.core.exceptions import DentalOSError, ResourceNotFoundError, TreatmentPlanError
 from app.core.pdf import render_pdf
+from app.models.tenant.invoice import Invoice, InvoiceItem
 from app.models.tenant.patient import Patient
 from app.models.tenant.service_catalog import ServiceCatalog
 from app.models.tenant.treatment_plan import TreatmentPlan, TreatmentPlanItem
@@ -26,8 +27,12 @@ from app.services.digital_signature_service import digital_signature_service
 logger = logging.getLogger("dentalos.treatment_plan")
 
 
-def _item_to_dict(item: TreatmentPlanItem) -> dict[str, Any]:
+def _item_to_dict(
+    item: TreatmentPlanItem,
+    payment_statuses: dict[uuid.UUID, str] | None = None,
+) -> dict[str, Any]:
     """Serialize a TreatmentPlanItem ORM instance to a plain dict."""
+    ps = (payment_statuses or {}).get(item.id, "unpaid")
     return {
         "id": str(item.id),
         "treatment_plan_id": str(item.treatment_plan_id),
@@ -38,6 +43,7 @@ def _item_to_dict(item: TreatmentPlanItem) -> dict[str, Any]:
         "actual_cost": item.actual_cost,
         "priority_order": item.priority_order,
         "status": item.status,
+        "payment_status": ps,
         "procedure_id": str(item.procedure_id) if item.procedure_id else None,
         "notes": item.notes,
         "created_at": item.created_at,
@@ -45,9 +51,12 @@ def _item_to_dict(item: TreatmentPlanItem) -> dict[str, Any]:
     }
 
 
-def _plan_to_dict(plan: TreatmentPlan) -> dict[str, Any]:
+def _plan_to_dict(
+    plan: TreatmentPlan,
+    payment_statuses: dict[uuid.UUID, str] | None = None,
+) -> dict[str, Any]:
     """Serialize a TreatmentPlan ORM instance to a plain dict."""
-    items = [_item_to_dict(i) for i in plan.items] if plan.items else []
+    items = [_item_to_dict(i, payment_statuses) for i in plan.items] if plan.items else []
 
     # Compute progress
     total_non_cancelled = sum(1 for i in items if i["status"] != "cancelled")
@@ -71,6 +80,44 @@ def _plan_to_dict(plan: TreatmentPlan) -> dict[str, Any]:
         "created_at": plan.created_at,
         "updated_at": plan.updated_at,
     }
+
+
+async def _compute_payment_statuses(
+    db: AsyncSession,
+    treatment_plan_item_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, str]:
+    """Compute payment_status for each treatment plan item.
+
+    Checks invoice_items that reference these treatment_plan_item_ids
+    and the status/balance of their parent invoice.
+
+    Returns a dict: {treatment_plan_item_id: "unpaid"|"invoiced"|"paid"}
+    """
+    if not treatment_plan_item_ids:
+        return {}
+
+    result = await db.execute(
+        select(
+            InvoiceItem.treatment_plan_item_id,
+            Invoice.status,
+            Invoice.balance,
+        )
+        .join(Invoice, InvoiceItem.invoice_id == Invoice.id)
+        .where(
+            InvoiceItem.treatment_plan_item_id.in_(treatment_plan_item_ids),
+            Invoice.is_active.is_(True),
+            Invoice.status != "cancelled",
+        )
+    )
+
+    statuses: dict[uuid.UUID, str] = {}
+    for tpi_id, inv_status, inv_balance in result.all():
+        if inv_status == "paid":
+            statuses[tpi_id] = "paid"
+        elif tpi_id not in statuses or statuses[tpi_id] == "unpaid":
+            statuses[tpi_id] = "invoiced"
+
+    return statuses
 
 
 class TreatmentPlanService:
@@ -176,7 +223,10 @@ class TreatmentPlanService:
         plan = result.scalar_one_or_none()
         if plan is None:
             return None
-        return _plan_to_dict(plan)
+
+        item_ids = [i.id for i in plan.items] if plan.items else []
+        payment_statuses = await _compute_payment_statuses(db, item_ids)
+        return _plan_to_dict(plan, payment_statuses)
 
     async def list_plans(
         self,
@@ -210,8 +260,14 @@ class TreatmentPlanService:
         total = (await db.execute(count_stmt)).scalar_one()
         plans = (await db.execute(list_stmt)).scalars().all()
 
+        # Batch-compute payment statuses for all items across all plans
+        all_item_ids = [
+            i.id for p in plans for i in (p.items or [])
+        ]
+        payment_statuses = await _compute_payment_statuses(db, all_item_ids)
+
         return {
-            "items": [_plan_to_dict(p) for p in plans],
+            "items": [_plan_to_dict(p, payment_statuses) for p in plans],
             "total": total,
             "page": page,
             "page_size": page_size,

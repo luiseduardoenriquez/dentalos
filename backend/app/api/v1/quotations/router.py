@@ -125,7 +125,7 @@ async def approve_quotation(
     """Approve a quotation with a digital signature."""
     result = await quotation_service.approve_quotation(
         db=db,
-        tenant_id=current_user.tenant_id,
+        tenant_id=current_user.tenant.tenant_id,
         patient_id=patient_id,
         quotation_id=quotation_id,
         signer_id=current_user.user_id,
@@ -166,7 +166,7 @@ async def share_quotation(
         recipient_email=body.recipient_email,
         recipient_phone=body.recipient_phone,
         message=body.message,
-        tenant_id=current_user.tenant_id,
+        tenant_id=current_user.tenant.tenant_id,
     )
 
     await audit_action(

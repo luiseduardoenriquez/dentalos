@@ -60,6 +60,7 @@ export interface InvoiceItemCreate {
   unit_price: number; // cents
   discount?: number; // cents
   tooth_number?: number | null;
+  treatment_plan_item_id?: string | null;
 }
 
 export interface InvoiceCreate {
@@ -67,6 +68,25 @@ export interface InvoiceCreate {
   items?: InvoiceItemCreate[];
   due_date?: string | null;
   notes?: string | null;
+}
+
+// ─── Billable Items ──────────────────────────────────────────────────────────
+
+export interface BillableItem {
+  treatment_plan_item_id: string;
+  treatment_plan_id: string;
+  cups_code: string | null;
+  cups_description: string;
+  estimated_cost: number; // cents
+  actual_cost: number; // cents
+  tooth_number: number | null;
+  doctor_id: string | null;
+  status: string;
+}
+
+export interface BillableItemsResponse {
+  items: BillableItem[];
+  total: number;
 }
 
 // ─── Query Keys ───────────────────────────────────────────────────────────────
@@ -83,6 +103,23 @@ export const invoiceQueryKey = (
   patientId: string,
   invoiceId: string,
 ) => ["invoices", patientId, invoiceId] as const;
+
+// ─── useBillableItems ────────────────────────────────────────────────────────
+
+/**
+ * GET /patients/{id}/invoices/billable-items — treatment items not yet invoiced.
+ */
+export function useBillableItems(patientId: string) {
+  return useQuery({
+    queryKey: ["billable-items", patientId],
+    queryFn: () =>
+      apiGet<BillableItemsResponse>(
+        `/patients/${patientId}/invoices/billable-items`,
+      ),
+    enabled: Boolean(patientId),
+    staleTime: 30_000,
+  });
+}
 
 // ─── useInvoices ──────────────────────────────────────────────────────────────
 

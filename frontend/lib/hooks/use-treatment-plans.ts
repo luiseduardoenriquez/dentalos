@@ -16,6 +16,7 @@ export interface TreatmentPlanItemResponse {
   actual_cost: number | null; // cents
   priority_order: number;
   status: "pending" | "scheduled" | "completed" | "cancelled";
+  payment_status: "unpaid" | "invoiced" | "paid";
   procedure_id: string | null;
   created_at: string;
 }

@@ -58,6 +58,30 @@ function ItemStatusBadge({ status }: { status: TreatmentPlanItemResponse["status
   );
 }
 
+// ─── Payment Status Badge ────────────────────────────────────────────────────
+
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  unpaid: "Sin pagar",
+  invoiced: "Facturado",
+  paid: "Pagado",
+};
+
+function PaymentStatusBadge({ status }: { status: string }) {
+  const variants: Record<string, string> = {
+    unpaid: "bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] border-[hsl(var(--border))]",
+    invoiced: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-700",
+    paid: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-700",
+  };
+  return (
+    <Badge
+      variant="outline"
+      className={cn("text-xs font-medium", variants[status] ?? variants.unpaid)}
+    >
+      {PAYMENT_STATUS_LABELS[status] ?? "Sin pagar"}
+    </Badge>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function PlanItemRow({
@@ -113,6 +137,11 @@ export function PlanItemRow({
       {/* Status */}
       <TableCell className="w-[120px]">
         <ItemStatusBadge status={item.status} />
+      </TableCell>
+
+      {/* Payment status */}
+      <TableCell className="w-[110px]">
+        <PaymentStatusBadge status={item.payment_status} />
       </TableCell>
 
       {/* Actions */}

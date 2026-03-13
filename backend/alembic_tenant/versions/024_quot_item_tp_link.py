@@ -4,16 +4,16 @@ Preserves the link from quotation items back to the source treatment plan
 item, so when an invoice is created from a quotation, the treatment plan
 item reference is propagated to the invoice item.
 
-Revision ID: 024_quotation_item_treatment_link
-Revises: 023_invoice_item_treatment_link
+Revision ID: 024_quot_item_tp_link
+Revises: 023_inv_item_tp_link
 """
 
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = "024_quotation_item_treatment_link"
-down_revision = "023_invoice_item_treatment_link"
+revision = "024_quot_item_tp_link"
+down_revision = "023_inv_item_tp_link"
 branch_labels = None
 depends_on = None
 

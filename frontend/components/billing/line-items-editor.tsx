@@ -18,12 +18,15 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utils";
+import { BillableItemsPicker } from "@/components/billing/billable-items-picker";
+import type { BillableItem } from "@/lib/hooks/use-invoices";
 
 interface LineItemsEditorProps {
+  patientId?: string;
   disabled?: boolean;
 }
 
-export function LineItemsEditor({ disabled = false }: LineItemsEditorProps) {
+export function LineItemsEditor({ patientId, disabled = false }: LineItemsEditorProps) {
   const {
     register,
     watch,
@@ -48,20 +51,45 @@ export function LineItemsEditor({ disabled = false }: LineItemsEditorProps) {
     });
   }
 
+  function handleLoadBillableItems(items: BillableItem[]) {
+    for (const item of items) {
+      const cost = item.actual_cost || item.estimated_cost;
+      append({
+        description: item.cups_description,
+        service_id: null,
+        cups_code: item.cups_code || "",
+        quantity: "1",
+        unit_price_display: String(cost / 100),
+        discount_display: "0",
+        tooth_number: item.tooth_number ? String(item.tooth_number) : "",
+        treatment_plan_item_id: item.treatment_plan_item_id || null,
+      });
+    }
+  }
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm font-semibold text-foreground">Ítems</p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleAddItem}
-          disabled={disabled}
-        >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Agregar ítem
-        </Button>
+        <div className="flex items-center gap-2">
+          {patientId && (
+            <BillableItemsPicker
+              patientId={patientId}
+              onSelect={handleLoadBillableItems}
+              disabled={disabled}
+            />
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleAddItem}
+            disabled={disabled}
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Agregar ítem
+          </Button>
+        </div>
       </div>
 
       {fields.length === 0 ? (
@@ -69,17 +97,25 @@ export function LineItemsEditor({ disabled = false }: LineItemsEditorProps) {
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
             No hay ítems. Agrega el primero.
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleAddItem}
-            className="mt-3"
-            disabled={disabled}
-          >
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Agregar ítem
-          </Button>
+          <div className="flex items-center gap-2 mt-3">
+            {patientId && (
+              <BillableItemsPicker
+                patientId={patientId}
+                onSelect={handleLoadBillableItems}
+                disabled={disabled}
+              />
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAddItem}
+              disabled={disabled}
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Agregar ítem
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="overflow-x-auto">

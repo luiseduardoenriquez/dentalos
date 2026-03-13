@@ -38,7 +38,7 @@ async def upload_tooth_photo(
 
     result = await tooth_photo_service.upload_photo(
         db=db,
-        tenant_id=current_user.tenant_id,
+        tenant_id=current_user.tenant.tenant_id,
         patient_id=patient_id,
         tooth_number=tooth_number,
         uploaded_by=current_user.user_id,
@@ -71,7 +71,7 @@ async def list_tooth_photos(
     """List all photos for a specific tooth."""
     result = await tooth_photo_service.list_photos(
         db=db,
-        tenant_id=current_user.tenant_id,
+        tenant_id=current_user.tenant.tenant_id,
         patient_id=patient_id,
         tooth_number=tooth_number,
     )

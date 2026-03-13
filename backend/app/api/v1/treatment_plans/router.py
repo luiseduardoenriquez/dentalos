@@ -236,7 +236,7 @@ async def approve_treatment_plan(
     """Approve a treatment plan with a digital signature."""
     result = await treatment_plan_service.approve_plan(
         db=db,
-        tenant_id=current_user.tenant_id,
+        tenant_id=current_user.tenant.tenant_id,
         patient_id=patient_id,
         plan_id=plan_id,
         signer_id=current_user.user_id,

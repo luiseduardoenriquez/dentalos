@@ -51,7 +51,7 @@ async def record_payment(
         received_by=current_user.user_id,
         reference_number=body.reference_number,
         notes=body.notes,
-        tenant_id=current_user.tenant_id,
+        tenant_id=current_user.tenant.tenant_id,
     )
 
     await audit_action(
@@ -178,7 +178,7 @@ async def pay_installment(
         received_by=current_user.user_id,
         reference_number=body.reference_number,
         notes=body.notes,
-        tenant_id=current_user.tenant_id,
+        tenant_id=current_user.tenant.tenant_id,
     )
 
     await audit_action(

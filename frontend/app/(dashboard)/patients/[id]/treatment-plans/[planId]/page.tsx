@@ -321,7 +321,7 @@ export default function TreatmentPlanDetailPage() {
         </Card>
 
         {/* ─── Summary Cards ───────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <SummaryCard
             label="Costo estimado"
             value={formatCurrency(plan.total_cost_estimated, "COP")}
@@ -340,6 +340,15 @@ export default function TreatmentPlanDetailPage() {
             label="Progreso"
             value={`${plan.progress_percent}%`}
             sub={`${plan.items.filter((i) => i.status === "completed").length} de ${plan.items.length} completados`}
+          />
+          <SummaryCard
+            label="Pagos"
+            value={`${plan.items.filter((i) => i.payment_status === "paid").length} de ${plan.items.length}`}
+            sub={
+              plan.items.filter((i) => i.payment_status === "invoiced").length > 0
+                ? `${plan.items.filter((i) => i.payment_status === "invoiced").length} facturado${plan.items.filter((i) => i.payment_status === "invoiced").length !== 1 ? "s" : ""}`
+                : "Procedimientos pagados"
+            }
           />
         </div>
 
@@ -370,6 +379,7 @@ export default function TreatmentPlanDetailPage() {
                         Costo real
                       </TableHead>
                       <TableHead className="w-[120px]">Estado</TableHead>
+                      <TableHead className="w-[110px]">Pago</TableHead>
                       <TableHead className="w-[100px]">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>

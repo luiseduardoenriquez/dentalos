@@ -36,7 +36,7 @@ async def create_signature(
     """Create a new digital signature for a document."""
     result = await digital_signature_service.create_signature(
         db=db,
-        tenant_id=current_user.tenant_id,
+        tenant_id=current_user.tenant.tenant_id,
         signer_id=current_user.user_id,
         document_type=body.document_type,
         document_id=body.document_id,

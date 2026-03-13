@@ -191,7 +191,7 @@ async def send_invoice(
         db=db,
         patient_id=patient_id,
         invoice_id=invoice_id,
-        tenant_id=current_user.tenant_id,
+        tenant_id=current_user.tenant.tenant_id,
     )
 
     await audit_action(

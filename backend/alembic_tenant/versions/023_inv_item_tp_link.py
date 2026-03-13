@@ -5,7 +5,7 @@ Links invoice line items directly to treatment plan items for:
   - Doctor-level commission tracking
   - Auto-populating invoices from active treatment plans
 
-Revision ID: 023_invoice_item_treatment_link
+Revision ID: 023_inv_item_tp_link
 Revises: 022_ai_usage_logs
 """
 
@@ -13,7 +13,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = "023_invoice_item_treatment_link"
+revision = "023_inv_item_tp_link"
 down_revision = "022_ai_usage_logs"
 branch_labels = None
 depends_on = None

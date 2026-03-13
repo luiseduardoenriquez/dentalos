@@ -90,6 +90,7 @@ export default function NewInvoicePage() {
       unit_price_display: number; // already cents from zod transform
       discount_display: number; // already cents from zod transform
       tooth_number?: number | null;
+      treatment_plan_item_id?: string | null;
     }>).map((item) => ({
       description: item.description,
       service_id: item.service_id || null,
@@ -98,6 +99,7 @@ export default function NewInvoicePage() {
       unit_price: item.unit_price_display,
       discount: item.discount_display,
       tooth_number: item.tooth_number ?? null,
+      treatment_plan_item_id: item.treatment_plan_item_id || null,
     }));
 
     createInvoice(
@@ -222,7 +224,7 @@ export default function NewInvoicePage() {
           {/* Line items */}
           <Card>
             <CardContent className="pt-4">
-              <LineItemsEditor disabled={isCreating} />
+              <LineItemsEditor patientId={patientId} disabled={isCreating} />
             </CardContent>
           </Card>
 
