@@ -59,6 +59,36 @@ export function useUsers(params: UsersQueryParams = {}) {
   });
 }
 
+// ─── Provider Types ──────────────────────────────────────────────────────────
+
+export interface Provider {
+  id: string;
+  name: string;
+  role: string;
+  specialties: string[] | null;
+  avatar_url: string | null;
+}
+
+export interface ProviderListResponse {
+  items: Provider[];
+}
+
+export const PROVIDERS_QUERY_KEY = ["users", "providers"] as const;
+
+// ─── useProviders ────────────────────────────────────────────────────────────
+
+/**
+ * List of doctors and clinic owners available for appointment scheduling.
+ * Accessible by any role with appointments:read permission.
+ */
+export function useProviders() {
+  return useQuery({
+    queryKey: PROVIDERS_QUERY_KEY,
+    queryFn: () => apiGet<ProviderListResponse>("/users/providers"),
+    staleTime: 60_000,
+  });
+}
+
 // ─── useUser ──────────────────────────────────────────────────────────────────
 
 /**

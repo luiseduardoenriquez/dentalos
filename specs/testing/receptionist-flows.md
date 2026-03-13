@@ -320,29 +320,113 @@
 
 ---
 
-## 18. FLUJOS COMBINADOS (E2E completos)
+## 18. FLUJOS COMBINADOS E2E
 
-Estos son flujos end-to-end que combinan múltiples pasos como lo haría una recepcionista en un día real.
+Estos son los flujos end-to-end que simulan el trabajo real de una recepcionista. Son los **tests más valiosos** porque validan la integración completa entre módulos.
 
-| # | Flujo E2E | Pasos | Estado |
-|---|-----------|-------|--------|
-| 18.1 | **Paciente nuevo completo**: Registrar → Agendar cita → Check-in → Checkout → Facturar → Cobrar | 2.1.1 → 3.1.1 → 3.2.2 → 3.2.3 → 4.1.1 → 4.3.1 | [ ] |
-| 18.2 | **Control de ortodoncia**: Ver caso → Facturar control → Enviar → Cobrar → Verificar en ortho | 6.1 → 4.1.3 → 4.2.3 → 4.3.1 → 6.4 | [ ] |
-| 18.3 | **Cuota inicial ortodoncia**: Ver caso → Facturar cuota → Enviar → Cobrar → Verificar | 6.1 → 4.1.4 → 4.2.3 → 4.3.1 → 6.4 | [ ] |
-| 18.4 | **Cotización → Factura**: Ver cotización → Aprobar → Generar factura → Cobrar | 5.1 → 5.5 → 4.2.3 → 4.3.1 | [ ] |
-| 18.5 | **Pago parcial**: Facturar → Cobrar 50% → Verificar parcial → Cobrar resto → Verificar pagada | 4.1.1 → 4.3.6 → 4.3.7 | [ ] |
-| 18.6 | **Apertura → Cierre de día**: Login → Abrir caja → Atender citas → Facturar → Cerrar caja → Logout | 1.1 → 1.3 → 3.2.* → 4.1.* → 17.3 → 17.5 | [ ] |
-| 18.7 | **Reclamación EPS**: Crear factura → Crear claim → Seguimiento → Actualizar estado | 4.1.2 → 7.2 → 7.3 → 7.4 | [ ] |
-| 18.8 | **Paciente con membresía**: Inscribir → Facturar con descuento → Cobrar → Verificar descuento | 9.3 → 4.1.1 → 4.3.1 | [ ] |
-| 18.9 | **Guard duplicados ortho**: Facturar visita → Intentar facturar misma visita → Verificar que no aparece | 4.1.3 → 4.1.3 (repetir) | [ ] |
-| 18.10 | **Multi-método pago**: Factura → Pago parcial efectivo → Pago parcial Nequi → Completar con tarjeta | 4.1.1 → 4.3.1 → 4.3.4 → 4.3.2 | [ ] |
+### A. Ciclo de vida del paciente
+
+| # | Flujo E2E | Pasos detallados | Estado |
+|---|-----------|------------------|--------|
+| 18.1 | **Paciente nuevo → primera cita → cobro** | Login → Crear paciente (nombre, cédula, teléfono, EPS) → Verificar en listado → Agendar primera cita (limpieza) → Vista today: confirmar cita → Marcar llegó → Completar cita → Crear factura manual (1 ítem) → Enviar → Registrar pago efectivo → Verificar factura pagada | [ ] |
+| 18.2 | **Paciente recurrente → actualizar datos → cita** | Buscar paciente por nombre → Editar teléfono y correo → Agendar cita de control → Confirmar cita → Marcar llegó | [ ] |
+| 18.3 | **Paciente no asistió → reagendar** | Revisar agenda del día → Identificar cita pasada sin check-in → Marcar como no-show → Buscar paciente → Reagendar nueva cita → Confirmar nueva cita | [ ] |
+| 18.4 | **Cancelar cita → llenar con lista de espera** | Paciente llama a cancelar → Cancelar cita → Ver lista de espera → Mover paciente de espera al slot liberado → Confirmar nueva cita | [ ] |
+| 18.5 | **Desactivar y reactivar paciente** | Buscar paciente → Desactivar → Verificar badge "Inactivo" → Filtrar por inactivos → Verificar aparece → Reactivar → Verificar badge "Activo" | [ ] |
+
+### B. Facturación y cobros
+
+| # | Flujo E2E | Pasos detallados | Estado |
+|---|-----------|------------------|--------|
+| 18.6 | **Factura manual con descuento e IVA** | Crear factura → Agregar 2 ítems manuales → Aplicar descuento al segundo ítem → Activar IVA 19% → Verificar cálculos de subtotal/IVA/total → Guardar borrador → Ver detalle → Enviar → Registrar pago total | [ ] |
+| 18.7 | **Factura desde plan de tratamiento** | Ir a paciente → Factura nueva → "Cargar desde tratamientos" → Seleccionar ítems del plan → Agregar → Verificar precios/CUPS cargados → Guardar y enviar → Pagar → Verificar que ítems desaparecen del picker | [ ] |
+| 18.8 | **Pago parcial en 3 cuotas** | Crear factura $300,000 → Enviar → Pago 1: $100,000 efectivo → Verificar estado "Parcial" y saldo $200,000 → Pago 2: $100,000 Nequi → Verificar saldo $100,000 → Pago 3: $100,000 tarjeta → Verificar estado "Pagada" y saldo $0 | [ ] |
+| 18.9 | **Anular factura** | Crear factura → Enviar → Anular factura → Verificar estado "Cancelada" → Verificar que ítems vuelven a ser facturables | [ ] |
+| 18.10 | **Plan de pagos** | Crear factura $500,000 → Enviar → Crear plan de pagos (5 cuotas de $100,000) → Verificar cuotas generadas → Pagar primera cuota → Verificar estado parcial | [ ] |
+
+### C. Ortodoncia ↔ Facturación
+
+| # | Flujo E2E | Pasos detallados | Estado |
+|---|-----------|------------------|--------|
+| 18.11 | **Facturar control mensual → pagar → verificar en ortho** | Ir a paciente → Factura nueva → "Cargar desde ortodoncia" → Seleccionar 1 control mensual → Agregar → Verificar descripción y monto → Guardar y enviar → Registrar pago → Ir a Ortodoncia → Ver caso → Tab Visitas → Verificar visita marcada como "Pagado" | [ ] |
+| 18.12 | **Facturar cuota inicial → pagar → verificar** | Factura nueva → Cargar desde ortodoncia → Seleccionar cuota inicial → Agregar → Guardar y enviar → Pagar → Ir a caso ortho → Verificar cuota desapareció de facturables | [ ] |
+| 18.13 | **Guard: no facturar dos veces el mismo control** | Facturar control #1 de ORT-X → Pagar → Crear otra factura → Abrir picker ortho → Verificar que control #1 de ORT-X ya NO aparece en la lista | [ ] |
+| 18.14 | **Guard: no facturar dos veces la cuota inicial** | Facturar cuota inicial de ORT-X → Crear otra factura → Abrir picker → Verificar cuota inicial de ORT-X ya no aparece | [ ] |
+| 18.15 | **Facturar múltiples ítems de ortodoncia** | Seleccionar 2 cuotas iniciales + 1 control de diferentes casos → Agregar → Verificar 3 ítems en tabla → Guardar y enviar → Pagar → Verificar todos los items desaparecen del picker | [ ] |
+
+### D. Cotizaciones → Facturación
+
+| # | Flujo E2E | Pasos detallados | Estado |
+|---|-----------|------------------|--------|
+| 18.16 | **Cotización → aprobación → factura → cobro** | Ver cotizaciones del paciente → Abrir cotización → Enviar al paciente → Aprobar cotización → Convertir en factura → Verificar ítems cargados desde cotización → Enviar factura → Pagar | [ ] |
+| 18.17 | **Cotización rechazada → nueva cotización** | Crear cotización → Enviar → Rechazar → Verificar estado "Rechazada" → Crear nueva cotización con ítems ajustados → Enviar | [ ] |
+
+### E. Caja diaria
+
+| # | Flujo E2E | Pasos detallados | Estado |
+|---|-----------|------------------|--------|
+| 18.18 | **Apertura y cierre de caja completo** | Login → Ir a caja → Abrir caja (nombre, saldo $50,000) → Verificar KPIs en cero → Crear y cobrar factura $200,000 efectivo → Verificar caja muestra ingreso → Registrar gasto $30,000 → Verificar egreso → Cerrar caja (saldo físico $220,000) → Verificar reporte de cierre | [ ] |
+| 18.19 | **Caja con múltiples métodos de pago** | Abrir caja → Cobrar factura 1 en efectivo → Cobrar factura 2 con Nequi → Cobrar factura 3 con tarjeta → Verificar que caja solo muestra efectivo en saldo físico → Cerrar caja | [ ] |
+
+### F. EPS / Seguros
+
+| # | Flujo E2E | Pasos detallados | Estado |
+|---|-----------|------------------|--------|
+| 18.20 | **Factura → Reclamación EPS → seguimiento** | Crear factura con códigos CUPS → Enviar factura → Ir a EPS Claims → Crear reclamación vinculada → Verificar aging card (0-30 días) → Actualizar estado a "en revisión" → Actualizar a "aprobada" | [ ] |
+| 18.21 | **Reclamación rechazada → reenvío** | Crear reclamación → Marcar como rechazada → Documentar motivo → Reenviar reclamación corregida → Verificar nueva reclamación en aging | [ ] |
+
+### G. Membresías y descuentos
+
+| # | Flujo E2E | Pasos detallados | Estado |
+|---|-----------|------------------|--------|
+| 18.22 | **Inscribir membresía → facturar con descuento** | Ir a paciente → Tab Membresía → Inscribir en plan "Gold" → Verificar badge activo → Crear factura → Verificar que descuento de membresía se aplica → Cobrar con descuento | [ ] |
+| 18.23 | **Cancelar membresía** | Ir a paciente → Tab Membresía → Cancelar membresía → Verificar que descuento ya no aplica en siguiente factura | [ ] |
+
+### H. Familia
+
+| # | Flujo E2E | Pasos detallados | Estado |
+|---|-----------|------------------|--------|
+| 18.24 | **Crear grupo familiar → ver balance consolidado** | Ir a paciente A → Tab Familia → Crear grupo → Agregar paciente B → Verificar ambos aparecen → Ver balance consolidado de facturas de ambos | [ ] |
+| 18.25 | **Remover miembro de familia** | Ir a grupo familiar → Remover paciente B → Verificar que ya no aparece en el grupo | [ ] |
+
+### I. Portal del paciente
+
+| # | Flujo E2E | Pasos detallados | Estado |
+|---|-----------|------------------|--------|
+| 18.26 | **Activar portal → revisar intake** | Ir a paciente → Activar acceso al portal → Verificar badge "Portal activo" → Ir a Intake → Ver formulario recibido → Aprobar formulario → Verificar datos actualizados en el paciente | [ ] |
+| 18.27 | **Revocar acceso al portal** | Ir a paciente con portal activo → Revocar acceso → Verificar badge cambia | [ ] |
+
+### J. Comunicaciones
+
+| # | Flujo E2E | Pasos detallados | Estado |
+|---|-----------|------------------|--------|
+| 18.28 | **Ciclo completo WhatsApp** | Ir a WhatsApp → Abrir conversación de paciente → Enviar mensaje "Recordatorio de cita mañana" → Verificar mensaje aparece en thread | [ ] |
+| 18.29 | **Llamar paciente → registrar notas** | Ir a perfil de paciente → Click "Llamar paciente" → Ir a Llamadas → Ver registro de llamada → Agregar nota "Paciente confirma cita" | [ ] |
+| 18.30 | **Enviar notificación interna** | Ir a paciente → Tab Mensajes → Enviar notificación → Verificar aparece en historial | [ ] |
+
+### K. Recall y financiamiento
+
+| # | Flujo E2E | Pasos detallados | Estado |
+|---|-----------|------------------|--------|
+| 18.31 | **Crear campaña de recall** | Ir a Recall → Nueva campaña → Configurar criterios (pacientes sin cita hace 6 meses) → Crear → Verificar campaña activa | [ ] |
+| 18.32 | **Solicitud de financiamiento** | Ver dashboard financiamiento → Verificar KPIs → Ver aplicaciones recientes con estados | [ ] |
+
+### L. Día completo de recepcionista
+
+| # | Flujo E2E | Pasos detallados | Estado |
+|---|-----------|------------------|--------|
+| 18.33 | **Día completo simulado** | Login recepcionista → Ver dashboard KPIs → Abrir caja ($50,000) → Revisar agenda today → Confirmar 3 citas → Registrar paciente nuevo → Agendarle cita → Check-in paciente existente → Completar cita → Facturar consulta $80,000 → Cobrar efectivo → Check-in segundo paciente (ortodoncia) → Completar → Facturar control ortho $150,000 → Cobrar Nequi → Paciente 3 no asistió → Marcar no-show → Registrar gasto $25,000 (materiales) → Cerrar caja → Verificar reporte → Logout | [!] **Validado con bugs.** Todos los pasos completados. Bugs: **Bug#1 (pendiente)** Dashboard KPIs muestra 0 pacientes para receptionist; **Bug#2 (corregido)** receptionist 403 en GET /users → fix: nuevo endpoint GET /users/providers; **Bug#3 (corregido)** Zod cups_code rechazaba empty string → fix: z.preprocess. **Mejora implementada:** autocomplete de catálogo de servicios en ítems manuales de factura. |
+| 18.34 | **Día con problemas** | Login → Abrir caja → Paciente llega sin cita → Buscar disponibilidad → Agendar urgencia → Paciente cancela por teléfono → Cancelar cita → Buscar en lista de espera → Mover waitlist a slot → Factura rechazada por monto incorrecto → Anular factura → Crear nueva factura corregida → Cobrar → Cerrar caja con diferencia → Logout | [ ] |
 
 ---
 
-## Resumen por área
+## Resumen
+
+### Flujos unitarios (secciones 1-17)
 
 | Área | Flujos | Prioridad |
 |------|--------|-----------|
+| Apertura del día | 5 | Alta |
 | Gestión de pacientes | 13 | Alta |
 | Agenda y citas | 12 | Alta |
 | Facturación y pagos | 26 | Crítica |
@@ -359,5 +443,40 @@ Estos son flujos end-to-end que combinan múltiples pasos como lo haría una rec
 | Tratamientos | 2 | Baja |
 | Notificaciones | 3 | Baja |
 | Cierre del día | 5 | Alta |
-| **Flujos E2E combinados** | **10** | **Crítica** |
-| **TOTAL** | **114** | |
+
+### Flujos E2E combinados (sección 18)
+
+| Categoría | Flujos | Prioridad |
+|-----------|--------|-----------|
+| A. Ciclo de vida paciente | 5 | Crítica |
+| B. Facturación y cobros | 5 | Crítica |
+| C. Ortodoncia ↔ Facturación | 5 | Crítica |
+| D. Cotizaciones → Facturación | 2 | Alta |
+| E. Caja diaria | 2 | Crítica |
+| F. EPS / Seguros | 2 | Alta |
+| G. Membresías y descuentos | 2 | Media |
+| H. Familia | 2 | Media |
+| I. Portal del paciente | 2 | Media |
+| J. Comunicaciones | 3 | Media |
+| K. Recall y financiamiento | 2 | Baja |
+| L. Día completo simulado | 2 | Crítica |
+| **TOTAL E2E** | **34** | |
+
+### Totales
+
+| Tipo | Cantidad |
+|------|----------|
+| Flujos unitarios | 109 |
+| Flujos E2E combinados | 34 |
+| **TOTAL** | **143** |
+
+### Orden de ejecución sugerido
+
+1. **L. Día completo** (18.33, 18.34) — validan el flujo más amplio primero
+2. **A. Ciclo paciente** (18.1–18.5) — fundamento de todo
+3. **B. Facturación** (18.6–18.10) — core del negocio
+4. **C. Ortodoncia** (18.11–18.15) — integración recién construida
+5. **E. Caja diaria** (18.18–18.19) — dinero real
+6. **D. Cotizaciones** (18.16–18.17) — pipeline de ventas
+7. **F. EPS** (18.20–18.21) — compliance
+8. **G-K** resto por prioridad

@@ -63,6 +63,28 @@ class UserListResponse(BaseModel):
     page_size: int
 
 
+class ProviderResponse(BaseModel):
+    """Minimal provider info for appointment scheduling.
+
+    Intentionally lightweight — no email, phone, or timestamps.
+    Accessible to any role with appointments:read.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    role: str
+    specialties: list[str] | None = None
+    avatar_url: str | None = None
+
+
+class ProviderListResponse(BaseModel):
+    """List of providers (doctors and clinic owners) available for scheduling."""
+
+    items: list[ProviderResponse]
+
+
 # ─── Request Schemas ─────────────────────────────────
 
 

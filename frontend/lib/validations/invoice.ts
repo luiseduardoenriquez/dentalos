@@ -17,12 +17,14 @@ export const invoiceItemSchema = z.object({
 
   service_id: z.string().uuid().optional().nullable(),
 
-  cups_code: z
-    .string()
-    .regex(/^[0-9]{6}$/, "Código CUPS debe ser 6 dígitos")
-    .optional()
-    .nullable()
-    .transform((v) => v?.trim() || null),
+  cups_code: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+    z
+      .string()
+      .regex(/^[0-9]{6}$/, "Código CUPS debe ser 6 dígitos")
+      .nullable()
+      .optional(),
+  ),
 
   quantity: z.coerce
     .number({ invalid_type_error: "Ingresa una cantidad válida" })

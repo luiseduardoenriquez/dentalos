@@ -25,7 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useCreateAppointment } from "@/lib/hooks/use-appointments";
 import { useSearchPatients, type PatientSearchResult } from "@/lib/hooks/use-patients";
-import { useUsers } from "@/lib/hooks/use-users";
+import { useProviders } from "@/lib/hooks/use-users";
 import {
   appointmentCreateSchema,
   type AppointmentCreateForm,
@@ -115,15 +115,13 @@ function AppointmentCreateModal({
   const { data: searchResults = [], isLoading: isSearching } =
     useSearchPatients(patientQuery);
 
-  // Fetch doctors from the tenant's users when none are passed via props
-  const { data: usersData } = useUsers({ page: 1, page_size: 100 });
+  // Fetch providers (doctors/clinic_owners) for appointment scheduling
+  const { data: providersData } = useProviders();
   const resolvedDoctors = React.useMemo(() => {
     if (doctors.length > 0) return doctors;
-    if (!usersData?.items) return [];
-    return usersData.items
-      .filter((u) => (u.role === "doctor" || u.role === "clinic_owner") && u.is_active)
-      .map((u) => ({ id: u.id, full_name: u.name }));
-  }, [doctors, usersData]);
+    if (!providersData?.items) return [];
+    return providersData.items.map((p) => ({ id: p.id, full_name: p.name }));
+  }, [doctors, providersData]);
 
   // ─── Form ─────────────────────────────────────────────────────────────────
   const {

@@ -14,11 +14,10 @@ export interface ServiceCatalogItem {
   is_active: boolean;
 }
 
-export interface ServiceCatalogResponse {
+export interface ServiceCatalogListResponse {
   items: ServiceCatalogItem[];
-  total: number;
-  page: number;
-  page_size: number;
+  next_cursor: string | null;
+  has_more: boolean;
 }
 
 /**
@@ -28,15 +27,14 @@ export interface ServiceCatalogResponse {
 export function useServiceCatalog(search: string, enabled = true) {
   const queryParams: Record<string, unknown> = {
     search,
-    page: 1,
-    page_size: 10,
+    limit: 10,
   };
 
   return useQuery({
     queryKey: ["service-catalog", search],
     queryFn: () =>
-      apiGet<ServiceCatalogResponse>(
-        `/billing/services${buildQueryString(queryParams)}`,
+      apiGet<ServiceCatalogListResponse>(
+        `/services${buildQueryString(queryParams)}`,
       ),
     enabled: enabled && search.length >= 2,
     staleTime: 60_000,

@@ -3,6 +3,7 @@
 Endpoint map:
   GET  /users/me              — Any authenticated user: read own profile
   PUT  /users/me              — Any authenticated user: update own profile
+  GET  /users/providers        — appointments:read: list doctors/owners for scheduling
   GET  /users/                — clinic_owner only: list all team members
   GET  /users/{user_id}       — clinic_owner only: get a specific team member
   PUT  /users/{user_id}       — clinic_owner only: update role or status
@@ -30,6 +31,8 @@ from app.schemas.schedule import (
     DoctorScheduleUpdate,
 )
 from app.schemas.user import (
+    ProviderListResponse,
+    ProviderResponse,
     UserListResponse,
     UserProfileResponse,
     UserProfileUpdate,
@@ -99,6 +102,28 @@ async def update_own_profile(
     )
 
     return UserProfileResponse(**result)
+
+
+# ─── Provider Listing (any role with appointments:read) ──────────────────
+
+
+@router.get("/providers", response_model=ProviderListResponse)
+async def list_providers(
+    current_user: AuthenticatedUser = Depends(require_permission("appointments:read")),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> ProviderListResponse:
+    """Return all active doctors and clinic owners for appointment scheduling.
+
+    Lightweight endpoint with minimal fields (id, name, role, specialties).
+    Available to any authenticated role with appointments:read permission.
+    """
+    items = await user_service.list_providers(
+        tenant_schema=current_user.tenant.schema_name,
+        db=db,
+    )
+    return ProviderListResponse(
+        items=[ProviderResponse(**p) for p in items],
+    )
 
 
 # ─── Team Management Endpoints (clinic_owner only) ───────────────────────

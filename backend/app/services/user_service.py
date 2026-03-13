@@ -316,6 +316,44 @@ class UserService:
             with contextlib.suppress(Exception):
                 await db.execute(text("SET search_path TO public"))
 
+    async def list_providers(
+        self,
+        *,
+        tenant_schema: str,
+        db: AsyncSession,
+    ) -> list[dict[str, Any]]:
+        """Return all active doctors and clinic owners (appointment providers).
+
+        Lightweight query returning minimal fields for scheduling UIs.
+        No PHI beyond name is exposed.
+        """
+        await db.execute(text(f"SET search_path TO {tenant_schema}, public"))
+        try:
+            result = await db.execute(
+                select(User)
+                .where(
+                    User.is_active.is_(True),
+                    User.role.in_(["doctor", "clinic_owner"]),
+                )
+                .order_by(User.name.asc())
+            )
+            users = result.scalars().all()
+
+            return [
+                {
+                    "id": str(u.id),
+                    "name": u.name,
+                    "role": u.role,
+                    "specialties": u.specialties,
+                    "avatar_url": u.avatar_url,
+                }
+                for u in users
+            ]
+
+        finally:
+            with contextlib.suppress(Exception):
+                await db.execute(text("SET search_path TO public"))
+
     async def deactivate_team_member(
         self,
         *,
