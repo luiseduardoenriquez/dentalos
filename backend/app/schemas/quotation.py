@@ -15,6 +15,7 @@ class QuotationItemCreate(BaseModel):
     unit_price: int = Field(..., ge=0)
     discount: int = Field(default=0, ge=0)
     tooth_number: int | None = None
+    treatment_plan_item_id: str | None = None
 
 
 class QuotationItemResponse(BaseModel):
@@ -33,6 +34,7 @@ class QuotationItemResponse(BaseModel):
     line_total: int
     sort_order: int
     tooth_number: int | None = None
+    treatment_plan_item_id: str | None = None
     created_at: datetime
     updated_at: datetime
 

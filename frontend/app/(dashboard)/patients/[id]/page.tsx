@@ -56,6 +56,7 @@ import {
   GENDER_LABELS,
   REFERRAL_SOURCE_LABELS,
 } from "@/lib/validations/patient";
+import { VoiceSessionHistory } from "@/components/voice/voice-session-history";
 
 // ─── Appointment Status Config ────────────────────────────────────────────────
 
@@ -782,6 +783,7 @@ export default function PatientDetailPage() {
             <TabsTrigger value="mensajes">Mensajes</TabsTrigger>
             <TabsTrigger value="referencias">Referencias</TabsTrigger>
             <TabsTrigger value="citas">Citas</TabsTrigger>
+            <TabsTrigger value="voz">Voz</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
           </TabsList>
 
@@ -1164,6 +1166,11 @@ export default function PatientDetailPage() {
           {/* ── Citas Tab ────────────────────────────────────────────────── */}
           <TabsContent value="citas" className="mt-4">
             <CitasTab patientId={patient.id} />
+          </TabsContent>
+
+          {/* ── Voz Tab ──────────────────────────────────────────────────── */}
+          <TabsContent value="voz" className="mt-4">
+            <VoiceSessionHistory patientId={patient.id} />
           </TabsContent>
 
           {/* ── Documentos Tab ───────────────────────────────────────────── */}

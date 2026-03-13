@@ -45,6 +45,7 @@ from app.core.odontogram_constants import (
 )
 from app.core.queue import publish_message
 from app.models.tenant.patient import Patient
+from app.models.tenant.user import User
 from app.models.tenant.voice_session import VoiceParse, VoiceSession, VoiceTranscription
 from app.schemas.queue import QueueMessage
 
@@ -127,12 +128,21 @@ Important rules:
 # ── Serialization helpers ────────────────────────────────────────────────────
 
 
-def _session_to_dict(session: VoiceSession) -> dict[str, Any]:
+def _session_to_dict(
+    session: VoiceSession,
+    *,
+    doctor_name: str | None = None,
+    patient_name: str | None = None,
+    audio_urls: dict[str, str] | None = None,
+) -> dict[str, Any]:
     """Convert VoiceSession ORM instance to a plain dict."""
+    urls = audio_urls or {}
     return {
         "id": str(session.id),
         "patient_id": str(session.patient_id),
         "doctor_id": str(session.doctor_id),
+        "doctor_name": doctor_name,
+        "patient_name": patient_name,
         "context": session.context,
         "status": session.status,
         "expires_at": session.expires_at,
@@ -140,12 +150,16 @@ def _session_to_dict(session: VoiceSession) -> dict[str, Any]:
         "created_at": session.created_at,
         "updated_at": session.updated_at,
         "transcriptions": [
-            _transcription_to_dict(t) for t in session.transcriptions
+            _transcription_to_dict(t, audio_url=urls.get(str(t.id)))
+            for t in session.transcriptions
         ],
     }
 
 
-def _transcription_to_dict(t: VoiceTranscription) -> dict[str, Any]:
+def _transcription_to_dict(
+    t: VoiceTranscription,
+    audio_url: str | None = None,
+) -> dict[str, Any]:
     """Convert VoiceTranscription ORM instance to a plain dict."""
     return {
         "id": str(t.id),
@@ -154,6 +168,7 @@ def _transcription_to_dict(t: VoiceTranscription) -> dict[str, Any]:
         "text": t.text,
         "duration_seconds": t.duration_seconds,
         "s3_key": t.s3_key,
+        "audio_url": audio_url,
         "created_at": t.created_at,
     }
 
@@ -576,8 +591,8 @@ class VoiceService:
     ) -> dict[str, Any]:
         """Return the full session state including transcription statuses.
 
-        The VoiceSession model has ``lazy="selectin"`` on transcriptions
-        and parses, so they are loaded automatically.
+        Generates presigned S3 URLs for each audio chunk (15 min expiry)
+        and joins doctor/patient names for QA display.
 
         Returns the session dict.
 
@@ -603,7 +618,19 @@ class VoiceService:
                 status_code=404,
             )
 
-        return _session_to_dict(session)
+        # Join doctor and patient names
+        doctor_name = await self._get_user_name(db, session.doctor_id)
+        patient_name = await self._get_patient_name(db, session.patient_id)
+
+        # Generate presigned URLs for each transcription with an s3_key
+        audio_urls = await self._generate_audio_urls(session.transcriptions)
+
+        return _session_to_dict(
+            session,
+            doctor_name=doctor_name,
+            patient_name=patient_name,
+            audio_urls=audio_urls,
+        )
 
     # ── 4. Parse Transcription ───────────────────────────────────────────
 
@@ -1001,7 +1028,133 @@ class VoiceService:
 
         return current
 
+    # ── 7. List Sessions (QA Review) ────────────────────────────────────
+
+    async def list_sessions(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str | None = None,
+        doctor_id: str | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> dict[str, Any]:
+        """Return a paginated list of voice sessions for QA review.
+
+        Joins doctor name (from users.name) and patient name
+        (from patients.first_name + last_name). No presigned URLs
+        in the list view — those are generated on detail fetch only.
+
+        Returns:
+            {items, total, page, page_size}
+        """
+        # Base query
+        filters = [VoiceSession.is_active.is_(True)]
+        if patient_id:
+            filters.append(VoiceSession.patient_id == uuid.UUID(patient_id))
+        if doctor_id:
+            filters.append(VoiceSession.doctor_id == uuid.UUID(doctor_id))
+
+        # Count total
+        count_result = await db.execute(
+            select(func.count(VoiceSession.id)).where(*filters)
+        )
+        total = count_result.scalar() or 0
+
+        # Fetch page with transcriptions eagerly loaded
+        offset = (page - 1) * page_size
+        sessions_result = await db.execute(
+            select(VoiceSession)
+            .options(selectinload(VoiceSession.transcriptions))
+            .where(*filters)
+            .order_by(VoiceSession.created_at.desc())
+            .offset(offset)
+            .limit(page_size)
+        )
+        sessions = sessions_result.scalars().all()
+
+        # Batch-load doctor and patient names
+        doctor_ids = {s.doctor_id for s in sessions}
+        patient_ids = {s.patient_id for s in sessions}
+
+        doctor_names: dict[uuid.UUID, str] = {}
+        if doctor_ids:
+            dr_result = await db.execute(
+                select(User.id, User.name).where(User.id.in_(doctor_ids))
+            )
+            for uid, name in dr_result.all():
+                doctor_names[uid] = name
+
+        patient_names: dict[uuid.UUID, str] = {}
+        if patient_ids:
+            pt_result = await db.execute(
+                select(Patient.id, Patient.first_name, Patient.last_name).where(
+                    Patient.id.in_(patient_ids)
+                )
+            )
+            for pid, first, last in pt_result.all():
+                patient_names[pid] = f"{first} {last}".strip()
+
+        items = [
+            _session_to_dict(
+                s,
+                doctor_name=doctor_names.get(s.doctor_id),
+                patient_name=patient_names.get(s.patient_id),
+            )
+            for s in sessions
+        ]
+
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+        }
+
     # ── Private Helpers ──────────────────────────────────────────────────
+
+    async def _get_user_name(self, db: AsyncSession, user_id: uuid.UUID) -> str | None:
+        """Fetch a user's display name by ID."""
+        result = await db.execute(
+            select(User.name).where(User.id == user_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def _get_patient_name(self, db: AsyncSession, patient_id: uuid.UUID) -> str | None:
+        """Fetch a patient's full name by ID."""
+        result = await db.execute(
+            select(Patient.first_name, Patient.last_name).where(
+                Patient.id == patient_id
+            )
+        )
+        row = result.one_or_none()
+        if row is None:
+            return None
+        return f"{row[0]} {row[1]}".strip()
+
+    async def _generate_audio_urls(
+        self, transcriptions: list[VoiceTranscription],
+    ) -> dict[str, str]:
+        """Generate presigned S3 URLs for transcription audio files.
+
+        Fail-open: if S3 is down or a key is missing, that transcription
+        simply has no audio_url (same pattern as patient_document_service).
+        """
+        urls: dict[str, str] = {}
+        try:
+            from app.core.storage import storage_client
+        except Exception:
+            return urls
+
+        for t in transcriptions:
+            if t.s3_key:
+                try:
+                    url = await storage_client.get_presigned_url(key=t.s3_key)
+                    urls[str(t.id)] = url
+                except Exception:
+                    pass  # Fail-open — no URL for this chunk
+
+        return urls
 
     async def _parse_dental_text(self, text: str) -> dict[str, Any]:
         """Parse dental dictation text into structured findings via NLP provider.

@@ -40,6 +40,7 @@ def _item_to_dict(item: QuotationItem) -> dict[str, Any]:
         "line_total": item.line_total,
         "sort_order": item.sort_order,
         "tooth_number": item.tooth_number,
+        "treatment_plan_item_id": str(item.treatment_plan_item_id) if item.treatment_plan_item_id else None,
         "created_at": item.created_at,
         "updated_at": item.updated_at,
     }
@@ -162,6 +163,7 @@ class QuotationService:
                             "unit_price": pi.estimated_cost,
                             "discount": 0,
                             "tooth_number": pi.tooth_number,
+                            "treatment_plan_item_id": str(pi.id),
                             "sort_order": idx,
                         })
         elif items:
@@ -207,6 +209,7 @@ class QuotationService:
 
         # Create items
         for qi in quotation_items:
+            tpi_id = qi.get("treatment_plan_item_id")
             item = QuotationItem(
                 quotation_id=quotation.id,
                 service_id=uuid.UUID(qi["service_id"]) if qi.get("service_id") else None,
@@ -218,6 +221,7 @@ class QuotationService:
                 line_total=qi["line_total"],
                 sort_order=qi["sort_order"],
                 tooth_number=qi.get("tooth_number"),
+                treatment_plan_item_id=uuid.UUID(tpi_id) if tpi_id else None,
             )
             db.add(item)
 

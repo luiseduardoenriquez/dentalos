@@ -1,12 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Clock, Mic } from "lucide-react";
+import { ChevronDown, Clock, Mic, User, Volume2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useVoiceSessions, type VoiceSession } from "@/lib/hooks/use-voice";
+import {
+  useVoiceSessions,
+  useVoiceSessionDetail,
+  type VoiceSession,
+  type TranscriptionChunk,
+} from "@/lib/hooks/use-voice";
 import { formatDateTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -18,10 +24,26 @@ const CONTEXT_LABELS: Record<VoiceSession["context"], string> = {
 };
 
 /** Maps status values to badge variants */
-const STATUS_CONFIG: Record<VoiceSession["status"], { label: string; variant: "default" | "warning" | "success" }> = {
-  recording: { label: "Grabando", variant: "warning" },
-  processing: { label: "Procesando", variant: "default" },
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; variant: "default" | "warning" | "success" | "secondary" }
+> = {
+  active: { label: "Activa", variant: "warning" },
   applied: { label: "Aplicado", variant: "success" },
+  expired: { label: "Expirada", variant: "secondary" },
+  feedback_received: { label: "Con feedback", variant: "default" },
+};
+
+const FALLBACK_STATUS = { label: "Desconocido", variant: "secondary" as const };
+
+const CHUNK_STATUS_CONFIG: Record<
+  string,
+  { label: string; variant: "default" | "warning" | "success" | "destructive" | "secondary" }
+> = {
+  pending: { label: "Pendiente", variant: "secondary" },
+  processing: { label: "Procesando", variant: "warning" },
+  completed: { label: "Completado", variant: "success" },
+  failed: { label: "Fallido", variant: "destructive" },
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -53,13 +75,107 @@ function SessionSkeleton() {
   );
 }
 
+// ─── Transcription Chunk ────────────────────────────────────────────────────
+
+function TranscriptionChunkCard({ chunk }: { chunk: TranscriptionChunk }) {
+  const statusConfig = CHUNK_STATUS_CONFIG[chunk.status] ?? FALLBACK_STATUS;
+
+  return (
+    <div className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-[hsl(var(--muted-foreground))]">
+          Fragmento {chunk.chunk_index + 1}
+          {chunk.duration_seconds != null && (
+            <> &middot; {chunk.duration_seconds.toFixed(1)}s</>
+          )}
+        </span>
+        <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
+      </div>
+
+      {/* Audio player */}
+      {chunk.audio_url && (
+        <div className="flex items-center gap-2">
+          <Volume2 className="h-3.5 w-3.5 shrink-0 text-primary-500" />
+          <audio
+            controls
+            preload="none"
+            src={chunk.audio_url}
+            className="h-8 w-full"
+          />
+        </div>
+      )}
+
+      {/* Transcription text */}
+      {chunk.text && (
+        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+          {chunk.text}
+        </p>
+      )}
+
+      {chunk.status === "pending" && (
+        <p className="text-xs italic text-[hsl(var(--muted-foreground))]">
+          Esperando transcripcion...
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── Session Detail (expanded) ──────────────────────────────────────────────
+
+function SessionDetail({ sessionId }: { sessionId: string }) {
+  const { data: detail, isLoading } = useVoiceSessionDetail(sessionId);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3 pt-3 border-t border-[hsl(var(--border))]">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+      </div>
+    );
+  }
+
+  if (!detail) return null;
+
+  const transcriptions = detail.transcriptions ?? [];
+
+  return (
+    <div className="space-y-3 pt-3 border-t border-[hsl(var(--border))]">
+      {/* Patient name */}
+      {detail.patient_name && (
+        <div className="flex items-center gap-2 text-sm text-[hsl(var(--muted-foreground))]">
+          <User className="h-3.5 w-3.5" />
+          <span>Paciente: {detail.patient_name}</span>
+        </div>
+      )}
+
+      {/* Transcription chunks */}
+      {transcriptions.length === 0 ? (
+        <p className="text-sm text-[hsl(var(--muted-foreground))] italic">
+          No hay fragmentos de audio en esta sesion.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {transcriptions.map((chunk) => (
+            <TranscriptionChunkCard key={chunk.id} chunk={chunk} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Session Card ─────────────────────────────────────────────────────────────
 
 function SessionCard({ session }: { session: VoiceSession }) {
-  const statusConfig = STATUS_CONFIG[session.status];
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  const statusConfig = STATUS_CONFIG[session.status] ?? FALLBACK_STATUS;
 
   return (
-    <Card>
+    <Card
+      className="cursor-pointer transition-shadow hover:shadow-md"
+      onClick={() => setIsExpanded((prev) => !prev)}
+    >
       <CardContent className="p-4">
         <div className="flex items-center justify-between gap-4">
           {/* Left: session info */}
@@ -77,18 +193,32 @@ function SessionCard({ session }: { session: VoiceSession }) {
                 </span>
               </div>
 
-              {/* Context label */}
+              {/* Context + doctor name */}
               <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
-                Contexto: {CONTEXT_LABELS[session.context]}
+                {CONTEXT_LABELS[session.context]}
+                {session.doctor_name && <> &middot; Dr. {session.doctor_name}</>}
               </p>
             </div>
           </div>
 
-          {/* Right: status badge */}
-          <Badge variant={statusConfig.variant} className="shrink-0">
-            {statusConfig.label}
-          </Badge>
+          {/* Right: status badge + chevron */}
+          <div className="flex items-center gap-2 shrink-0">
+            <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-[hsl(var(--muted-foreground))] transition-transform duration-200",
+                isExpanded && "rotate-180",
+              )}
+            />
+          </div>
         </div>
+
+        {/* Expanded detail — stop clicks from toggling the card */}
+        {isExpanded && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <SessionDetail sessionId={session.id} />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -99,6 +229,7 @@ function SessionCard({ session }: { session: VoiceSession }) {
 /**
  * Displays a list of past voice sessions for a patient.
  * Sessions are fetched via useVoiceSessions and sorted by created_at descending (most recent first).
+ * Each session card is expandable — clicking shows transcription chunks with audio playback.
  */
 export function VoiceSessionHistory({ patientId }: VoiceSessionHistoryProps) {
   const { data, isLoading } = useVoiceSessions(patientId);

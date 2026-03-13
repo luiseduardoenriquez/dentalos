@@ -30,6 +30,7 @@ class TranscriptionStatusResponse(BaseModel):
     status: str
     text: str | None = None
     duration_seconds: float | None = None
+    audio_url: str | None = None
 
 
 class VoiceSessionResponse(BaseModel):
@@ -40,11 +41,22 @@ class VoiceSessionResponse(BaseModel):
     id: str
     patient_id: str
     doctor_id: str
+    doctor_name: str | None = None
+    patient_name: str | None = None
     context: str
     status: str
     expires_at: datetime
     created_at: datetime
     transcriptions: list[TranscriptionStatusResponse] = Field(default_factory=list)
+
+
+class VoiceSessionListResponse(BaseModel):
+    """Paginated list of voice sessions."""
+
+    items: list[VoiceSessionResponse]
+    total: int
+    page: int
+    page_size: int
 
 
 # ─── Audio Upload Schemas ─────────────────────────────────────────────────────

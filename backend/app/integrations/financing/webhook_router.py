@@ -204,7 +204,8 @@ async def _update_application_status(
     """Update a financing application's status in the tenant database.
 
     Looks up the application by provider_reference, updates its status,
-    and if the application is now disbursed, records the disbursement timestamp.
+    and if the application is now disbursed, records the disbursement timestamp
+    and creates a Payment record to mark the invoice as paid.
 
     Args:
         db: Tenant-scoped AsyncSession.
@@ -253,6 +254,48 @@ async def _update_application_status(
         application.completed_at = datetime.now(UTC)
 
     await db.flush()
+
+    # Record payment when financing is disbursed — marks invoice as paid
+    if new_status == "disbursed" and application.invoice_id is not None:
+        amount = approved_amount_cents or application.amount_cents
+        try:
+            from app.models.tenant.invoice import Invoice
+
+            inv_result = await db.execute(
+                select(Invoice.patient_id, Invoice.balance).where(
+                    Invoice.id == application.invoice_id,
+                    Invoice.is_active.is_(True),
+                )
+            )
+            inv_row = inv_result.one_or_none()
+
+            if inv_row and inv_row.balance > 0:
+                from app.services.payment_service import payment_service
+
+                pay_amount = min(amount, inv_row.balance)
+                await payment_service.record_payment(
+                    db=db,
+                    patient_id=str(application.patient_id),
+                    invoice_id=str(application.invoice_id),
+                    amount=pay_amount,
+                    payment_method=f"financing_{provider}",
+                    received_by="00000000-0000-0000-0000-000000000000",
+                    reference_number=provider_reference,
+                    notes=f"Desembolso {provider.title()} — ref: {provider_reference[:8]}...",
+                    tenant_id="system",
+                )
+                logger.info(
+                    "Financing payment recorded: provider=%s ref=%s... amount=%d",
+                    provider,
+                    provider_reference[:8],
+                    pay_amount,
+                )
+        except Exception:
+            logger.exception(
+                "Failed to record financing payment: provider=%s ref=%s...",
+                provider,
+                provider_reference[:8],
+            )
 
     logger.info(
         "Financing application updated: provider=%s ref=%s... status=%s",

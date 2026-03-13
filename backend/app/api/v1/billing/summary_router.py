@@ -373,8 +373,9 @@ async def commissions_report(
     """Doctor commission report for a date range.
 
     Calculates per-doctor: procedure count, total revenue, commission amount.
-    Uses invoice.created_by as the doctor reference. Commission percentage
-    is configured per doctor on their user profile.
+    Uses InvoiceItem.doctor_id (performing doctor) with fallback to
+    Invoice.created_by when doctor_id is not set on the item.
+    Commission percentage is configured per doctor on their user profile.
     """
     today = date.today()
 
@@ -406,33 +407,42 @@ async def commissions_report(
     if doctor_id is not None:
         doctor_filter.append(User.id == doctor_id)
 
-    # Main aggregation query
-    # Join: users LEFT JOIN invoices (filtered by date/status) LEFT JOIN invoice_items
+    # Subquery: join invoice_items with invoices, compute effective doctor
+    # (InvoiceItem.doctor_id if set, otherwise Invoice.created_by)
+    items_subq = (
+        select(
+            func.coalesce(InvoiceItem.doctor_id, Invoice.created_by).label("effective_doctor_id"),
+            InvoiceItem.id.label("item_id"),
+            InvoiceItem.line_total,
+        )
+        .join(Invoice, InvoiceItem.invoice_id == Invoice.id)
+        .where(
+            Invoice.status.in_(status_filter),
+            func.cast(Invoice.created_at, Date) >= date_from,
+            func.cast(Invoice.created_at, Date) <= date_to,
+            Invoice.is_active.is_(True),
+        )
+        .subquery()
+    )
+
+    # Main query: doctors LEFT JOIN attributed items
     stmt = (
         select(
             User.id,
             User.name,
             User.specialties,
             User.commission_percentage,
-            func.coalesce(func.count(InvoiceItem.id), 0).label("procedure_count"),
-            func.coalesce(func.sum(InvoiceItem.line_total), 0).label("total_revenue"),
+            func.coalesce(func.count(items_subq.c.item_id), 0).label("procedure_count"),
+            func.coalesce(func.sum(items_subq.c.line_total), 0).label("total_revenue"),
         )
-        .outerjoin(
-            Invoice,
-            (Invoice.created_by == User.id)
-            & (Invoice.status.in_(status_filter))
-            & (func.cast(Invoice.created_at, Date) >= date_from)
-            & (func.cast(Invoice.created_at, Date) <= date_to)
-            & (Invoice.is_active.is_(True)),
-        )
-        .outerjoin(InvoiceItem, InvoiceItem.invoice_id == Invoice.id)
+        .outerjoin(items_subq, items_subq.c.effective_doctor_id == User.id)
         .where(
             User.role == "doctor",
             User.is_active.is_(True),
             *doctor_filter,
         )
         .group_by(User.id, User.name, User.specialties, User.commission_percentage)
-        .order_by(func.coalesce(func.sum(InvoiceItem.line_total), 0).desc())
+        .order_by(func.coalesce(func.sum(items_subq.c.line_total), 0).desc())
     )
 
     result = await db.execute(stmt)

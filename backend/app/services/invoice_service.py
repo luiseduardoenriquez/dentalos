@@ -261,6 +261,7 @@ class InvoiceService:
             # Copy items from quotation if no manual items provided
             if not items and quotation.items:
                 for idx, qi in enumerate(quotation.items):
+                    tpi_id = getattr(qi, "treatment_plan_item_id", None)
                     invoice_items.append({
                         "description": qi.description,
                         "cups_code": qi.cups_code,
@@ -269,6 +270,7 @@ class InvoiceService:
                         "unit_price": qi.unit_price,
                         "discount": qi.discount,
                         "tooth_number": qi.tooth_number,
+                        "treatment_plan_item_id": str(tpi_id) if tpi_id else None,
                         "sort_order": idx,
                     })
 

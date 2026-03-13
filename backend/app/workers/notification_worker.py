@@ -38,6 +38,8 @@ class NotificationWorker(BaseWorker):
             "campaign.email.batch": self._handle_campaign_batch,
             "lab_order.ready": self._handle_lab_order_ready,
             "lab_order.overdue": self._handle_lab_order_overdue,
+            "payment.qr_reconcile": self._handle_qr_reconcile,
+            "payment.mp_reconcile": self._handle_mp_reconcile,
         }
         handler = handlers.get(message.job_type)
         if handler:
@@ -747,6 +749,118 @@ class NotificationWorker(BaseWorker):
             due_date,
             message.tenant_id,
         )
+
+    # ── Payment reconciliation handlers ──────────────────────────────────────
+
+    async def _handle_qr_reconcile(self, message: QueueMessage) -> None:
+        """Reconcile a Nequi/Daviplata QR payment with its invoice.
+
+        Payload: provider, payment_id, amount_cents, reference
+        """
+        payload = message.payload
+        tenant_id = message.tenant_id
+        provider = payload.get("provider", "unknown")
+        payment_id = payload.get("payment_id", "")
+        amount_cents = payload.get("amount_cents", 0)
+        reference = payload.get("reference", "")
+
+        if not payment_id or not reference or not amount_cents:
+            logger.warning(
+                "QR reconcile skipped (missing fields): message_id=%s",
+                message.message_id,
+            )
+            return
+
+        try:
+            from app.core.database import get_tenant_session
+            from app.services.payment_qr_service import payment_qr_service
+
+            async with get_tenant_session(tenant_id) as db:
+                recorded = await payment_qr_service.reconcile_webhook_payment(
+                    db=db,
+                    tenant_id=tenant_id,
+                    provider=provider,
+                    payment_id=payment_id,
+                    amount_cents=amount_cents,
+                    reference=reference,
+                )
+                if recorded:
+                    logger.info(
+                        "QR payment reconciled: provider=%s payment_id=%s",
+                        provider,
+                        payment_id[:8],
+                    )
+        except Exception:
+            logger.exception(
+                "QR reconcile failed: provider=%s payment_id=%s",
+                provider,
+                payment_id[:8] if payment_id else "?",
+            )
+
+    async def _handle_mp_reconcile(self, message: QueueMessage) -> None:
+        """Reconcile a Mercado Pago payment with its invoice.
+
+        Payload: provider, payment_id, amount_cents, status, status_detail
+        The worker must fetch external_reference from MP API to resolve
+        tenant and invoice.
+        """
+        payload = message.payload
+        mp_payment_id = payload.get("payment_id", "")
+        amount_cents = payload.get("amount_cents", 0)
+
+        if not mp_payment_id:
+            logger.warning(
+                "MP reconcile skipped (missing payment_id): message_id=%s",
+                message.message_id,
+            )
+            return
+
+        try:
+            from app.integrations.payments.mercadopago_service import mercadopago_service
+
+            # Fetch full payment resource from MP API to get external_reference
+            payment_detail = await mercadopago_service.get_payment(mp_payment_id)
+            if not payment_detail:
+                logger.warning(
+                    "MP reconcile: could not fetch payment from MP: payment_id=%s",
+                    mp_payment_id[:8],
+                )
+                return
+
+            reference = payment_detail.get("external_reference", "")
+            if not reference or ":" not in reference:
+                logger.warning(
+                    "MP reconcile: missing external_reference: payment_id=%s",
+                    mp_payment_id[:8],
+                )
+                return
+
+            # Resolve tenant from reference (format: "{tenant_id}:{invoice_id}")
+            tenant_id = reference.split(":", 1)[0]
+            actual_amount = payment_detail.get("transaction_amount_cents", amount_cents)
+
+            from app.core.database import get_tenant_session
+            from app.services.payment_qr_service import payment_qr_service
+
+            async with get_tenant_session(tenant_id) as db:
+                recorded = await payment_qr_service.reconcile_webhook_payment(
+                    db=db,
+                    tenant_id=tenant_id,
+                    provider="mercadopago",
+                    payment_id=mp_payment_id,
+                    amount_cents=actual_amount,
+                    reference=reference,
+                )
+                if recorded:
+                    logger.info(
+                        "MP payment reconciled: payment_id=%s",
+                        mp_payment_id[:8],
+                    )
+        except Exception:
+            logger.exception(
+                "MP reconcile failed: payment_id=%s",
+                mp_payment_id[:8] if mp_payment_id else "?",
+            )
 
 
 # Module-level instance for CLI entry point

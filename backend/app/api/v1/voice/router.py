@@ -10,7 +10,7 @@ Endpoint map:
   PUT  /voice/settings                          -- V-05b: Update voice settings
 """
 
-from fastapi import APIRouter, Depends, File, Header, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Header, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.context import AuthenticatedUser
@@ -25,6 +25,7 @@ from app.schemas.voice import (
     FeedbackResponse,
     ParseResponse,
     VoiceSessionCreate,
+    VoiceSessionListResponse,
     VoiceSessionResponse,
     VoiceSettingsResponse,
     VoiceSettingsUpdate,
@@ -64,6 +65,40 @@ async def create_voice_session(
     )
 
     return VoiceSessionResponse(**result)
+
+
+# ── V-01b: List Voice Sessions (QA Review) ───────────────────────────────────
+
+
+@router.get(
+    "/sessions",
+    response_model=VoiceSessionListResponse,
+)
+async def list_voice_sessions(
+    patient_id: str | None = Query(None),
+    doctor_id: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user: AuthenticatedUser = Depends(
+        require_permission("voice:read")
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> VoiceSessionListResponse:
+    """List past voice sessions with pagination.
+
+    Supports filtering by patient_id and/or doctor_id. Returns doctor
+    and patient names for QA review display. Audio URLs are only
+    generated on individual session detail fetch.
+    """
+    result = await voice_service.list_sessions(
+        db=db,
+        patient_id=patient_id,
+        doctor_id=doctor_id,
+        page=page,
+        page_size=page_size,
+    )
+
+    return VoiceSessionListResponse(**result)
 
 
 # ── V-02: Upload Audio Chunk ─────────────────────────────────────────────────

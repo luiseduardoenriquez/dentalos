@@ -70,6 +70,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'; " +
               "img-src 'self' data: blob: https:; " +
               "font-src 'self' data:; " +
+              `media-src 'self' blob:${isDev ? " http://localhost:* http://127.0.0.1:*" : ""} https:; ` +
               `connect-src 'self' https:${isDev ? " http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* wss://localhost:*" : ""}; ` +
               "frame-ancestors 'none';",
           },

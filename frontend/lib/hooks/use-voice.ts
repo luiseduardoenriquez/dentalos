@@ -12,8 +12,10 @@ export interface VoiceSession {
   id: string;
   patient_id: string;
   doctor_id: string;
+  doctor_name?: string;
+  patient_name?: string;
   context: "odontogram" | "evolution" | "examination";
-  status: "recording" | "processing" | "applied";
+  status: string;
   created_at: string;
   expires_at: string;
 }
@@ -43,16 +45,23 @@ export interface ApplyResponse {
   errors: string[];
 }
 
+export interface TranscriptionChunk {
+  id: string;
+  chunk_index: number;
+  status: "pending" | "processing" | "completed" | "failed";
+  text: string | null;
+  duration_seconds: number | null;
+  audio_url: string | null;
+}
+
 export interface TranscriptionStatus {
   session_id: string;
-  transcriptions: {
-    id: string;
-    chunk_index: number;
-    status: "pending" | "processing" | "completed" | "failed";
-    text: string | null;
-    duration_seconds: number | null;
-  }[];
+  transcriptions: TranscriptionChunk[];
   all_completed: boolean;
+}
+
+export interface VoiceSessionDetail extends VoiceSession {
+  transcriptions: TranscriptionChunk[];
 }
 
 export interface PaginatedVoiceSessions {
@@ -192,7 +201,7 @@ export function useTranscriptionStatus(sessionId: string | null | undefined) {
     queryFn: async () => {
       // Backend returns VoiceSessionResponse at GET /voice/sessions/{id}
       // We transform it to the TranscriptionStatus shape the orchestrator expects
-      const session = await apiGet<VoiceSession & { transcriptions: TranscriptionStatus["transcriptions"] }>(
+      const session = await apiGet<VoiceSession & { transcriptions: TranscriptionChunk[] }>(
         `/voice/sessions/${sessionId}`,
       );
       const transcriptions = session.transcriptions ?? [];
@@ -290,6 +299,25 @@ export function useApplyFindings() {
           : "No se pudieron aplicar los hallazgos. Intentalo de nuevo.";
       error("Error al aplicar hallazgos", message);
     },
+  });
+}
+
+// ─── useVoiceSessionDetail ────────────────────────────────────────────────────
+
+/**
+ * GET /voice/sessions/{id} — fetches a single session with transcription audio URLs.
+ * Used when expanding a session card in the QA review history.
+ * Presigned URLs are generated server-side (15 min expiry).
+ *
+ * @example
+ * const { data: detail, isLoading } = useVoiceSessionDetail(sessionId);
+ */
+export function useVoiceSessionDetail(sessionId: string | null) {
+  return useQuery({
+    queryKey: voiceSessionQueryKey(sessionId ?? ""),
+    queryFn: () => apiGet<VoiceSessionDetail>(`/voice/sessions/${sessionId}`),
+    enabled: Boolean(sessionId),
+    staleTime: 5 * 60 * 1000, // 5 min — URLs expire in 15 min
   });
 }
 

@@ -160,6 +160,13 @@ class QuotationItem(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
     # Tooth reference (optional)
     tooth_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Treatment plan item link — preserves lineage from plan → quotation → invoice
+    treatment_plan_item_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("treatment_plan_items.id"),
+        nullable=True,
+    )
+
     # Relationships
     quotation: Mapped["Quotation"] = relationship(back_populates="items")
 
