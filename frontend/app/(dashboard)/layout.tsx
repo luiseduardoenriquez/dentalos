@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { UpdateBanner } from "@/components/update-banner";
+import { VoiceRecoveryBanner } from "@/components/voice/voice-recovery-banner";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { useAuthStore } from "@/lib/hooks/use-auth";
 import { clearAccessToken } from "@/lib/auth";
@@ -113,6 +114,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // Real-time unread notification count (polls every 30s)
   const { data: unreadCount } = useUnreadCount();
 
+  // Request durable storage to prevent IndexedDB eviction (voice recordings)
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const storage = navigator.storage as any;
+    if (storage?.persist) {
+      storage.persist().catch(() => {});
+    }
+  }, []);
+
   // Handle sign-out
   async function handleSignOut() {
     try {
@@ -134,6 +144,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     <>
       <UpdateBanner />
       <ImpersonationBanner />
+      <VoiceRecoveryBanner />
       <div className={impersonating ? "pt-10" : ""}>
         <DashboardShell
           userRole={user.role as UserRole}

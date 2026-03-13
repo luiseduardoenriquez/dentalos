@@ -140,6 +140,11 @@ class VoiceTranscription(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
     # Chunk ordering
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
+    # Idempotency — client-generated key to prevent duplicate uploads on retry
+    idempotency_key: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
+
     # Audio storage
     s3_key: Mapped[str] = mapped_column(String(500), nullable=False)
 

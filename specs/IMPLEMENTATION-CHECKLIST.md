@@ -532,6 +532,7 @@ Voice dictation is THE core differentiator per the client interview. Moved up fr
 - [x] **FE-V-01** Voice recording button (floating action in odontogram screen, tap to start/stop, recording indicator with waveform animation)
 - [x] **FE-V-02** Transcription review panel (parsed teeth and conditions displayed as a diff over current odontogram, confirm/reject each change, apply button)
 - [x] **FE-V-03** Voice session history (list of past sessions, transcription text, applied/rejected status, accuracy feedback)
+- [x] **FE-V-04** Voice recording resilience — 7-layer defense against audio loss: IndexedDB chunk persistence, upload retry with exponential backoff, backend idempotency (X-Idempotency-Key), visibilitychange flush (iOS Safari), recovery banner for orphaned recordings, Serwist BackgroundSyncPlugin, navigator.storage.persist()
 
 ### Frontend: Settings
 

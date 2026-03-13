@@ -10,6 +10,14 @@ import {
 } from "@/lib/hooks/use-voice";
 import { useToast } from "@/lib/hooks/use-toast";
 import type { VoiceContext } from "@/lib/stores/voice-store";
+import {
+  createRecordingEntry,
+  persistChunk,
+  updateRecordingStatus,
+  updateRecordingSessionId,
+  updateRecordingElapsed,
+  cleanupRecording,
+} from "@/lib/voice-persistence";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -18,6 +26,8 @@ const WAVEFORM_BAR_COUNT = 16;
 const PROCESSING_TIMEOUT_MS = 90_000;
 /** Max recording duration (5 min). WebM/Opus at ~15KB/s ≈ 4.5 MB — well under Whisper's 25 MB limit. */
 const MAX_RECORDING_MS = 5 * 60 * 1_000;
+/** Timeslice for MediaRecorder — flush chunks every 10s for progressive IDB persistence */
+const TIMESLICE_MS = 10_000;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,6 +43,7 @@ export type OrchestratorPhase =
 
 interface UseVoiceOrchestratorOptions {
   patient_id: string;
+  patient_name?: string;
   context: VoiceContext;
   /** Called when session is created (provides session_id) */
   on_session_created?: (session_id: string) => void;
@@ -50,7 +61,7 @@ interface UseVoiceOrchestratorReturn {
   is_media_recorder_supported: boolean;
   start_recording: () => Promise<void>;
   stop_recording: () => void;
-  cancel: () => void;
+  cancel: (opts?: { discard?: boolean }) => void;
   parse_results: ParseResponse | null;
   error: string | null;
 }
@@ -60,7 +71,7 @@ interface UseVoiceOrchestratorReturn {
 export function useVoiceOrchestrator(
   options: UseVoiceOrchestratorOptions,
 ): UseVoiceOrchestratorReturn {
-  const { patient_id, context, on_session_created, on_parse_complete, on_error } = options;
+  const { patient_id, patient_name, context, on_session_created, on_parse_complete, on_error } = options;
 
   // ─── State ────────────────────────────────────────────────────────────────
   const [phase, setPhase] = React.useState<OrchestratorPhase>("idle");
@@ -86,11 +97,16 @@ export function useVoiceOrchestrator(
   const processingTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionIdRef = React.useRef<string | null>(null);
 
+  // New refs for IDB persistence
+  const recordingIdRef = React.useRef<string | null>(null);
+  const idempotencyKeyRef = React.useRef<string | null>(null);
+  const chunkIndexCounterRef = React.useRef(0);
+
   // ─── Hooks ────────────────────────────────────────────────────────────────
   const { mutateAsync: createSession } = useCreateVoiceSession();
   const { mutateAsync: uploadAudio } = useUploadAudio();
   const { mutateAsync: parseTranscription } = useParseTranscription();
-  const { error: showError } = useToast();
+  const { error: showError, warning: showWarning } = useToast();
 
   // ─── Reset state when patient changes ───────────────────────────────────
   React.useEffect(() => {
@@ -152,17 +168,41 @@ export function useVoiceOrchestrator(
     setFrequencyData(new Array(WAVEFORM_BAR_COUNT).fill(0));
   }, []);
 
-  // ─── Upload a chunk ───────────────────────────────────────────────────────
+  // ─── Upload the complete blob ───────────────────────────────────────────
 
   const uploadChunk = React.useCallback(
-    async (blob: Blob, index: number, sid: string) => {
+    async (blob: Blob, index: number, sid: string, idempotencyKey?: string) => {
+      const rid = recordingIdRef.current;
+
+      // Check online status — if offline, keep data in IDB for recovery
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (rid) await updateRecordingStatus(rid, "failed", "Sin conexion a internet");
+        showWarning(
+          "Sin conexion",
+          "El audio se guardo localmente. Se subira cuando se recupere la conexion.",
+        );
+        return;
+      }
+
       try {
-        await uploadAudio({ sessionId: sid, audioBlob: blob, chunkIndex: index });
+        if (rid) await updateRecordingStatus(rid, "uploading");
+        await uploadAudio({
+          sessionId: sid,
+          audioBlob: blob,
+          chunkIndex: index,
+          idempotencyKey,
+        });
+        // Upload succeeded — clean up IDB data
+        if (rid) {
+          await updateRecordingStatus(rid, "uploaded");
+          await cleanupRecording(rid);
+        }
       } catch {
-        // Error toast handled by useUploadAudio hook
+        // Upload failed — IDB data remains for recovery
+        if (rid) await updateRecordingStatus(rid, "failed", "Error al subir el audio");
       }
     },
-    [uploadAudio],
+    [uploadAudio, showWarning],
   );
 
   // ─── Cleanup media ────────────────────────────────────────────────────────
@@ -204,14 +244,21 @@ export function useVoiceOrchestrator(
     setElapsedSeconds(0);
     setError(null);
     setParseResults(null);
+    chunkIndexCounterRef.current = 0;
     if (processingTimeoutRef.current) {
       clearTimeout(processingTimeoutRef.current);
       processingTimeoutRef.current = null;
     }
     setPhase("requesting_mic");
 
-    // 1. Create session
-    let sid: string;
+    // Generate client-side IDs for IDB persistence + idempotency
+    const recordingId = crypto.randomUUID();
+    const idempotencyKey = crypto.randomUUID();
+    recordingIdRef.current = recordingId;
+    idempotencyKeyRef.current = idempotencyKey;
+
+    // 1. Create session (server-side)
+    let sid: string | null = null;
     try {
       const session = await createSession({ patient_id, context });
       sid = session.id;
@@ -219,11 +266,34 @@ export function useVoiceOrchestrator(
       sessionIdRef.current = sid;
       on_session_created?.(sid);
     } catch {
+      // Session creation failed — recording can still proceed with IDB persistence.
+      // Recovery hook will call createSession later.
+    }
+
+    // Persist recording metadata to IndexedDB (even without session_id)
+    await createRecordingEntry({
+      recording_id: recordingId,
+      session_id: sid,
+      patient_id,
+      patient_name: patient_name || "",
+      context,
+      mime_type: "audio/webm",
+      started_at: Date.now(),
+      elapsed_seconds: 0,
+      idempotency_key: idempotencyKey,
+    });
+
+    // If session creation failed, update IDB and bail
+    if (!sid) {
       setPhase("error");
       setError("No se pudo crear la sesion de voz.");
       on_error?.("No se pudo crear la sesion de voz.");
+      await updateRecordingStatus(recordingId, "failed", "No se pudo crear sesion");
       return;
     }
+
+    // Update IDB with session_id
+    await updateRecordingSessionId(recordingId, sid);
 
     // 2. Request mic access
     let stream: MediaStream;
@@ -245,6 +315,7 @@ export function useVoiceOrchestrator(
       }
       setPhase("error");
       on_error?.("Error de microfono");
+      await cleanupRecording(recordingId);
       return;
     }
 
@@ -272,14 +343,17 @@ export function useVoiceOrchestrator(
         : "audio/mp4";
     mimeTypeRef.current = mimeType;
 
-    // 5. Create MediaRecorder — no timeslice, accumulate all data
+    // 5. Create MediaRecorder with 10s timeslice for progressive IDB persistence
     const recorder = new MediaRecorder(stream, { mimeType });
     mediaRecorderRef.current = recorder;
     chunksRef.current = [];
 
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
+        const idx = chunkIndexCounterRef.current++;
         chunksRef.current.push(event.data);
+        // Fire-and-forget persist to IndexedDB
+        persistChunk(recordingId, idx, event.data).catch(() => {});
       }
     };
 
@@ -287,21 +361,31 @@ export function useVoiceOrchestrator(
       setPhase("recording");
       setElapsedSeconds(0);
       timerRef.current = setInterval(() => {
-        setElapsedSeconds((prev) => prev + 1);
+        setElapsedSeconds((prev) => {
+          const next = prev + 1;
+          // Periodically update elapsed_seconds in IDB (every 10s)
+          if (next % 10 === 0) {
+            updateRecordingElapsed(recordingId, next).catch(() => {});
+          }
+          return next;
+        });
       }, 1_000);
     };
 
     recorder.onstop = () => {
+      // Mark recording as stopped in IDB
+      updateRecordingStatus(recordingId, "stopped").catch(() => {});
+
       // Upload the complete recording as a single file
       if (chunksRef.current.length > 0 && !isCancelledRef.current) {
         const blob = new Blob(chunksRef.current, { type: mimeType });
         chunksRef.current = [];
-        uploadChunk(blob, 0, sessionIdRef.current ?? sid);
+        uploadChunk(blob, 0, sessionIdRef.current ?? sid!, idempotencyKey);
       }
     };
 
-    // 6. Start (no timeslice — ondataavailable fires once on stop)
-    recorder.start();
+    // 6. Start with timeslice — ondataavailable fires every 10s
+    recorder.start(TIMESLICE_MS);
     startWaveformAnimation(analyser);
 
     // 7. Auto-stop at max duration to prevent oversized files
@@ -315,6 +399,7 @@ export function useVoiceOrchestrator(
   }, [
     phase,
     patient_id,
+    patient_name,
     context,
     createSession,
     on_session_created,
@@ -366,19 +451,46 @@ export function useVoiceOrchestrator(
 
   // ─── Cancel ───────────────────────────────────────────────────────────────
 
-  const cancel = React.useCallback(() => {
-    isCancelledRef.current = true;
-    cleanupMedia();
-    if (processingTimeoutRef.current) {
-      clearTimeout(processingTimeoutRef.current);
-      processingTimeoutRef.current = null;
+  const cancel = React.useCallback(
+    (opts?: { discard?: boolean }) => {
+      isCancelledRef.current = true;
+      cleanupMedia();
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+        processingTimeoutRef.current = null;
+      }
+
+      // Only clean up IDB when explicitly discarding (user pressed cancel)
+      if (opts?.discard && recordingIdRef.current) {
+        cleanupRecording(recordingIdRef.current).catch(() => {});
+      }
+
+      setPhase("idle");
+      setSessionId(null);
+      setElapsedSeconds(0);
+      setParseResults(null);
+      setError(null);
+    },
+    [cleanupMedia],
+  );
+
+  // ─── Visibility change guard (iOS Safari) ─────────────────────────────────
+
+  React.useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "hidden" && mediaRecorderRef.current?.state === "recording") {
+        // Force-flush current audio segment to ondataavailable → IndexedDB
+        try {
+          mediaRecorderRef.current.requestData();
+        } catch {
+          // requestData may throw if recorder is in an unexpected state
+        }
+      }
     }
-    setPhase("idle");
-    setSessionId(null);
-    setElapsedSeconds(0);
-    setParseResults(null);
-    setError(null);
-  }, [cleanupMedia]);
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
 
   // ─── Processing timeout ──────────────────────────────────────────────────
 
@@ -426,6 +538,7 @@ export function useVoiceOrchestrator(
   }, [phase, sessionId, transcriptionStatus?.all_completed]);
 
   // ─── Cleanup on unmount ───────────────────────────────────────────────────
+  // Do NOT discard IDB data on unmount — leave for recovery hook
 
   React.useEffect(() => {
     return () => {

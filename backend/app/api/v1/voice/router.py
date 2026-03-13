@@ -10,7 +10,7 @@ Endpoint map:
   PUT  /voice/settings                          -- V-05b: Update voice settings
 """
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Header, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.context import AuthenticatedUser
@@ -77,6 +77,7 @@ async def upload_audio(
     session_id: str,
     request: Request,
     audio: UploadFile = File(...),
+    x_idempotency_key: str | None = Header(None, alias="X-Idempotency-Key"),
     current_user: AuthenticatedUser = Depends(
         require_permission("voice:write")
     ),
@@ -86,6 +87,10 @@ async def upload_audio(
 
     Accepts audio files in webm, ogg, wav, mpeg, or mp4 format.
     The audio is stored in S3 and a transcription job is queued.
+
+    Supports idempotent retries via X-Idempotency-Key header: if a
+    transcription with the same session_id + key already exists, the
+    existing result is returned without creating a duplicate.
     """
     audio_data = await audio.read()
     content_type = audio.content_type or "audio/webm"
@@ -96,6 +101,7 @@ async def upload_audio(
         tenant_id=current_user.tenant.tenant_id,
         audio_data=audio_data,
         content_type=content_type,
+        idempotency_key=x_idempotency_key,
     )
 
     return AudioUploadResponse(**result)

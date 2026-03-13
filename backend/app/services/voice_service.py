@@ -376,6 +376,7 @@ class VoiceService:
         tenant_id: str,
         audio_data: bytes,
         content_type: str = "audio/webm",
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Upload an audio chunk for transcription.
 
@@ -457,6 +458,30 @@ class VoiceService:
                 status_code=422,
             )
 
+        # Idempotency check: if same session + key already exists, return it
+        if idempotency_key:
+            existing_result = await db.execute(
+                select(VoiceTranscription).where(
+                    VoiceTranscription.session_id == sid,
+                    VoiceTranscription.idempotency_key == idempotency_key,
+                )
+            )
+            existing = existing_result.scalar_one_or_none()
+            if existing:
+                logger.info(
+                    "Idempotent upload: returning existing transcription=%s "
+                    "for session=%s key=%s",
+                    str(existing.id)[:8],
+                    session_id[:8],
+                    idempotency_key[:8],
+                )
+                return {
+                    "transcription_id": str(existing.id),
+                    "session_id": str(existing.session_id),
+                    "s3_key": existing.s3_key,
+                    "status": existing.status,
+                }
+
         # Calculate chunk index
         chunk_count_result = await db.execute(
             select(func.count(VoiceTranscription.id)).where(
@@ -509,6 +534,7 @@ class VoiceService:
             chunk_index=chunk_index,
             s3_key=s3_key,
             status="pending",
+            idempotency_key=idempotency_key,
         )
         db.add(transcription)
         await db.flush()

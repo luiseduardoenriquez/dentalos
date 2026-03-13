@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost, apiClient } from "@/lib/api-client";
+import { isAxiosError } from "axios";
 import { useToast } from "@/lib/hooks/use-toast";
 import { buildQueryString } from "@/lib/utils";
 
@@ -122,14 +123,23 @@ export function useUploadAudio() {
       sessionId,
       audioBlob,
       chunkIndex,
+      idempotencyKey,
     }: {
       sessionId: string;
       audioBlob: Blob;
       chunkIndex: number;
+      idempotencyKey?: string;
     }) => {
       const formData = new FormData();
       formData.append("audio", audioBlob, `chunk_${chunkIndex}.webm`);
       formData.append("chunk_index", String(chunkIndex));
+
+      const headers: Record<string, string> = {
+        "Content-Type": "multipart/form-data",
+      };
+      if (idempotencyKey) {
+        headers["X-Idempotency-Key"] = idempotencyKey;
+      }
 
       const { data } = await apiClient.post<{
         transcription_id: string;
@@ -140,14 +150,21 @@ export function useUploadAudio() {
         `/voice/sessions/${sessionId}/upload`,
         formData,
         {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
+          headers,
           timeout: 60_000, // 60s timeout for audio uploads
         },
       );
       return data;
     },
+    retry: (failureCount, err) => {
+      if (failureCount >= 3) return false;
+      // Don't retry client errors (4xx) — only network errors and 5xx
+      if (isAxiosError(err) && err.response?.status && err.response.status < 500) {
+        return false;
+      }
+      return true;
+    },
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30_000),
     onError: (err: unknown) => {
       const message =
         err instanceof Error
