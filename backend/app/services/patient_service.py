@@ -318,6 +318,7 @@ class PatientService:
         # Invalidate search cache for this tenant so the new patient appears
         await cache_delete_pattern(_invalidate_search_cache(tenant_id))
 
+        await db.refresh(patient)  # Reload server-generated cols after flush
         data = _patient_to_dict(patient)
         data["clinical_summary"] = await _get_clinical_summary(db, patient.id)
         return data

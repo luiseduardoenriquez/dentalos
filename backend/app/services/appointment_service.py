@@ -194,6 +194,7 @@ class AppointmentService:
         status: str | None = None,
         cursor: str | None = None,
         page_size: int = 50,
+        tenant_tz: Any | None = None,
     ) -> dict[str, Any]:
         """List appointments in two modes.
 
@@ -229,6 +230,7 @@ class AppointmentService:
                 filters=filters,
                 date_from=date_from,
                 date_to=date_to,
+                tenant_tz=tenant_tz,
             )
 
         # Default: cursor-based list mode
@@ -996,6 +998,7 @@ class AppointmentService:
         filters: list,
         date_from: datetime | None,
         date_to: datetime | None,
+        tenant_tz: Any | None = None,
     ) -> dict[str, Any]:
         """Calendar mode: group appointments by date within the range.
 
@@ -1043,11 +1046,19 @@ class AppointmentService:
         )
         appointments = result.scalars().all()
 
-        # Build date-keyed dict with every date in range
+        # Build date-keyed dict with every date in range.
+        # Use tenant timezone for date bucketing so that e.g. 7 PM COT
+        # (which is midnight UTC next day) lands in the correct local date.
         dates: dict[str, list[dict[str, Any]]] = {}
-        current_date = date_from.date() if hasattr(date_from, "date") else date_from
-        end_date = date_to.date() if hasattr(date_to, "date") else date_to
-        while current_date <= end_date:
+        if tenant_tz:
+            # Convert UTC boundaries back to local dates for key generation
+            local_from = date_from.astimezone(tenant_tz).date()
+            local_to = date_to.astimezone(tenant_tz).date()
+        else:
+            local_from = date_from.date() if hasattr(date_from, "date") else date_from
+            local_to = date_to.date() if hasattr(date_to, "date") else date_to
+        current_date = local_from
+        while current_date <= local_to:
             dates[current_date.isoformat()] = []
             current_date += timedelta(days=1)
 
@@ -1057,9 +1068,12 @@ class AppointmentService:
         patient_names = await self._batch_resolve_patient_names(db, patient_ids)
         doctor_names = await self._batch_resolve_doctor_names(db, doctor_ids)
 
-        # Populate with appointments
+        # Populate with appointments, bucketing by local date
         for appt in appointments:
-            appt_date = appt.start_time.date().isoformat()
+            if tenant_tz:
+                appt_date = appt.start_time.astimezone(tenant_tz).date().isoformat()
+            else:
+                appt_date = appt.start_time.date().isoformat()
             if appt_date in dates:
                 dates[appt_date].append(
                     self._to_dict(

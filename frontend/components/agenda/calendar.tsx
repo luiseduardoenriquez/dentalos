@@ -149,6 +149,16 @@ function isToday(date: Date): boolean {
   );
 }
 
+/** Convert a UTC ISO timestamp to a YYYY-MM-DD string in COT timezone. */
+function toLocalDate(isoUtc: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(isoUtc));
+}
+
 // ─── Appointment Block (Day/Week) ─────────────────────────────────────────────
 
 interface AppointmentBlockProps {
@@ -213,7 +223,7 @@ interface DayViewProps {
 
 function DayView({ date, slots, onAppointmentClick, onSlotClick }: DayViewProps) {
   const dateStr = toISODate(date);
-  const daySlots = slots.filter((s) => s.start_time.startsWith(dateStr));
+  const daySlots = slots.filter((s) => toLocalDate(s.start_time) === dateStr);
 
   function handleSlotClick(time: string) {
     // Build a full ISO datetime: "YYYY-MM-DDTHH:MM:00"
@@ -298,7 +308,7 @@ function WeekView({ weekStart, slots, onAppointmentClick, onSlotClick }: WeekVie
         {/* One column per day */}
         {days.map((day) => {
           const dateStr = toISODate(day);
-          const daySlots = slots.filter((s) => s.start_time.startsWith(dateStr));
+          const daySlots = slots.filter((s) => toLocalDate(s.start_time) === dateStr);
 
           return (
             <div

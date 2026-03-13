@@ -14,10 +14,11 @@ Endpoint map:
   GET  /appointments/{appointment_id}/hmac-token  — AP-11: Generate HMAC token
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from zoneinfo import ZoneInfo
 
 from app.auth.context import AuthenticatedUser
 from app.auth.dependencies import get_current_user, require_permission
@@ -102,6 +103,15 @@ async def get_calendar_view(
     parsed_from = datetime.fromisoformat(date_from)
     parsed_to = datetime.fromisoformat(date_to)
 
+    # Fix timezone: interpret naive datetimes as tenant local time (COT)
+    # and convert to UTC for DB comparison. The tenant timezone is available
+    # on the auth context but defaults to America/Bogota for Colombia.
+    tenant_tz = ZoneInfo(getattr(current_user.tenant, "timezone", "America/Bogota") or "America/Bogota")
+    if parsed_from.tzinfo is None:
+        parsed_from = parsed_from.replace(tzinfo=tenant_tz).astimezone(timezone.utc)
+    if parsed_to.tzinfo is None:
+        parsed_to = parsed_to.replace(tzinfo=tenant_tz).astimezone(timezone.utc)
+
     result = await appointment_service.list_appointments(
         db=db,
         mode="calendar",
@@ -109,6 +119,7 @@ async def get_calendar_view(
         patient_id=patient_id,
         date_from=parsed_from,
         date_to=parsed_to,
+        tenant_tz=tenant_tz,
     )
 
     return CalendarResponse(**result)
@@ -137,10 +148,21 @@ async def list_appointments(
     parsed_from: datetime | None = None
     parsed_to: datetime | None = None
 
+    # Interpret naive datetimes as tenant local time (COT) and convert to UTC.
+    # Date-only strings (YYYY-MM-DD) get time 00:00 for from and 23:59:59 for to.
+    tenant_tz = ZoneInfo(getattr(current_user.tenant, "timezone", "America/Bogota") or "America/Bogota")
     if date_from:
         parsed_from = datetime.fromisoformat(date_from)
+        if parsed_from.tzinfo is None:
+            parsed_from = parsed_from.replace(tzinfo=tenant_tz).astimezone(timezone.utc)
     if date_to:
         parsed_to = datetime.fromisoformat(date_to)
+        if parsed_to.tzinfo is None:
+            # If date-only (no time component), set to end of day
+            if "T" not in date_to:
+                parsed_to = parsed_to.replace(hour=23, minute=59, second=59, tzinfo=tenant_tz).astimezone(timezone.utc)
+            else:
+                parsed_to = parsed_to.replace(tzinfo=tenant_tz).astimezone(timezone.utc)
 
     result = await appointment_service.list_appointments(
         db=db,

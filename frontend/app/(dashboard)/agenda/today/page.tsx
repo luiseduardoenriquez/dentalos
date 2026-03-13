@@ -30,7 +30,14 @@ import type { AppointmentStatus } from "@/lib/validations/appointment";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getToday(): { from: string; to: string } {
-  const today = new Date().toISOString().slice(0, 10);
+  // Use Colombia timezone to get the correct local date
+  // (toISOString() returns UTC which shifts after 7 PM COT)
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
   return { from: today, to: today };
 }
 
