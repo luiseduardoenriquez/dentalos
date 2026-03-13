@@ -13,10 +13,11 @@ import type { VoiceContext } from "@/lib/stores/voice-store";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CHUNK_DURATION_MS = 30_000;
 const WAVEFORM_BAR_COUNT = 16;
 /** Max time (ms) to wait for transcription + parsing before timing out */
 const PROCESSING_TIMEOUT_MS = 90_000;
+/** Max recording duration (5 min). WebM/Opus at ~15KB/s ≈ 4.5 MB — well under Whisper's 25 MB limit. */
+const MAX_RECORDING_MS = 5 * 60 * 1_000;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -75,22 +76,39 @@ export function useVoiceOrchestrator(
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
   const streamRef = React.useRef<MediaStream | null>(null);
   const chunksRef = React.useRef<Blob[]>([]);
-  const chunkIndexRef = React.useRef(0);
   const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
-  const chunkIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const maxDurationTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const animationFrameRef = React.useRef<number | null>(null);
   const analyserRef = React.useRef<AnalyserNode | null>(null);
   const audioContextRef = React.useRef<AudioContext | null>(null);
-  const pendingUploadsRef = React.useRef(0);
   const mimeTypeRef = React.useRef<string>("audio/webm");
   const isCancelledRef = React.useRef(false);
   const processingTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionIdRef = React.useRef<string | null>(null);
 
   // ─── Hooks ────────────────────────────────────────────────────────────────
   const { mutateAsync: createSession } = useCreateVoiceSession();
   const { mutateAsync: uploadAudio } = useUploadAudio();
   const { mutateAsync: parseTranscription } = useParseTranscription();
   const { error: showError } = useToast();
+
+  // ─── Reset state when patient changes ───────────────────────────────────
+  React.useEffect(() => {
+    // If patient changes mid-flow, abort any in-progress recording and reset
+    cleanupMedia();
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
+    isCancelledRef.current = true;
+    setPhase("idle");
+    setSessionId(null);
+    sessionIdRef.current = null;
+    setElapsedSeconds(0);
+    setParseResults(null);
+    setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patient_id]);
 
   // Poll transcription status only when in processing phase
   const shouldPollStatus = phase === "processing" && sessionId !== null;
@@ -138,13 +156,10 @@ export function useVoiceOrchestrator(
 
   const uploadChunk = React.useCallback(
     async (blob: Blob, index: number, sid: string) => {
-      pendingUploadsRef.current += 1;
       try {
         await uploadAudio({ sessionId: sid, audioBlob: blob, chunkIndex: index });
       } catch {
         // Error toast handled by useUploadAudio hook
-      } finally {
-        pendingUploadsRef.current -= 1;
       }
     },
     [uploadAudio],
@@ -157,16 +172,11 @@ export function useVoiceOrchestrator(
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    if (chunkIntervalRef.current) {
-      clearInterval(chunkIntervalRef.current);
-      chunkIntervalRef.current = null;
+    if (maxDurationTimerRef.current) {
+      clearTimeout(maxDurationTimerRef.current);
+      maxDurationTimerRef.current = null;
     }
     stopWaveformAnimation();
-
-    const recorder = mediaRecorderRef.current;
-    if (recorder && recorder.state !== "inactive") {
-      recorder.stop();
-    }
 
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -185,11 +195,19 @@ export function useVoiceOrchestrator(
   // ─── Start recording ──────────────────────────────────────────────────────
 
   const startRecording = React.useCallback(async () => {
-    if (phase !== "idle" && phase !== "done") return;
+    if (phase !== "idle" && phase !== "done" && phase !== "error") return;
 
+    // Reset all state from any previous recording (same or different patient)
     isCancelledRef.current = false;
+    setSessionId(null);
+    sessionIdRef.current = null;
+    setElapsedSeconds(0);
     setError(null);
     setParseResults(null);
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
     setPhase("requesting_mic");
 
     // 1. Create session
@@ -198,6 +216,7 @@ export function useVoiceOrchestrator(
       const session = await createSession({ patient_id, context });
       sid = session.id;
       setSessionId(sid);
+      sessionIdRef.current = sid;
       on_session_created?.(sid);
     } catch {
       setPhase("error");
@@ -253,12 +272,10 @@ export function useVoiceOrchestrator(
         : "audio/mp4";
     mimeTypeRef.current = mimeType;
 
-    // 5. Create MediaRecorder
+    // 5. Create MediaRecorder — no timeslice, accumulate all data
     const recorder = new MediaRecorder(stream, { mimeType });
     mediaRecorderRef.current = recorder;
     chunksRef.current = [];
-    chunkIndexRef.current = 0;
-    pendingUploadsRef.current = 0;
 
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
@@ -275,33 +292,26 @@ export function useVoiceOrchestrator(
     };
 
     recorder.onstop = () => {
-      // Upload last chunk
-      if (chunksRef.current.length > 0) {
+      // Upload the complete recording as a single file
+      if (chunksRef.current.length > 0 && !isCancelledRef.current) {
         const blob = new Blob(chunksRef.current, { type: mimeType });
-        const currentIndex = chunkIndexRef.current;
-        chunkIndexRef.current += 1;
         chunksRef.current = [];
-        uploadChunk(blob, currentIndex, sid);
+        uploadChunk(blob, 0, sessionIdRef.current ?? sid);
       }
     };
 
-    // 6. Start
-    recorder.start(CHUNK_DURATION_MS);
+    // 6. Start (no timeslice — ondataavailable fires once on stop)
+    recorder.start();
     startWaveformAnimation(analyser);
 
-    // 7. Auto-chunk interval
-    chunkIntervalRef.current = setInterval(() => {
+    // 7. Auto-stop at max duration to prevent oversized files
+    maxDurationTimerRef.current = setTimeout(() => {
       if (recorder.state === "recording") {
-        recorder.requestData();
-        if (chunksRef.current.length > 0) {
-          const blob = new Blob(chunksRef.current, { type: mimeType });
-          const currentIndex = chunkIndexRef.current;
-          chunkIndexRef.current += 1;
-          chunksRef.current = [];
-          uploadChunk(blob, currentIndex, sid);
-        }
+        recorder.stop();
+        cleanupMedia();
+        setPhase("processing");
       }
-    }, CHUNK_DURATION_MS);
+    }, MAX_RECORDING_MS);
   }, [
     phase,
     patient_id,
@@ -312,6 +322,7 @@ export function useVoiceOrchestrator(
     showError,
     uploadChunk,
     startWaveformAnimation,
+    cleanupMedia,
   ]);
 
   // ─── Stop recording ───────────────────────────────────────────────────────
@@ -319,10 +330,39 @@ export function useVoiceOrchestrator(
   const stopRecording = React.useCallback(() => {
     if (phase !== "recording") return;
     setPhase("stopping");
-    cleanupMedia();
-    // Transition to processing — wait for uploads to drain, then poll status
+
+    // Stop the recorder — this triggers onstop which uploads the full blob
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    }
+
+    // Clean up media tracks and timers (but recorder.onstop fires first)
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (maxDurationTimerRef.current) {
+      clearTimeout(maxDurationTimerRef.current);
+      maxDurationTimerRef.current = null;
+    }
+    stopWaveformAnimation();
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+
+    mediaRecorderRef.current = null;
+    analyserRef.current = null;
+
+    // Transition to processing — poll transcription status
     setPhase("processing");
-  }, [phase, cleanupMedia]);
+  }, [phase, stopWaveformAnimation]);
 
   // ─── Cancel ───────────────────────────────────────────────────────────────
 
