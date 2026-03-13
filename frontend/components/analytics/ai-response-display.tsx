@@ -27,6 +27,21 @@ import {
   Hash,
   Lightbulb,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart as RechartsPie,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 import { cn } from "@/lib/utils";
 import type { AIQueryResponse } from "@/components/analytics/ai-query-bar";
 
@@ -156,38 +171,154 @@ function DataTable({ data }: { data: Record<string, unknown>[] }) {
   );
 }
 
-/**
- * Placeholder card for chart types whose rendering is deferred.
- * Shows a visual placeholder with the chart type label.
- */
-function ChartPlaceholder({
-  chartType,
-  data,
-}: {
-  chartType: AIQueryResponse["chart_type"];
-  data: Record<string, unknown>[];
-}) {
-  const config = CHART_TYPE_CONFIG[chartType];
-  const Icon = config.Icon;
+// ─── Chart helpers ────────────────────────────────────────────────────────────
+
+const CHART_COLORS = ["#0891B2", "#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+
+function detectColumns(data: Record<string, unknown>[]) {
+  if (data.length === 0) return { categoryKey: "", numericKeys: [] as string[] };
+  const first = data[0];
+  let categoryKey = "";
+  const numericKeys: string[] = [];
+  for (const [key, value] of Object.entries(first)) {
+    if (!categoryKey && typeof value === "string") {
+      categoryKey = key;
+    } else if (typeof value === "number") {
+      numericKeys.push(key);
+    }
+  }
+  if (!categoryKey && Object.keys(first).length > 0) {
+    categoryKey = Object.keys(first)[0];
+  }
+  return { categoryKey, numericKeys };
+}
+
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--popover))] px-3 py-2 text-sm shadow-md">
+      <p className="mb-1 font-medium text-[hsl(var(--foreground))]">{label}</p>
+      {payload.map((entry: any, i: number) => (
+        <p key={i} className="text-xs text-[hsl(var(--muted-foreground))]">
+          <span style={{ color: entry.color }}>●</span>{" "}
+          {entry.name?.replace(/_/g, " ")}:{" "}
+          <span className="font-medium text-[hsl(var(--foreground))]">
+            {typeof entry.value === "number"
+              ? entry.value.toLocaleString("es-CO")
+              : entry.value}
+          </span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function truncateLabel(label: string, max = 15) {
+  return label.length > max ? label.slice(0, max) + "…" : label;
+}
+
+function BarChartDisplay({ data }: { data: Record<string, unknown>[] }) {
+  const { categoryKey, numericKeys } = detectColumns(data);
+  if (numericKeys.length === 0) return <DataTable data={data} />;
 
   return (
     <div className="space-y-3">
-      {/* Visual placeholder */}
-      <div
-        className={cn(
-          "flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed",
-          "border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 py-6",
-        )}
-      >
-        <Icon className={cn("h-8 w-8", config.color)} />
-        <p className="text-sm font-medium text-[hsl(var(--muted-foreground))]">
-          Gráfico de {config.label.toLowerCase()}
-        </p>
-        <p className="text-xs text-[hsl(var(--muted-foreground))]/70">
-          Visualización gráfica próximamente — datos disponibles abajo
-        </p>
-      </div>
-      {/* Table fallback */}
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-[hsl(var(--border))]" />
+          <XAxis
+            dataKey={categoryKey}
+            tick={{ fontSize: 12 }}
+            tickFormatter={(v) => truncateLabel(String(v))}
+            className="text-[hsl(var(--muted-foreground))]"
+          />
+          <YAxis tick={{ fontSize: 12 }} className="text-[hsl(var(--muted-foreground))]" />
+          <Tooltip content={<CustomTooltip />} />
+          {numericKeys.length > 1 && <Legend />}
+          {numericKeys.map((key, i) => (
+            <Bar
+              key={key}
+              dataKey={key}
+              name={key.replace(/_/g, " ")}
+              fill={CHART_COLORS[i % CHART_COLORS.length]}
+              radius={[4, 4, 0, 0]}
+            />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+      <DataTable data={data} />
+    </div>
+  );
+}
+
+function LineChartDisplay({ data }: { data: Record<string, unknown>[] }) {
+  const { categoryKey, numericKeys } = detectColumns(data);
+  if (numericKeys.length === 0) return <DataTable data={data} />;
+
+  return (
+    <div className="space-y-3">
+      <ResponsiveContainer width="100%" height={280}>
+        <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-[hsl(var(--border))]" />
+          <XAxis
+            dataKey={categoryKey}
+            tick={{ fontSize: 12 }}
+            tickFormatter={(v) => truncateLabel(String(v))}
+            className="text-[hsl(var(--muted-foreground))]"
+          />
+          <YAxis tick={{ fontSize: 12 }} className="text-[hsl(var(--muted-foreground))]" />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend />
+          {numericKeys.map((key, i) => (
+            <Line
+              key={key}
+              type="monotone"
+              dataKey={key}
+              name={key.replace(/_/g, " ")}
+              stroke={CHART_COLORS[i % CHART_COLORS.length]}
+              strokeWidth={2}
+              dot={{ r: 3 }}
+              activeDot={{ r: 5 }}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+      <DataTable data={data} />
+    </div>
+  );
+}
+
+function PieChartDisplay({ data }: { data: Record<string, unknown>[] }) {
+  const { categoryKey, numericKeys } = detectColumns(data);
+  if (numericKeys.length === 0) return <DataTable data={data} />;
+
+  const valueKey = numericKeys[0];
+
+  return (
+    <div className="space-y-3">
+      <ResponsiveContainer width="100%" height={280}>
+        <RechartsPie>
+          <Pie
+            data={data}
+            dataKey={valueKey}
+            nameKey={categoryKey}
+            cx="50%"
+            cy="50%"
+            innerRadius={50}
+            outerRadius={100}
+            paddingAngle={2}
+            label={({ name, percent }: { name?: string; percent?: number }) =>
+              `${truncateLabel(String(name ?? ""), 12)} ${((percent ?? 0) * 100).toFixed(0)}%`
+            }
+          >
+            {data.map((_, i) => (
+              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip content={<CustomTooltip />} />
+          <Legend />
+        </RechartsPie>
+      </ResponsiveContainer>
       <DataTable data={data} />
     </div>
   );
@@ -268,7 +399,7 @@ function EmptyState() {
  * - response is null: empty state with helpful example questions
  * - chart_type "number": big metric tiles
  * - chart_type "table": full data table
- * - chart_type "bar" | "line" | "pie": visual placeholder + table fallback
+ * - chart_type "bar" | "line" | "pie": Recharts visualization + data table
  */
 export function AIResponseDisplay({
   response,
@@ -331,13 +462,14 @@ export function AIResponseDisplay({
             {response.chart_type === "table" && (
               <DataTable data={response.data} />
             )}
-            {(response.chart_type === "bar" ||
-              response.chart_type === "line" ||
-              response.chart_type === "pie") && (
-              <ChartPlaceholder
-                chartType={response.chart_type}
-                data={response.data}
-              />
+            {response.chart_type === "bar" && (
+              <BarChartDisplay data={response.data} />
+            )}
+            {response.chart_type === "line" && (
+              <LineChartDisplay data={response.data} />
+            )}
+            {response.chart_type === "pie" && (
+              <PieChartDisplay data={response.data} />
             )}
           </CardContent>
         )}

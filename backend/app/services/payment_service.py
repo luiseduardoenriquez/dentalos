@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.error_codes import BillingErrors
 from app.core.exceptions import BillingError, ResourceNotFoundError
 from app.core.queue import publish_message
+from app.models.tenant.cash_register import CashMovement, CashRegister
 from app.models.tenant.invoice import Invoice
 from app.models.tenant.payment import Payment
 from app.models.tenant.payment_plan import PaymentPlan, PaymentPlanInstallment
@@ -151,6 +152,25 @@ class PaymentService:
         )
         db.add(payment)
         await db.flush()
+
+        # Bridge: create cash movement if there is an open cash register
+        register_result = await db.execute(
+            select(CashRegister).where(CashRegister.status == "open").limit(1)
+        )
+        open_register = register_result.scalar_one_or_none()
+        if open_register is not None:
+            movement = CashMovement(
+                register_id=open_register.id,
+                type="income",
+                amount_cents=amount,
+                payment_method=payment_method,
+                reference_id=payment.id,
+                reference_type="payment",
+                description=f"Pago factura {inv.invoice_number}",
+                recorded_by=uuid.UUID(received_by),
+            )
+            db.add(movement)
+            await db.flush()
 
         # Recalculate invoice balance
         inv = await invoice_service.recalculate_balance(db=db, invoice_id=iid)

@@ -15,6 +15,8 @@ class InvoiceItemCreate(BaseModel):
     unit_price: int = Field(..., ge=0)
     discount: int = Field(default=0, ge=0)
     tooth_number: int | None = None
+    treatment_plan_item_id: str | None = None
+    doctor_id: str | None = None
 
 
 class InvoiceCreate(BaseModel):
@@ -22,6 +24,7 @@ class InvoiceCreate(BaseModel):
 
     patient_id: str | None = None  # Override from path param; optional here
     quotation_id: str | None = None
+    treatment_plan_id: str | None = None  # Auto-generate items from treatment plan
     items: list[InvoiceItemCreate] | None = None
     due_date: date | None = None
     notes: str | None = None
@@ -43,6 +46,8 @@ class InvoiceItemResponse(BaseModel):
     line_total: int
     sort_order: int
     tooth_number: int | None = None
+    treatment_plan_item_id: str | None = None
+    doctor_id: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -68,6 +73,13 @@ class InvoiceResponse(BaseModel):
     notes: str | None = None
     items: list[InvoiceItemResponse] = []
     days_until_due: int | None = None
+    currency_code: str = "COP"
+    exchange_rate: float | None = None
+    exchange_rate_date: date | None = None
+    subtotal_formatted: str | None = None
+    total_formatted: str | None = None
+    amount_paid_formatted: str | None = None
+    balance_formatted: str | None = None
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -80,3 +92,24 @@ class InvoiceListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class BillableItemResponse(BaseModel):
+    """A treatment plan item that can be invoiced."""
+
+    treatment_plan_item_id: str
+    treatment_plan_id: str
+    cups_code: str
+    cups_description: str
+    estimated_cost: int
+    actual_cost: int
+    tooth_number: int | None = None
+    doctor_id: str | None = None
+    status: str
+
+
+class BillableItemsListResponse(BaseModel):
+    """List of billable items from active treatment plans."""
+
+    items: list[BillableItemResponse]
+    total: int

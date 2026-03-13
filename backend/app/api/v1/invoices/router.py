@@ -17,6 +17,7 @@ from app.core.audit import audit_action
 from app.core.database import get_tenant_db
 from app.core.exceptions import ResourceNotFoundError
 from app.schemas.invoice import (
+    BillableItemsListResponse,
     InvoiceCreate,
     InvoiceListResponse,
     InvoiceResponse,
@@ -27,6 +28,25 @@ router = APIRouter(
     prefix="/patients/{patient_id}/invoices",
     tags=["invoices"],
 )
+
+
+# ─── Billable items ────────────────────────────────────────────────────────
+
+
+@router.get("/billable-items", response_model=BillableItemsListResponse)
+async def get_billable_items(
+    patient_id: str,
+    current_user: AuthenticatedUser = Depends(
+        require_permission("billing:read")
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> BillableItemsListResponse:
+    """Return treatment plan items eligible for invoicing."""
+    result = await invoice_service.get_billable_items(
+        db=db,
+        patient_id=patient_id,
+    )
+    return BillableItemsListResponse(**result)
 
 
 # ─── B-01: Create invoice ───────────────────────────────────────────────────
@@ -42,7 +62,7 @@ async def create_invoice(
     ),
     db: AsyncSession = Depends(get_tenant_db),
 ) -> InvoiceResponse:
-    """Create a new invoice from quotation or manual items."""
+    """Create a new invoice from quotation, treatment plan, or manual items."""
     items = None
     if body.items:
         items = [i.model_dump() for i in body.items]
@@ -52,6 +72,7 @@ async def create_invoice(
         patient_id=patient_id,
         created_by=current_user.user_id,
         quotation_id=body.quotation_id,
+        treatment_plan_id=body.treatment_plan_id,
         items=items,
         due_date=body.due_date,
         notes=body.notes,

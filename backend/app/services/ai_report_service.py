@@ -17,6 +17,7 @@ Flow:
 """
 
 import logging
+import uuid
 from collections.abc import Callable, Coroutine
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -27,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.exceptions import DentalOSError
 from app.core.error_codes import AIReportErrors
+from app.models.tenant.ai_usage_log import AIUsageLog
 from app.models.tenant.appointment import Appointment
 from app.models.tenant.invoice import Invoice, InvoiceItem
 from app.models.tenant.patient import Patient
@@ -761,12 +763,14 @@ _AVAILABLE_QUERIES_MESSAGE = (
 async def process_ai_query(
     db: AsyncSession,
     question: str,
+    doctor_id: str | None = None,
 ) -> dict[str, Any]:
     """Process a natural language analytics question.
 
     Args:
         db: Tenant-scoped async database session.
         question: User's natural language question (3-500 chars).
+        doctor_id: Current doctor's user_id for usage tracking.
 
     Returns:
         dict with keys: answer, data, chart_type, query_key
@@ -846,13 +850,30 @@ async def process_ai_query(
     # 5. Build answer
     answer = explanation or f"Resultados de {query_key}."
 
+    inp_tokens = llm_response.get("input_tokens", 0)
+    out_tokens = llm_response.get("output_tokens", 0)
+
     logger.info(
         "AI report executed: query_key=%s rows=%d input_tokens=%d output_tokens=%d",
         query_key,
         len(data),
-        llm_response.get("input_tokens", 0),
-        llm_response.get("output_tokens", 0),
+        inp_tokens,
+        out_tokens,
     )
+
+    # Log usage for metrics aggregation
+    if doctor_id:
+        try:
+            db.add(AIUsageLog(
+                doctor_id=uuid.UUID(doctor_id),
+                feature="ai_report",
+                model=settings.anthropic_model,
+                input_tokens=inp_tokens,
+                output_tokens=out_tokens,
+            ))
+            await db.flush()
+        except Exception:
+            logger.warning("Failed to log AI report usage", exc_info=True)
 
     return {
         "answer": answer,

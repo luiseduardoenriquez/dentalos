@@ -25,6 +25,7 @@ from app.core.config import settings
 from app.core.error_codes import AITreatmentErrors
 from app.core.exceptions import DentalOSError, ResourceNotFoundError
 from app.models.tenant.ai_treatment import AITreatmentSuggestion
+from app.models.tenant.ai_usage_log import AIUsageLog
 from app.models.tenant.chatbot import ChatbotMessage
 from app.models.tenant.odontogram import OdontogramCondition
 from app.models.tenant.voice_session import VoiceParse, VoiceSession
@@ -671,9 +672,23 @@ class AITreatmentService:
         )
         c_row = chatbot_result.one()
 
-        total_calls = t_row.calls + v_row.calls + c_row.calls
-        total_input = t_row.inp + v_row.inp
-        total_output = t_row.out + v_row.out
+        # 4. AI usage logs (AI Reports and any future features)
+        logs_result = await db.execute(
+            select(
+                func.count(AIUsageLog.id).label("calls"),
+                func.coalesce(func.sum(AIUsageLog.input_tokens), 0).label("inp"),
+                func.coalesce(func.sum(AIUsageLog.output_tokens), 0).label("out"),
+            ).where(
+                AIUsageLog.doctor_id == did,
+                AIUsageLog.created_at >= dt_from,
+                AIUsageLog.created_at <= dt_to,
+            )
+        )
+        l_row = logs_result.one()
+
+        total_calls = t_row.calls + v_row.calls + c_row.calls + l_row.calls
+        total_input = t_row.inp + v_row.inp + l_row.inp
+        total_output = t_row.out + v_row.out + l_row.out
 
         return {
             "total_calls": total_calls,

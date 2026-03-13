@@ -165,6 +165,8 @@ class BillingErrors:
     INVOICE_NOT_PAYABLE = "BILLING_invoice_not_payable"
     PLAN_ALREADY_EXISTS = "BILLING_plan_already_exists"
     INSTALLMENT_NOT_FOUND = "BILLING_installment_not_found"
+    TREATMENT_PLAN_NOT_FOUND = "BILLING_treatment_plan_not_found"
+    TREATMENT_ITEM_ALREADY_INVOICED = "BILLING_treatment_item_already_invoiced"
 
 
 class ConsentErrors:

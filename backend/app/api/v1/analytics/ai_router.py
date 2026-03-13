@@ -46,7 +46,9 @@ async def ai_query(
     ORM query and returns aggregated results. No raw SQL is generated
     and no PHI is included in the response.
     """
-    result = await process_ai_query(db=db, question=body.question)
+    result = await process_ai_query(
+        db=db, question=body.question, doctor_id=current_user.user_id,
+    )
 
     return AIQueryResponse(
         answer=result["answer"],

@@ -22,6 +22,7 @@ from app.models.tenant.invoice import Invoice, InvoiceItem
 from app.models.tenant.patient import Patient
 from app.models.tenant.payment import Payment
 from app.models.tenant.quotation import Quotation
+from app.models.tenant.treatment_plan import TreatmentPlan, TreatmentPlanItem
 from app.schemas.queue import QueueMessage
 
 logger = logging.getLogger("dentalos.invoice")
@@ -86,6 +87,8 @@ def _item_to_dict(item: InvoiceItem) -> dict[str, Any]:
         "line_total": item.line_total,
         "sort_order": item.sort_order,
         "tooth_number": item.tooth_number,
+        "treatment_plan_item_id": str(item.treatment_plan_item_id) if item.treatment_plan_item_id else None,
+        "doctor_id": str(item.doctor_id) if item.doctor_id else None,
         "created_at": item.created_at,
         "updated_at": item.updated_at,
     }
@@ -135,6 +138,58 @@ def _invoice_to_dict(inv: Invoice) -> dict[str, Any]:
 class InvoiceService:
     """Stateless invoice service."""
 
+    async def get_billable_items(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+    ) -> dict[str, Any]:
+        """Return treatment plan items that can be invoiced.
+
+        Criteria:
+          - Plan status = 'active'
+          - Item status in ('completed', 'scheduled')
+          - Not already linked to an invoice_item
+        """
+        pid = uuid.UUID(patient_id)
+
+        # Subquery: treatment_plan_item_ids already invoiced
+        already_invoiced = (
+            select(InvoiceItem.treatment_plan_item_id)
+            .where(InvoiceItem.treatment_plan_item_id.isnot(None))
+            .scalar_subquery()
+        )
+
+        result = await db.execute(
+            select(TreatmentPlanItem, TreatmentPlan.doctor_id)
+            .join(TreatmentPlan, TreatmentPlanItem.treatment_plan_id == TreatmentPlan.id)
+            .where(
+                TreatmentPlan.patient_id == pid,
+                TreatmentPlan.status == "active",
+                TreatmentPlan.is_active.is_(True),
+                TreatmentPlanItem.status.in_(["completed", "scheduled"]),
+                TreatmentPlanItem.id.notin_(already_invoiced),
+            )
+            .order_by(TreatmentPlanItem.priority_order)
+        )
+        rows = result.all()
+
+        billable = []
+        for item, doctor_id in rows:
+            billable.append({
+                "treatment_plan_item_id": str(item.id),
+                "treatment_plan_id": str(item.treatment_plan_id),
+                "cups_code": item.cups_code,
+                "cups_description": item.cups_description,
+                "estimated_cost": item.estimated_cost,
+                "actual_cost": item.actual_cost,
+                "tooth_number": item.tooth_number,
+                "doctor_id": str(doctor_id) if doctor_id else None,
+                "status": item.status,
+            })
+
+        return {"items": billable, "total": len(billable)}
+
     async def create_invoice(
         self,
         *,
@@ -142,19 +197,22 @@ class InvoiceService:
         patient_id: str,
         created_by: str,
         quotation_id: str | None = None,
+        treatment_plan_id: str | None = None,
         items: list[dict[str, Any]] | None = None,
         due_date: date | None = None,
         notes: str | None = None,
         currency_code: str = "COP",
     ) -> dict[str, Any]:
-        """Create a new invoice from a quotation or manual items.
+        """Create a new invoice from a quotation, treatment plan, or manual items.
 
-        If quotation_id is provided and items is None, copies items from the
-        quotation and links the invoice to it.
+        Priority:
+          1. quotation_id → copies items from the quotation
+          2. treatment_plan_id → auto-generates items from billable plan items
+          3. manual items list
 
         Raises:
             DentalOSError (404) — patient not found.
-            BillingError (404) — quotation not found.
+            BillingError (404) — quotation or treatment plan not found.
         """
         pid = uuid.UUID(patient_id)
 
@@ -214,8 +272,72 @@ class InvoiceService:
                         "sort_order": idx,
                     })
 
+        # Auto-generate items from treatment plan (if no quotation and no manual items)
+        if treatment_plan_id and not invoice_items and not items:
+            tp_id = uuid.UUID(treatment_plan_id)
+            tp_result = await db.execute(
+                select(TreatmentPlan).where(
+                    TreatmentPlan.id == tp_id,
+                    TreatmentPlan.patient_id == pid,
+                    TreatmentPlan.status == "active",
+                    TreatmentPlan.is_active.is_(True),
+                )
+            )
+            plan = tp_result.scalar_one_or_none()
+            if plan is None:
+                raise BillingError(
+                    error=BillingErrors.TREATMENT_PLAN_NOT_FOUND,
+                    message="El plan de tratamiento no existe, no está activo, o no pertenece a este paciente.",
+                    status_code=404,
+                )
+
+            # Subquery: already invoiced plan items
+            already_invoiced = (
+                select(InvoiceItem.treatment_plan_item_id)
+                .where(InvoiceItem.treatment_plan_item_id.isnot(None))
+                .scalar_subquery()
+            )
+            billable_result = await db.execute(
+                select(TreatmentPlanItem).where(
+                    TreatmentPlanItem.treatment_plan_id == tp_id,
+                    TreatmentPlanItem.status.in_(["completed", "scheduled"]),
+                    TreatmentPlanItem.id.notin_(already_invoiced),
+                ).order_by(TreatmentPlanItem.priority_order)
+            )
+            billable_items = billable_result.scalars().all()
+
+            for idx, tpi in enumerate(billable_items):
+                price = tpi.actual_cost if tpi.actual_cost > 0 else tpi.estimated_cost
+                invoice_items.append({
+                    "description": tpi.cups_description,
+                    "cups_code": tpi.cups_code,
+                    "quantity": 1,
+                    "unit_price": price,
+                    "discount": 0,
+                    "tooth_number": tpi.tooth_number,
+                    "sort_order": idx,
+                    "treatment_plan_item_id": str(tpi.id),
+                    "doctor_id": str(plan.doctor_id) if plan.doctor_id else None,
+                })
+
         if items and not invoice_items:
             for idx, item in enumerate(items):
+                tpi_id = item.get("treatment_plan_item_id")
+                # Validate treatment_plan_item_id if provided
+                if tpi_id:
+                    tpi_uuid = uuid.UUID(tpi_id)
+                    # Check item exists and is not already invoiced
+                    existing = await db.execute(
+                        select(InvoiceItem.id).where(
+                            InvoiceItem.treatment_plan_item_id == tpi_uuid,
+                        )
+                    )
+                    if existing.scalar_one_or_none() is not None:
+                        raise BillingError(
+                            error=BillingErrors.TREATMENT_ITEM_ALREADY_INVOICED,
+                            message="El item del plan de tratamiento ya fue facturado.",
+                            status_code=409,
+                        )
                 invoice_items.append({
                     "description": item["description"],
                     "cups_code": item.get("cups_code"),
@@ -224,6 +346,8 @@ class InvoiceService:
                     "unit_price": item["unit_price"],
                     "discount": item.get("discount", 0),
                     "tooth_number": item.get("tooth_number"),
+                    "treatment_plan_item_id": tpi_id,
+                    "doctor_id": item.get("doctor_id"),
                     "sort_order": idx,
                 })
 
@@ -301,6 +425,8 @@ class InvoiceService:
 
         # Create items
         for ii in invoice_items:
+            tpi_id = ii.get("treatment_plan_item_id")
+            doc_id = ii.get("doctor_id")
             item = InvoiceItem(
                 invoice_id=invoice.id,
                 service_id=uuid.UUID(ii["service_id"]) if ii.get("service_id") else None,
@@ -312,6 +438,8 @@ class InvoiceService:
                 line_total=ii["line_total"],
                 sort_order=ii["sort_order"],
                 tooth_number=ii.get("tooth_number"),
+                treatment_plan_item_id=uuid.UUID(tpi_id) if tpi_id else None,
+                doctor_id=uuid.UUID(doc_id) if doc_id else None,
             )
             db.add(item)
 
