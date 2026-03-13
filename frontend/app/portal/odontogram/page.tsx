@@ -1,6 +1,6 @@
 "use client";
 
-import { usePortalOdontogram } from "@/lib/hooks/use-portal";
+import { usePortalOdontogram, usePortalOdontogramHistory } from "@/lib/hooks/use-portal";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -168,6 +168,8 @@ function ArchRow({
 
 export default function PortalOdontogram() {
   const { data: odontogram, isLoading, isError, error, refetch } = usePortalOdontogram();
+  const { data: historyData } = usePortalOdontogramHistory();
+  const snapshots = historyData?.snapshots ?? [];
 
   // Build a map from tooth_number → conditions for fast lookup
   const teethMap = new Map<
@@ -372,6 +374,54 @@ export default function PortalOdontogram() {
                       </div>
                     </div>
                   ))}
+              </div>
+            </div>
+          )}
+
+          {/* V5: History timeline */}
+          {snapshots.length > 0 && (
+            <div className="bg-white dark:bg-zinc-900 rounded-xl border border-[hsl(var(--border))] p-4">
+              <h2 className="text-sm font-semibold text-[hsl(var(--foreground))] mb-3">
+                Historial de cambios
+              </h2>
+              <div className="space-y-2">
+                {snapshots.map((snap, idx) => (
+                  <div
+                    key={snap.id}
+                    className="flex items-center gap-3 text-sm"
+                  >
+                    <div className="relative flex flex-col items-center">
+                      <div
+                        className={`w-3 h-3 rounded-full ${
+                          idx === 0
+                            ? "bg-primary-600"
+                            : "bg-slate-300 dark:bg-zinc-600"
+                        }`}
+                      />
+                      {idx < snapshots.length - 1 && (
+                        <div className="w-px h-6 bg-slate-200 dark:bg-zinc-700" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[hsl(var(--foreground))]">
+                        {new Date(snap.snapshot_date).toLocaleDateString(
+                          "es-CO",
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          },
+                        )}
+                      </p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                        {snap.condition_count} hallazgo
+                        {snap.condition_count !== 1 ? "s" : ""} en{" "}
+                        {snap.tooth_count} diente
+                        {snap.tooth_count !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

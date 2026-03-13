@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { usePortalDocuments } from "@/lib/hooks/use-portal";
+import { useState, useRef } from "react";
+import { usePortalDocuments, usePortalUploadDocument } from "@/lib/hooks/use-portal";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,6 +103,8 @@ function docTypeLabel(type: string) {
 
 export default function PortalDocuments() {
   const [docType, setDocType] = useState<DocTypeKey>(undefined);
+  const [uploadType, setUploadType] = useState("xray");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     data,
     fetchNextPage,
@@ -112,14 +115,59 @@ export default function PortalDocuments() {
     error,
     refetch,
   } = usePortalDocuments(docType);
+  const uploadMutation = usePortalUploadDocument();
 
   const documents = data?.pages.flatMap((p) => p.data) ?? [];
 
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    uploadMutation.mutate(
+      { file, docType: uploadType },
+      {
+        onSuccess: () => toast.success("Documento subido exitosamente."),
+        onError: (err) =>
+          toast.error(
+            err instanceof Error ? err.message : "Error al subir el documento.",
+          ),
+      },
+    );
+    e.target.value = "";
+  }
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      <h1 className="text-xl font-bold text-[hsl(var(--foreground))]">
-        Documentos
-      </h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-[hsl(var(--foreground))]">
+          Documentos
+        </h1>
+        <div className="flex items-center gap-2">
+          <select
+            value={uploadType}
+            onChange={(e) => setUploadType(e.target.value)}
+            className="text-xs rounded-lg border border-[hsl(var(--border))] px-2 py-1.5 bg-white dark:bg-zinc-900"
+          >
+            <option value="xray">Radiografía</option>
+            <option value="insurance_card">Carnet EPS</option>
+            <option value="id_document">Documento ID</option>
+            <option value="other">Otro</option>
+          </select>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadMutation.isPending}
+            className="px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
+          >
+            {uploadMutation.isPending ? "Subiendo..." : "Subir documento"}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,application/pdf"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+        </div>
+      </div>
 
       {/* Tab filter */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">

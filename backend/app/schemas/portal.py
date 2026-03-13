@@ -169,6 +169,7 @@ class PortalPatientProfile(BaseModel):
     insurance_policy_number: str | None = None
     clinic: PortalClinicInfo
     outstanding_balance: int = 0
+    unread_messages: int = 0
     next_appointment: PortalAppointmentResponse | None = None
 
 
@@ -353,3 +354,266 @@ class PortalSendMessageRequest(BaseModel):
     thread_id: str | None = None
     body: str = Field(..., min_length=1, max_length=2000)
     attachment_ids: list[str] | None = None
+
+
+# ─── Postop Instruction Schemas ─────────────────────────────────────────────
+
+
+class PostopInstructionItem(BaseModel):
+    """Single post-operative instruction for portal view."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    procedure_type: str
+    title: str
+    instruction_content: str
+    channel: str
+    doctor_name: str | None = None
+    sent_at: datetime
+    is_read: bool = False
+    read_at: datetime | None = None
+
+
+class PostopInstructionListResponse(BaseModel):
+    """Paginated list of postop instructions."""
+
+    data: list[PostopInstructionItem]
+    pagination: CursorPagination
+
+
+# ─── Patient Profile Update (V1) ────────────────────────────────────────────
+
+
+class PatientProfileUpdateRequest(BaseModel):
+    """Editable patient profile fields (excludes regulatory fields)."""
+
+    phone: str | None = Field(default=None, pattern=r"^\+?[0-9]{7,15}$")
+    email: str | None = Field(default=None, max_length=255)
+    address: str | None = Field(default=None, max_length=500)
+    emergency_contact_name: str | None = Field(default=None, max_length=200)
+    emergency_contact_phone: str | None = Field(
+        default=None, pattern=r"^\+?[0-9]{7,15}$"
+    )
+
+
+# ─── Notification Preferences (V2) ──────────────────────────────────────────
+
+
+class NotificationPreferencesResponse(BaseModel):
+    """Patient notification channel preferences."""
+
+    email_enabled: bool = True
+    whatsapp_enabled: bool = True
+    sms_enabled: bool = True
+    appointment_reminders: bool = True
+    treatment_updates: bool = True
+    billing_notifications: bool = True
+    marketing_messages: bool = False
+
+
+class NotificationPreferencesUpdate(BaseModel):
+    """Update notification preferences."""
+
+    email_enabled: bool | None = None
+    whatsapp_enabled: bool | None = None
+    sms_enabled: bool | None = None
+    appointment_reminders: bool | None = None
+    treatment_updates: bool | None = None
+    billing_notifications: bool | None = None
+    marketing_messages: bool | None = None
+
+
+# ─── Reschedule (V3) ────────────────────────────────────────────────────────
+
+
+class RescheduleRequest(BaseModel):
+    """Request to reschedule an existing appointment."""
+
+    new_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    new_time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
+
+
+# ─── Document Upload (V4) ───────────────────────────────────────────────────
+
+
+class DocumentUploadResponse(BaseModel):
+    """Response after uploading a document from portal."""
+
+    id: str
+    document_type: str
+    file_name: str
+    created_at: datetime
+    message: str
+
+
+# ─── Odontogram History (V5) ────────────────────────────────────────────────
+
+
+class OdontogramSnapshotItem(BaseModel):
+    """A single odontogram snapshot in the history timeline."""
+
+    id: str
+    snapshot_date: datetime
+    tooth_count: int = 0
+    condition_count: int = 0
+    notes: str | None = None
+
+
+# ─── Phase 2 Schemas ────────────────────────────────────────────────────────
+
+
+class PortalSurveyResponse(BaseModel):
+    """A patient's NPS/CSAT survey response (F6)."""
+
+    id: str
+    nps_score: int | None = None
+    csat_score: int | None = None
+    comments: str | None = None
+    channel_sent: str
+    sent_at: datetime
+    responded_at: datetime | None = None
+
+
+class PortalSurveyListResponse(BaseModel):
+    """List of survey responses."""
+
+    data: list[PortalSurveyResponse]
+
+
+class PortalFinancingApplication(BaseModel):
+    """A patient's financing application (F7)."""
+
+    id: str
+    provider: str
+    status: str
+    amount_cents: int
+    installments: int
+    created_at: datetime
+
+
+class PortalFinancingListResponse(BaseModel):
+    """List of financing applications."""
+
+    data: list[PortalFinancingApplication]
+
+
+class PortalFamilyMember(BaseModel):
+    """A member of the patient's family group (F8)."""
+
+    id: str
+    first_name: str
+    last_name: str
+    relationship: str
+
+
+class PortalFamilyGroup(BaseModel):
+    """Patient's family group with members (F8)."""
+
+    id: str
+    name: str
+    members: list[PortalFamilyMember]
+    total_outstanding: int = 0
+
+
+class PortalFamilyResponse(BaseModel):
+    """Family group response — null if patient has no family."""
+
+    family: PortalFamilyGroup | None = None
+
+
+class PortalLabOrder(BaseModel):
+    """A patient's lab order (F9)."""
+
+    id: str
+    order_type: str
+    status: str
+    due_date: str | None = None
+    lab_name: str | None = None
+    created_at: datetime
+
+
+class PortalLabOrderListResponse(BaseModel):
+    """List of lab orders."""
+
+    data: list[PortalLabOrder]
+
+
+class PortalToothPhotoItem(BaseModel):
+    """A single tooth photo (F10)."""
+
+    id: str
+    tooth_number: int
+    url: str
+    thumbnail_url: str | None = None
+    created_at: datetime
+
+
+class PortalToothPhotoListResponse(BaseModel):
+    """List of tooth photos."""
+
+    data: list[PortalToothPhotoItem]
+
+
+class PortalHealthHistory(BaseModel):
+    """Patient's health history data (F11)."""
+
+    allergies: list[str] = Field(default_factory=list)
+    medications: list[str] = Field(default_factory=list)
+    conditions: list[str] = Field(default_factory=list)
+    surgeries: list[str] = Field(default_factory=list)
+    notes: str | None = None
+
+
+class PortalHealthHistoryUpdate(BaseModel):
+    """Update health history from portal (F11)."""
+
+    allergies: list[str] | None = None
+    medications: list[str] | None = None
+    conditions: list[str] | None = None
+    surgeries: list[str] | None = None
+    notes: str | None = None
+
+
+class FinancingSimulationRequest(BaseModel):
+    """Request to simulate financing options (F12)."""
+
+    amount_cents: int = Field(..., gt=0)
+    provider: str = Field(..., pattern=r"^(addi|sistecredito|mercadopago)$")
+
+
+class FinancingSimulationOption(BaseModel):
+    """A single financing installment option."""
+
+    installments: int
+    monthly_payment_cents: int
+    total_cents: int
+    interest_rate_pct: float
+
+
+class FinancingSimulationResponse(BaseModel):
+    """Financing simulation result (F12)."""
+
+    provider: str
+    eligible: bool
+    options: list[FinancingSimulationOption] = Field(default_factory=list)
+    message: str | None = None
+
+
+class PortalTimelineEvent(BaseModel):
+    """A single event in the treatment timeline (F13)."""
+
+    id: str
+    event_type: str  # "procedure" or "photo"
+    title: str
+    date: datetime
+    status: str | None = None
+    photo_url: str | None = None
+    tooth_number: str | None = None
+    treatment_plan_name: str | None = None
+
+
+class PortalTimelineResponse(BaseModel):
+    """Treatment timeline (F13)."""
+
+    events: list[PortalTimelineEvent]

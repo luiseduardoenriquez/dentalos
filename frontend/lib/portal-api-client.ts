@@ -167,3 +167,21 @@ export async function portalApiPost<T>(
   const { data } = await portalApiClient.post<T>(url, body);
   return data;
 }
+
+export async function portalApiPut<T>(
+  url: string,
+  body?: unknown,
+): Promise<T> {
+  const { data } = await portalApiClient.put<T>(url, body);
+  return data;
+}
+
+export async function portalApiUpload<T>(
+  url: string,
+  formData: FormData,
+): Promise<T> {
+  const { data } = await portalApiClient.post<T>(url, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}

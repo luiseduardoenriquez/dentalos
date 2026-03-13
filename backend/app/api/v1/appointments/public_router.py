@@ -92,14 +92,34 @@ async def get_booking_config(
         for i in range(1, 31)
     ]
 
-    # For MVP: doctors list is stubbed — a full implementation would
-    # query the tenant schema for active doctors. We keep this lightweight
-    # since public endpoints must not set up tenant search_path.
+    # G5: Query tenant schema for active doctors
+    schema = tenant.schema_name
+    if validate_schema_name(schema):
+        await db.execute(text(f"SET search_path TO {schema}, public"))
+
+        from app.models.tenant.user import User
+
+        doctors_result = await db.execute(
+            select(User.id, User.name).where(
+                User.role == "doctor",
+                User.is_active.is_(True),
+            )
+        )
+        doctors = [
+            {"id": str(row.id), "name": row.name}
+            for row in doctors_result.all()
+        ]
+
+        # Reset search_path
+        await db.execute(text("SET search_path TO public"))
+    else:
+        doctors = []
+
     return BookingConfigResponse(
         clinic_name=tenant.name,
         clinic_slug=tenant.slug,
-        doctors=[],  # Populated by the frontend after the tenant schedules are implemented
-        appointment_types=["consultation", "follow_up"],
+        doctors=doctors,
+        appointment_types=["consultation", "procedure", "emergency", "follow_up"],
         available_dates=available_dates,
     )
 

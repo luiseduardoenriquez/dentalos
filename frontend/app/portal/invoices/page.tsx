@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { usePortalInvoices, usePortalMe } from "@/lib/hooks/use-portal";
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
@@ -224,6 +225,16 @@ export default function PortalInvoices() {
                             <span>
                               ${(inv.balance / 100).toLocaleString("es-CO")}
                             </span>
+                          </div>
+                        )}
+                        {inv.balance > 0 && inv.status !== "cancelled" && (
+                          <div className="pt-2">
+                            <Link
+                              href={`/portal/invoices/${inv.id}/pay`}
+                              className="inline-flex items-center justify-center w-full py-2 px-4 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
+                            >
+                              Pagar ahora
+                            </Link>
                           </div>
                         )}
                       </>

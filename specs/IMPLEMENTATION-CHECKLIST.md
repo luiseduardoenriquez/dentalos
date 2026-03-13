@@ -879,6 +879,47 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 - [x] **AEF-08** Maintenance worker: admin.generate_report handler generates analytics/revenue/health reports, emails recipients
 - [x] **AEF-09** Maintenance worker: admin.revenue_snapshot handler captures monthly MRR/tenant/patient snapshots with upsert
 
+### Patient Portal Hardening (Gap Fixes + Value-Add)
+
+Gap fixes:
+- [x] **PH-G1** Postop instructions: replace stub with real `postop_instructions` table, model, migration (018), cursor-paginated endpoint
+- [x] **PH-G2** Digital signatures: wire `digital_signature_service.create_signature()` in `approve_treatment_plan` and `sign_consent`
+- [x] **PH-G3** Clinic notifications: dispatch all 6 TODO notifications (treatment_plan_approved, appointment_booked_portal, appointment_cancelled_patient, consent_signed, intake_submitted, membership_cancel_requested)
+- [x] **PH-G4** Magic link dispatch: publish magic link URL to notifications queue (email/WhatsApp) after Redis storage
+- [x] **PH-G5** Public booking: query real doctors from tenant schema, expand appointment types to 4
+- [x] **PH-G7** Video page: fix `apiGet` → `portalApiGet` import (was using staff JWT instead of portal JWT)
+- [x] **PH-G8** Invoices: add "Pagar ahora" button linking to `/portal/invoices/{id}/pay` for unpaid invoices
+
+Value-add features:
+- [x] **PH-V1** Patient profile edit: `PUT /portal/me` endpoint + profile edit page (phone, email, address, emergency contact)
+- [x] **PH-V2** Notification preferences: `GET/PUT /portal/notifications/preferences` endpoints + toggle UI page
+- [x] **PH-V3** Appointment rescheduling: `POST /portal/appointments/{id}/reschedule` endpoint + reschedule UI with date/time picker
+- [x] **PH-V4** Patient document upload: `POST /portal/documents` endpoint with S3 storage + upload UI with type selector
+- [x] **PH-V5** Odontogram history timeline: `GET /portal/odontogram/history` endpoint + timeline UI showing snapshots
+
+### Patient Portal Phase 2 — Competitive Parity Features
+
+Wave 1 (Frontend-only — backend exists):
+- [x] **PP2-F1** Membership page: plan details, benefits, cancel-request button (`frontend/app/portal/membership/page.tsx`)
+- [x] **PP2-F2** Clinic branding fix: populate real `logo_url`, `phone`, `address` from tenant in `/portal/me`
+- [x] **PP2-F3** Dashboard enrichment: unread messages badge, confirm attendance button, treatment progress, outstanding balance
+
+Wave 2 (New pages for existing backend services):
+- [x] **PP2-F4** Portal intake form: `GET /portal/intake/form` + dynamic form builder page (`frontend/app/portal/intake/page.tsx`)
+- [x] **PP2-F5** Chatbot widget: embedded floating chat in portal layout (`ChatbotWidget.tsx`)
+- [x] **PP2-F6** Survey history: `GET /portal/surveys` + survey list page (`frontend/app/portal/surveys/page.tsx`)
+
+Wave 3 (New endpoints for existing staff services):
+- [x] **PP2-F7** Financing tracker: `GET /portal/financing` + financing list page (`frontend/app/portal/financing/page.tsx`)
+- [x] **PP2-F8** Family billing view: `GET /portal/family` + family group page (`frontend/app/portal/family/page.tsx`)
+- [x] **PP2-F9** Lab order tracking: `GET /portal/lab-orders` + lab order list page (`frontend/app/portal/lab-orders/page.tsx`)
+- [x] **PP2-F10** Tooth photos gallery: `GET /portal/photos` + photo gallery page (`frontend/app/portal/photos/page.tsx`)
+
+Wave 4 (Enhanced features):
+- [x] **PP2-F11** Health history update: `GET/PUT /portal/health-history` + editable health form (`frontend/app/portal/health/page.tsx`)
+- [x] **PP2-F12** Financing calculator: `POST /portal/financing/simulate` + inline calculator on treatment plans page
+- [x] **PP2-F13** Treatment timeline: `GET /portal/treatment-timeline` + vertical timeline page (`frontend/app/portal/timeline/page.tsx`)
+
 ### Email Templates
 
 - [x] **E-16** Daily clinic summary email

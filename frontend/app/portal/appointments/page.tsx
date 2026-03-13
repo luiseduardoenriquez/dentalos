@@ -4,10 +4,15 @@ import { useState } from "react";
 import {
   usePortalAppointments,
   usePortalCancelAppointment,
+  usePortalRescheduleAppointment,
 } from "@/lib/hooks/use-portal";
+import { toast } from "sonner";
 
 export default function PortalAppointments() {
   const [view, setView] = useState<"upcoming" | "past">("upcoming");
+  const [rescheduleId, setRescheduleId] = useState<string | null>(null);
+  const [newDate, setNewDate] = useState("");
+  const [newTime, setNewTime] = useState("");
   const {
     data,
     fetchNextPage,
@@ -19,6 +24,30 @@ export default function PortalAppointments() {
     refetch,
   } = usePortalAppointments(view);
   const cancelMutation = usePortalCancelAppointment();
+  const rescheduleMutation = usePortalRescheduleAppointment();
+
+  function handleReschedule(appointmentId: string) {
+    if (!newDate || !newTime) {
+      toast.error("Selecciona fecha y hora para reagendar.");
+      return;
+    }
+    rescheduleMutation.mutate(
+      { appointmentId, new_date: newDate, new_time: newTime },
+      {
+        onSuccess: () => {
+          toast.success("Cita reagendada exitosamente.");
+          setRescheduleId(null);
+          setNewDate("");
+          setNewTime("");
+        },
+        onError: (err) => {
+          toast.error(
+            err instanceof Error ? err.message : "Error al reagendar la cita.",
+          );
+        },
+      },
+    );
+  }
 
   const appointments = data?.pages.flatMap((p) => p.data) ?? [];
 
@@ -139,19 +168,79 @@ export default function PortalAppointments() {
                   </span>
 
                   {view === "upcoming" &&
-                    ["confirmed", "pending"].includes(appt.status) && (
-                      <button
-                        onClick={() =>
-                          cancelMutation.mutate({ appointmentId: appt.id })
-                        }
-                        disabled={cancelMutation.isPending}
-                        className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50 transition-colors"
-                      >
-                        Cancelar
-                      </button>
+                    ["confirmed", "pending", "scheduled"].includes(appt.status) && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() =>
+                            setRescheduleId(
+                              rescheduleId === appt.id ? null : appt.id,
+                            )
+                          }
+                          className="text-xs text-primary-600 hover:text-primary-700 transition-colors"
+                        >
+                          Reagendar
+                        </button>
+                        <button
+                          onClick={() =>
+                            cancelMutation.mutate({ appointmentId: appt.id })
+                          }
+                          disabled={cancelMutation.isPending}
+                          className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
                     )}
                 </div>
               </div>
+
+              {/* Reschedule form */}
+              {rescheduleId === appt.id && (
+                <div className="border-t border-[hsl(var(--border))] px-4 py-3 flex flex-wrap items-end gap-3">
+                  <div>
+                    <label className="text-xs text-[hsl(var(--muted-foreground))] block mb-1">
+                      Nueva fecha
+                    </label>
+                    <input
+                      type="date"
+                      value={newDate}
+                      onChange={(e) => setNewDate(e.target.value)}
+                      min={new Date().toISOString().split("T")[0]}
+                      className="rounded-lg border border-[hsl(var(--border))] px-3 py-1.5 text-sm bg-white dark:bg-zinc-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[hsl(var(--muted-foreground))] block mb-1">
+                      Nueva hora
+                    </label>
+                    <input
+                      type="time"
+                      value={newTime}
+                      onChange={(e) => setNewTime(e.target.value)}
+                      className="rounded-lg border border-[hsl(var(--border))] px-3 py-1.5 text-sm bg-white dark:bg-zinc-900"
+                    />
+                  </div>
+                  <button
+                    onClick={() => handleReschedule(appt.id)}
+                    disabled={rescheduleMutation.isPending}
+                    className="px-4 py-1.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                  >
+                    {rescheduleMutation.isPending
+                      ? "Reagendando..."
+                      : "Confirmar"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setRescheduleId(null);
+                      setNewDate("");
+                      setNewTime("");
+                    }}
+                    className="px-4 py-1.5 rounded-lg border border-[hsl(var(--border))] text-sm text-[hsl(var(--muted-foreground))] hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
             </div>
           ))}
 

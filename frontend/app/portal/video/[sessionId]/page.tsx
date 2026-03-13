@@ -12,7 +12,7 @@ import {
   AlertCircle,
   Clock,
 } from "lucide-react";
-import { apiGet } from "@/lib/api-client";
+import { portalApiGet } from "@/lib/portal-api-client";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils";
 
@@ -47,7 +47,7 @@ export default function PortalVideoPage() {
   const { data: session, isLoading, isError, refetch } = useQuery({
     queryKey: ["portal-video-session", sessionId],
     queryFn: () =>
-      apiGet<VideoSessionJoin>(`/telemedicine/portal/video-sessions/${sessionId}/join`),
+      portalApiGet<VideoSessionJoin>(`/telemedicine/portal/video-sessions/${sessionId}/join`),
     retry: false,
     staleTime: 5 * 60_000,
   });

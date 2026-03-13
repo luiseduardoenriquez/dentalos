@@ -20,6 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.cache import cache_delete_pattern, get_cached, set_cached
 from app.core.config import settings
 from app.core.exceptions import AuthError, DentalOSError, RateLimitError
+from app.core.queue import publish_message
+from app.schemas.queue import QueueMessage
 from app.core.security import (
     create_portal_access_token,
     create_portal_refresh_token,
@@ -200,7 +202,31 @@ class PortalAuthService:
                 ttl_seconds=900,
             )
 
-            # TODO: Dispatch via RabbitMQ to send email/WhatsApp
+            # G4: Dispatch magic link via RabbitMQ
+            frontend_url = getattr(settings, "frontend_url", "https://app.dentalos.com")
+            magic_link_url = f"{frontend_url}/portal/login?magic={raw_token}&tenant={tenant_id}"
+
+            job_type = "whatsapp.send" if channel == "whatsapp" else "email.send"
+            recipient = patient.phone if channel == "whatsapp" else patient.email
+
+            if recipient:
+                await publish_message(
+                    "notifications",
+                    QueueMessage(
+                        tenant_id=tenant_id,
+                        job_type=job_type,
+                        payload={
+                            "to": recipient,
+                            "subject": "Tu enlace de acceso a DentalOS",
+                            "body": (
+                                "Usa este enlace para acceder a tu portal de paciente. "
+                                "El enlace expira en 15 minutos."
+                            ),
+                            "magic_link_url": magic_link_url,
+                        },
+                    ),
+                )
+
             logger.info(
                 "Magic link requested: tenant=%s channel=%s",
                 tenant_id[:8],

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { usePortalAuthStore } from "@/lib/stores/portal-auth-store";
 import { usePortalMe } from "@/lib/hooks/use-portal";
+import { ChatbotWidget } from "@/components/portal/ChatbotWidget";
 
 // ─── Loading Skeleton ────────────────────────────────────────────────────────
 
@@ -39,20 +40,35 @@ const PORTAL_NAV_ITEMS = [
   { href: "/portal/dashboard", label: "Inicio", icon: "🏠" },
   { href: "/portal/appointments", label: "Mis citas", icon: "📅" },
   { href: "/portal/treatment-plans", label: "Plan de tratamiento", icon: "📋" },
+  { href: "/portal/timeline", label: "Mi progreso", icon: "📈" },
   { href: "/portal/documents", label: "Documentos", icon: "📄" },
   { href: "/portal/messages", label: "Mensajes", icon: "💬" },
   { href: "/portal/invoices", label: "Pagos", icon: "💳" },
+  { href: "/portal/financing", label: "Financiación", icon: "🏦" },
   { href: "/portal/odontogram", label: "Odontograma", icon: "🦷" },
+  { href: "/portal/photos", label: "Mis fotos", icon: "📷" },
+  { href: "/portal/lab-orders", label: "Laboratorio", icon: "🔬" },
   { href: "/portal/postop", label: "Instrucciones", icon: "📝" },
+  { href: "/portal/health", label: "Mi salud", icon: "❤️" },
+  { href: "/portal/intake", label: "Formularios", icon: "📝" },
+  { href: "/portal/surveys", label: "Mis encuestas", icon: "📊" },
   { href: "/portal/loyalty", label: "Puntos", icon: "⭐" },
+  { href: "/portal/membership", label: "Mi plan", icon: "💎" },
   { href: "/portal/referral", label: "Referidos", icon: "🎁" },
+  { href: "/portal/family", label: "Mi familia", icon: "👨‍👩‍👧" },
+  { href: "/portal/profile", label: "Mi perfil", icon: "👤" },
+  { href: "/portal/notifications", label: "Notificaciones", icon: "🔔" },
 ];
 
 function PortalNavbar({
   patientName,
+  clinicName,
+  logoUrl,
   onSignOut,
 }: {
   patientName: string;
+  clinicName?: string;
+  logoUrl?: string | null;
   onSignOut: () => void;
 }) {
   const pathname = usePathname();
@@ -72,11 +88,19 @@ function PortalNavbar({
             </svg>
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-md bg-primary-600 flex items-center justify-center text-white text-sm font-bold">
-              D
-            </div>
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={clinicName || "Clínica"}
+                className="w-8 h-8 rounded-md object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-md bg-primary-600 flex items-center justify-center text-white text-sm font-bold">
+                {(clinicName || "D").charAt(0).toUpperCase()}
+              </div>
+            )}
             <span className="text-sm font-semibold text-[hsl(var(--foreground))] hidden sm:inline">
-              DentalOS Portal
+              {clinicName || "DentalOS Portal"}
             </span>
           </div>
         </div>
@@ -158,7 +182,7 @@ function PortalNavbar({
 export default function PortalLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { patient, is_loading, is_authenticated, clear_portal_auth } =
+  const { patient, tenant, is_loading, is_authenticated, clear_portal_auth } =
     usePortalAuthStore();
 
   // Login page doesn't need auth guard
@@ -205,9 +229,12 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-[hsl(var(--background))]">
       <PortalNavbar
         patientName={`${patient.first_name} ${patient.last_name}`}
+        clinicName={tenant?.name}
+        logoUrl={tenant?.logo_url}
         onSignOut={handleSignOut}
       />
       <main className="md:ml-56 pt-0 p-4 md:p-6">{children}</main>
+      {tenant?.slug && <ChatbotWidget slug={tenant.slug} />}
     </div>
   );
 }

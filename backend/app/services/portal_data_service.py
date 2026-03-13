@@ -22,6 +22,7 @@ from app.models.tenant.invoice import Invoice
 from app.models.tenant.odontogram import OdontogramCondition, OdontogramState
 from app.models.tenant.patient import Patient
 from app.models.tenant.patient_document import PatientDocument
+from app.models.tenant.postop_instruction import PostopInstruction
 from app.models.tenant.prescription import Prescription
 from app.models.tenant.quotation import Quotation
 from app.models.tenant.treatment_plan import TreatmentPlan
@@ -106,12 +107,18 @@ class PortalDataService:
                 "notes_for_patient": appt.completion_notes if hasattr(appt, "completion_notes") else None,
             }
 
-        # Get clinic name from public.tenants (accessible via search_path)
+        # Get clinic info from public.tenants (accessible via search_path)
         from app.models.public.tenant import Tenant
         clinic_name = "Clínica"
         clinic_slug = tenant_id[:8]
+        clinic_logo_url = None
+        clinic_phone = None
+        clinic_address = None
         tenant_result = await db.execute(
-            select(Tenant.name, Tenant.slug).where(
+            select(
+                Tenant.name, Tenant.slug, Tenant.logo_url,
+                Tenant.phone, Tenant.address,
+            ).where(
                 Tenant.id == uuid.UUID(tenant_id),
             )
         )
@@ -119,6 +126,9 @@ class PortalDataService:
         if tenant_row:
             clinic_name = tenant_row.name
             clinic_slug = tenant_row.slug
+            clinic_logo_url = tenant_row.logo_url
+            clinic_phone = tenant_row.phone
+            clinic_address = tenant_row.address
 
         # Get outstanding balance from invoices
         balance_result = await db.execute(
@@ -130,6 +140,19 @@ class PortalDataService:
             )
         )
         outstanding = balance_result.scalar_one()
+
+        # Count unread messages (F3)
+        unread_messages = 0
+        try:
+            from app.services.messaging_service import messaging_service
+            threads = await messaging_service.list_threads(
+                db=db, patient_id=patient_id, cursor=None, limit=50,
+            )
+            unread_messages = sum(
+                t.get("unread_count", 0) for t in threads.get("data", [])
+            )
+        except Exception:
+            pass  # Best-effort — messaging may not be configured
 
         return {
             "id": str(patient.id),
@@ -146,11 +169,12 @@ class PortalDataService:
             "clinic": {
                 "name": clinic_name,
                 "slug": clinic_slug,
-                "logo_url": None,
-                "phone": None,
-                "address": None,
+                "logo_url": clinic_logo_url,
+                "phone": clinic_phone,
+                "address": clinic_address,
             },
             "outstanding_balance": int(outstanding),
+            "unread_messages": unread_messages,
             "next_appointment": next_appt,
         }
 
@@ -491,6 +515,214 @@ class PortalDataService:
             limit=limit,
         )
 
+    async def get_postop_instructions(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+        cursor: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        """List post-operative instructions for a patient (G1)."""
+        pid = uuid.UUID(patient_id)
+
+        conditions = [PostopInstruction.patient_id == pid]
+
+        if cursor:
+            cursor_dt, cursor_id = _decode_cursor(cursor)
+            conditions.append(
+                or_(
+                    PostopInstruction.sent_at < cursor_dt,
+                    and_(
+                        PostopInstruction.sent_at == cursor_dt,
+                        PostopInstruction.id < cursor_id,
+                    ),
+                )
+            )
+
+        rows = (
+            await db.execute(
+                select(PostopInstruction, User)
+                .outerjoin(User, PostopInstruction.doctor_id == User.id)
+                .where(*conditions)
+                .order_by(PostopInstruction.sent_at.desc(), PostopInstruction.id.desc())
+                .limit(limit + 1)
+            )
+        ).all()
+
+        has_more = len(rows) > limit
+        items = rows[:limit]
+
+        next_cursor = None
+        if has_more and items:
+            last = items[-1][0]
+            next_cursor = _encode_cursor(last.sent_at, last.id)
+
+        data = []
+        for instr, doctor in items:
+            data.append({
+                "id": str(instr.id),
+                "procedure_type": instr.procedure_type,
+                "title": instr.title,
+                "instruction_content": instr.instruction_content,
+                "channel": instr.channel,
+                "doctor_name": doctor.name if doctor else None,
+                "sent_at": instr.sent_at,
+                "is_read": instr.is_read,
+                "read_at": instr.read_at,
+            })
+
+        return {
+            "data": data,
+            "pagination": {
+                "next_cursor": next_cursor,
+                "has_more": has_more,
+            },
+        }
+
+    async def update_patient_profile(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Update patient profile — only allowed fields (V1)."""
+        pid = uuid.UUID(patient_id)
+
+        result = await db.execute(
+            select(Patient).where(Patient.id == pid, Patient.is_active.is_(True))
+        )
+        patient = result.scalar_one_or_none()
+
+        if patient is None:
+            raise DentalOSError(
+                error="PATIENT_not_found",
+                message="Paciente no encontrado.",
+                status_code=404,
+            )
+
+        allowed = {"phone", "email", "address", "emergency_contact_name", "emergency_contact_phone"}
+        for field, value in data.items():
+            if field in allowed and value is not None:
+                if hasattr(patient, field):
+                    setattr(patient, field, value.strip() if isinstance(value, str) else value)
+
+        await db.flush()
+
+        return {
+            "message": "Perfil actualizado exitosamente.",
+            "id": str(patient.id),
+        }
+
+    async def get_notification_preferences(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+    ) -> dict[str, Any]:
+        """Get patient notification preferences (V2)."""
+        pid = uuid.UUID(patient_id)
+
+        result = await db.execute(
+            select(Patient).where(Patient.id == pid, Patient.is_active.is_(True))
+        )
+        patient = result.scalar_one_or_none()
+
+        if patient is None:
+            raise DentalOSError(
+                error="PATIENT_not_found",
+                message="Paciente no encontrado.",
+                status_code=404,
+            )
+
+        metadata = patient.metadata or {} if hasattr(patient, "metadata") else {}
+        prefs = metadata.get("notification_preferences", {})
+
+        return {
+            "email_enabled": prefs.get("email_enabled", True),
+            "whatsapp_enabled": prefs.get("whatsapp_enabled", True),
+            "sms_enabled": prefs.get("sms_enabled", True),
+            "appointment_reminders": prefs.get("appointment_reminders", True),
+            "treatment_updates": prefs.get("treatment_updates", True),
+            "billing_notifications": prefs.get("billing_notifications", True),
+            "marketing_messages": prefs.get("marketing_messages", False),
+        }
+
+    async def update_notification_preferences(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Update patient notification preferences (V2)."""
+        pid = uuid.UUID(patient_id)
+
+        result = await db.execute(
+            select(Patient).where(Patient.id == pid, Patient.is_active.is_(True))
+        )
+        patient = result.scalar_one_or_none()
+
+        if patient is None:
+            raise DentalOSError(
+                error="PATIENT_not_found",
+                message="Paciente no encontrado.",
+                status_code=404,
+            )
+
+        metadata = patient.metadata or {} if hasattr(patient, "metadata") else {}
+        prefs = metadata.get("notification_preferences", {})
+
+        allowed = {
+            "email_enabled", "whatsapp_enabled", "sms_enabled",
+            "appointment_reminders", "treatment_updates",
+            "billing_notifications", "marketing_messages",
+        }
+        for field, value in data.items():
+            if field in allowed and value is not None:
+                prefs[field] = value
+
+        metadata["notification_preferences"] = prefs
+        if hasattr(patient, "metadata"):
+            patient.metadata = metadata
+        await db.flush()
+
+        return {**prefs, "message": "Preferencias actualizadas."}
+
+    async def get_odontogram_history(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+    ) -> list[dict[str, Any]]:
+        """Get odontogram snapshot history for timeline (V5)."""
+        from app.models.tenant.odontogram import OdontogramSnapshot
+
+        pid = uuid.UUID(patient_id)
+
+        result = await db.execute(
+            select(OdontogramSnapshot)
+            .where(OdontogramSnapshot.patient_id == pid)
+            .order_by(OdontogramSnapshot.created_at.desc())
+            .limit(50)
+        )
+        snapshots = result.scalars().all()
+
+        return [
+            {
+                "id": str(s.id),
+                "snapshot_date": s.created_at,
+                "tooth_count": len(s.snapshot_data.get("teeth", [])) if isinstance(s.snapshot_data, dict) else 0,
+                "condition_count": sum(
+                    len(t.get("conditions", []))
+                    for t in s.snapshot_data.get("teeth", [])
+                ) if isinstance(s.snapshot_data, dict) else 0,
+                "notes": s.snapshot_data.get("notes") if isinstance(s.snapshot_data, dict) else None,
+            }
+            for s in snapshots
+        ]
+
     async def get_odontogram(
         self,
         *,
@@ -552,6 +784,437 @@ class PortalDataService:
             "last_updated": state.updated_at,
             "legend": legend,
         }
+
+
+    async def get_intake_form(
+        self,
+        *,
+        db: AsyncSession,
+        tenant_id: str,
+    ) -> dict[str, Any]:
+        """Get intake form configuration for the patient's tenant (F4)."""
+        from app.models.public.tenant import Tenant
+
+        tid = uuid.UUID(tenant_id)
+        result = await db.execute(
+            select(Tenant.settings).where(Tenant.id == tid)
+        )
+        settings = result.scalar_one_or_none() or {}
+        intake_config = settings.get("intake_form", {})
+
+        # Default form sections if not configured
+        if not intake_config:
+            intake_config = {
+                "sections": [
+                    {
+                        "key": "health_history",
+                        "title": "Historia médica",
+                        "fields": [
+                            {"key": "allergies", "label": "Alergias", "type": "text"},
+                            {"key": "medications", "label": "Medicamentos actuales", "type": "text"},
+                            {"key": "conditions", "label": "Condiciones médicas", "type": "text"},
+                            {"key": "surgeries", "label": "Cirugías previas", "type": "text"},
+                        ],
+                    },
+                    {
+                        "key": "dental_history",
+                        "title": "Historia dental",
+                        "fields": [
+                            {"key": "last_visit", "label": "Última visita al dentista", "type": "text"},
+                            {"key": "main_concern", "label": "Motivo de consulta", "type": "textarea"},
+                        ],
+                    },
+                ],
+            }
+
+        return {"form_config": intake_config}
+
+    async def get_survey_history(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+    ) -> list[dict[str, Any]]:
+        """Get patient's NPS/CSAT survey responses (F6)."""
+        from app.models.tenant.nps_survey import NPSSurveyResponse
+
+        pid = uuid.UUID(patient_id)
+        result = await db.execute(
+            select(NPSSurveyResponse)
+            .where(
+                NPSSurveyResponse.patient_id == pid,
+                NPSSurveyResponse.responded_at.isnot(None),
+            )
+            .order_by(NPSSurveyResponse.responded_at.desc())
+            .limit(50)
+        )
+        surveys = result.scalars().all()
+
+        return [
+            {
+                "id": str(s.id),
+                "nps_score": s.nps_score,
+                "csat_score": s.csat_score,
+                "comments": s.comments,
+                "channel_sent": s.channel_sent,
+                "sent_at": s.sent_at,
+                "responded_at": s.responded_at,
+            }
+            for s in surveys
+        ]
+
+    async def get_financing_applications(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+    ) -> list[dict[str, Any]]:
+        """Get patient's financing applications (F7)."""
+        from app.models.tenant.financing import FinancingApplication
+
+        pid = uuid.UUID(patient_id)
+        result = await db.execute(
+            select(FinancingApplication)
+            .where(FinancingApplication.patient_id == pid)
+            .order_by(FinancingApplication.created_at.desc())
+            .limit(50)
+        )
+        apps = result.scalars().all()
+
+        return [
+            {
+                "id": str(a.id),
+                "provider": a.provider,
+                "status": a.status,
+                "amount_cents": a.amount_cents,
+                "installments": a.installments,
+                "created_at": a.created_at,
+            }
+            for a in apps
+        ]
+
+    async def get_family_group(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+    ) -> dict[str, Any] | None:
+        """Get patient's family group with members and billing summary (F8)."""
+        from app.models.tenant.family import FamilyGroup, FamilyMember
+
+        pid = uuid.UUID(patient_id)
+
+        # Find patient's family membership
+        member_result = await db.execute(
+            select(FamilyMember).where(
+                FamilyMember.patient_id == pid,
+                FamilyMember.is_active.is_(True),
+            )
+        )
+        membership = member_result.scalar_one_or_none()
+        if membership is None:
+            return None
+
+        # Load the family group
+        group_result = await db.execute(
+            select(FamilyGroup).where(
+                FamilyGroup.id == membership.family_group_id,
+                FamilyGroup.is_active.is_(True),
+            )
+        )
+        group = group_result.scalar_one_or_none()
+        if group is None:
+            return None
+
+        # Load all members
+        members_result = await db.execute(
+            select(FamilyMember, Patient)
+            .join(Patient, FamilyMember.patient_id == Patient.id)
+            .where(
+                FamilyMember.family_group_id == group.id,
+                FamilyMember.is_active.is_(True),
+            )
+        )
+        members_data = members_result.all()
+
+        # Total outstanding across all family members
+        member_ids = [m.patient_id for m, _ in members_data]
+        total_outstanding = 0
+        if member_ids:
+            bal_result = await db.execute(
+                select(func.coalesce(func.sum(Invoice.balance), 0)).where(
+                    Invoice.patient_id.in_(member_ids),
+                    Invoice.status.in_(["sent", "partial", "overdue"]),
+                )
+            )
+            total_outstanding = int(bal_result.scalar_one())
+
+        members = [
+            {
+                "id": str(p.id),
+                "first_name": p.first_name,
+                "last_name": p.last_name,
+                "relationship": fm.relationship,
+            }
+            for fm, p in members_data
+        ]
+
+        return {
+            "id": str(group.id),
+            "name": group.name,
+            "members": members,
+            "total_outstanding": total_outstanding,
+        }
+
+    async def get_lab_orders(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+    ) -> list[dict[str, Any]]:
+        """Get patient's lab orders (F9)."""
+        from app.models.tenant.lab_order import DentalLab, LabOrder
+
+        pid = uuid.UUID(patient_id)
+        result = await db.execute(
+            select(LabOrder, DentalLab)
+            .outerjoin(DentalLab, LabOrder.lab_id == DentalLab.id)
+            .where(
+                LabOrder.patient_id == pid,
+                LabOrder.is_active.is_(True),
+            )
+            .order_by(LabOrder.created_at.desc())
+            .limit(50)
+        )
+        rows = result.all()
+
+        return [
+            {
+                "id": str(order.id),
+                "order_type": order.order_type,
+                "status": order.status,
+                "due_date": str(order.due_date) if order.due_date else None,
+                "lab_name": lab.name if lab else None,
+                "created_at": order.created_at,
+            }
+            for order, lab in rows
+        ]
+
+    async def get_tooth_photos(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+        tenant_id: str,
+    ) -> list[dict[str, Any]]:
+        """Get patient's tooth photos with signed URLs (F10)."""
+        from app.core.storage import storage_client
+        from app.models.tenant.tooth_photo import ToothPhoto
+
+        pid = uuid.UUID(patient_id)
+        result = await db.execute(
+            select(ToothPhoto)
+            .where(
+                ToothPhoto.patient_id == pid,
+                ToothPhoto.is_active.is_(True),
+            )
+            .order_by(ToothPhoto.tooth_number, ToothPhoto.created_at.desc())
+            .limit(100)
+        )
+        photos = result.scalars().all()
+
+        data = []
+        for p in photos:
+            try:
+                url = await storage_client.generate_signed_url(p.s3_key, expires_in=900)
+                thumb_url = None
+                if p.thumbnail_s3_key:
+                    thumb_url = await storage_client.generate_signed_url(
+                        p.thumbnail_s3_key, expires_in=900,
+                    )
+            except Exception:
+                url = p.s3_key
+                thumb_url = p.thumbnail_s3_key
+
+            data.append({
+                "id": str(p.id),
+                "tooth_number": p.tooth_number,
+                "url": url,
+                "thumbnail_url": thumb_url,
+                "created_at": p.created_at,
+            })
+
+        return data
+
+    async def get_health_history(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+    ) -> dict[str, Any]:
+        """Get patient's health history from intake responses (F11)."""
+        pid = uuid.UUID(patient_id)
+
+        result = await db.execute(
+            select(Patient).where(Patient.id == pid, Patient.is_active.is_(True))
+        )
+        patient = result.scalar_one_or_none()
+
+        if patient is None:
+            raise DentalOSError(
+                error="PATIENT_not_found",
+                message="Paciente no encontrado.",
+                status_code=404,
+            )
+
+        metadata = patient.metadata or {} if hasattr(patient, "metadata") else {}
+        intake = metadata.get("intake_responses", {})
+        health = metadata.get("health_history", {})
+
+        return {
+            "allergies": health.get("allergies", intake.get("allergies", [])),
+            "medications": health.get("medications", intake.get("medications", [])),
+            "conditions": health.get("conditions", intake.get("conditions", [])),
+            "surgeries": health.get("surgeries", intake.get("surgeries", [])),
+            "notes": health.get("notes"),
+        }
+
+    async def simulate_financing(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+        amount_cents: int,
+        provider: str,
+    ) -> dict[str, Any]:
+        """Simulate financing installment options (F12)."""
+        # Provider-specific interest rates and terms
+        provider_config = {
+            "addi": {
+                "rates": [(3, 0.0), (6, 1.5), (12, 2.5)],
+                "min_amount": 5000000,  # 50k COP min
+            },
+            "sistecredito": {
+                "rates": [(3, 0.0), (6, 2.0), (12, 3.0), (24, 3.5)],
+                "min_amount": 10000000,  # 100k COP min
+            },
+            "mercadopago": {
+                "rates": [(3, 0.0), (6, 1.8), (12, 2.8)],
+                "min_amount": 5000000,
+            },
+        }
+
+        config = provider_config.get(provider)
+        if config is None:
+            return {
+                "provider": provider,
+                "eligible": False,
+                "options": [],
+                "message": "Proveedor no disponible.",
+            }
+
+        if amount_cents < config["min_amount"]:
+            return {
+                "provider": provider,
+                "eligible": False,
+                "options": [],
+                "message": f"El monto mínimo es ${config['min_amount'] // 100:,.0f} COP.",
+            }
+
+        options = []
+        for installments, rate in config["rates"]:
+            if rate == 0:
+                monthly = amount_cents // installments
+                total = amount_cents
+            else:
+                r = rate / 100
+                monthly = int(amount_cents * (r * (1 + r) ** installments) / ((1 + r) ** installments - 1))
+                total = monthly * installments
+            options.append({
+                "installments": installments,
+                "monthly_payment_cents": monthly,
+                "total_cents": total,
+                "interest_rate_pct": rate,
+            })
+
+        return {
+            "provider": provider,
+            "eligible": True,
+            "options": options,
+            "message": None,
+        }
+
+    async def get_treatment_timeline(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+        tenant_id: str,
+    ) -> list[dict[str, Any]]:
+        """Get treatment timeline combining procedures and photos (F13)."""
+        from app.models.tenant.tooth_photo import ToothPhoto
+        from app.models.tenant.treatment_plan import TreatmentPlanItem
+
+        pid = uuid.UUID(patient_id)
+        events: list[dict[str, Any]] = []
+
+        # Completed procedures
+        proc_result = await db.execute(
+            select(TreatmentPlanItem, TreatmentPlan)
+            .join(TreatmentPlan, TreatmentPlanItem.treatment_plan_id == TreatmentPlan.id)
+            .where(
+                TreatmentPlan.patient_id == pid,
+                TreatmentPlanItem.status == "completed",
+            )
+            .order_by(TreatmentPlanItem.updated_at.desc())
+            .limit(100)
+        )
+        for item, plan in proc_result.all():
+            events.append({
+                "id": str(item.id),
+                "event_type": "procedure",
+                "title": item.cups_description or "Procedimiento",
+                "date": item.updated_at,
+                "status": item.status,
+                "photo_url": None,
+                "tooth_number": str(item.tooth_number) if hasattr(item, "tooth_number") and item.tooth_number else None,
+                "treatment_plan_name": plan.name,
+            })
+
+        # Tooth photos
+        photo_result = await db.execute(
+            select(ToothPhoto)
+            .where(
+                ToothPhoto.patient_id == pid,
+                ToothPhoto.is_active.is_(True),
+            )
+            .order_by(ToothPhoto.created_at.desc())
+            .limit(50)
+        )
+        photos = photo_result.scalars().all()
+
+        for photo in photos:
+            try:
+                from app.core.storage import storage_client
+                url = await storage_client.generate_signed_url(photo.s3_key, expires_in=900)
+            except Exception:
+                url = photo.s3_key
+
+            events.append({
+                "id": str(photo.id),
+                "event_type": "photo",
+                "title": f"Foto diente {photo.tooth_number}",
+                "date": photo.created_at,
+                "status": None,
+                "photo_url": url,
+                "tooth_number": str(photo.tooth_number),
+                "treatment_plan_name": None,
+            })
+
+        # Sort all events by date descending
+        events.sort(key=lambda e: e["date"], reverse=True)
+
+        return events
 
 
 # Module-level singleton

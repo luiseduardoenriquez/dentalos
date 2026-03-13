@@ -4,7 +4,9 @@ import { useState } from "react";
 import {
   usePortalTreatmentPlans,
   usePortalApprovePlan,
+  usePortalSimulateFinancing,
 } from "@/lib/hooks/use-portal";
+import type { FinancingSimulationOption } from "@/lib/hooks/use-portal";
 import { SignaturePad } from "@/components/signature-pad";
 
 export default function PortalTreatmentPlans() {
@@ -20,10 +22,21 @@ export default function PortalTreatmentPlans() {
   } = usePortalTreatmentPlans();
   const approveMutation = usePortalApprovePlan();
 
+  const simulateMutation = usePortalSimulateFinancing();
+
   // Track which plan is being confirmed before approval
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   // Track which plan has the signature modal open
   const [signingId, setSigningId] = useState<string | null>(null);
+  // Track which plan has the financing calculator open
+  const [financingPlanId, setFinancingPlanId] = useState<string | null>(null);
+  const [financingProvider, setFinancingProvider] = useState<string>("addi");
+  const [financingResults, setFinancingResults] = useState<{
+    provider: string;
+    eligible: boolean;
+    options: FinancingSimulationOption[];
+    message?: string | null;
+  } | null>(null);
 
   const plans = data?.pages.flatMap((p) => p.data) ?? [];
 
@@ -35,6 +48,14 @@ export default function PortalTreatmentPlans() {
     });
     setSigningId(null);
     setConfirmingId(null);
+  }
+
+  async function handleSimulateFinancing(amountCents: number) {
+    const result = await simulateMutation.mutateAsync({
+      amount_cents: amountCents,
+      provider: financingProvider,
+    });
+    setFinancingResults(result);
   }
 
   return (
@@ -200,7 +221,7 @@ export default function PortalTreatmentPlans() {
 
               {/* Approve button for pending plans */}
               {plan.status === "pending_approval" && (
-                <div className="mt-4">
+                <div className="mt-4 space-y-3">
                   {signingId === plan.id ? (
                     <div className="space-y-3">
                       <p className="text-xs text-[hsl(var(--muted-foreground))]">
@@ -250,6 +271,89 @@ export default function PortalTreatmentPlans() {
                       className="w-full py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
                     >
                       Aprobar plan
+                    </button>
+                  )}
+
+                  {/* Financing calculator (F12) */}
+                  {financingPlanId === plan.id ? (
+                    <div className="border border-[hsl(var(--border))] rounded-lg p-4 space-y-3 bg-slate-50 dark:bg-zinc-800/50">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-semibold text-[hsl(var(--foreground))]">
+                          Simular financiación
+                        </h4>
+                        <button
+                          onClick={() => {
+                            setFinancingPlanId(null);
+                            setFinancingResults(null);
+                          }}
+                          className="text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                        >
+                          Cerrar
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        {["addi", "sistecredito", "mercadopago"].map((p) => (
+                          <button
+                            key={p}
+                            onClick={() => {
+                              setFinancingProvider(p);
+                              setFinancingResults(null);
+                            }}
+                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                              financingProvider === p
+                                ? "bg-primary-600 text-white"
+                                : "bg-white dark:bg-zinc-700 text-[hsl(var(--foreground))] border border-[hsl(var(--border))]"
+                            }`}
+                          >
+                            {p === "addi" ? "Addi" : p === "sistecredito" ? "Sistecrédito" : "Mercado Pago"}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => handleSimulateFinancing(plan.total - plan.paid)}
+                        disabled={simulateMutation.isPending}
+                        className="w-full py-2 rounded-lg border border-primary-600 text-primary-600 text-sm font-medium hover:bg-primary-50 dark:hover:bg-primary-950/20 transition-colors disabled:opacity-50"
+                      >
+                        {simulateMutation.isPending ? "Calculando..." : `Simular $${((plan.total - plan.paid) / 100).toLocaleString("es-CO")}`}
+                      </button>
+                      {financingResults && (
+                        <div className="space-y-2">
+                          {!financingResults.eligible ? (
+                            <p className="text-xs text-red-600 dark:text-red-400">
+                              {financingResults.message || "No elegible para este proveedor."}
+                            </p>
+                          ) : (
+                            financingResults.options.map((opt) => (
+                              <div
+                                key={opt.installments}
+                                className="flex justify-between items-center text-sm bg-white dark:bg-zinc-700 rounded-md px-3 py-2 border border-[hsl(var(--border))]"
+                              >
+                                <span className="text-[hsl(var(--foreground))]">
+                                  {opt.installments} cuotas
+                                </span>
+                                <div className="text-right">
+                                  <p className="font-semibold text-[hsl(var(--foreground))]">
+                                    ${(opt.monthly_payment_cents / 100).toLocaleString("es-CO")}/mes
+                                  </p>
+                                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                                    Total: ${(opt.total_cents / 100).toLocaleString("es-CO")} ({opt.interest_rate_pct}% int.)
+                                  </p>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setFinancingPlanId(plan.id);
+                        setFinancingResults(null);
+                      }}
+                      className="w-full py-2 rounded-lg border border-[hsl(var(--border))] text-sm text-[hsl(var(--muted-foreground))] hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      💳 Simular financiación
                     </button>
                   )}
                 </div>
