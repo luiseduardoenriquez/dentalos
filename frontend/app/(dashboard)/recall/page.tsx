@@ -39,7 +39,7 @@ import { formatDate, cn } from "@/lib/utils";
 interface RecallCampaign {
   id: string;
   name: string;
-  campaign_type: string;
+  type: string;
   status: "draft" | "active" | "paused" | "completed";
   total_recipients: number;
   sent_count: number;
@@ -73,11 +73,10 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "success" | "des
 };
 
 const CAMPAIGN_TYPE_LABELS: Record<string, string> = {
-  recall_6m: "Recall 6 meses",
-  recall_1y: "Recall 1 año",
-  inactive: "Pacientes inactivos",
+  recall: "Recall",
+  reactivation: "Pacientes inactivos",
   birthday: "Cumpleaños",
-  custom: "Personalizada",
+  treatment_followup: "Seguimiento de tratamiento",
 };
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
@@ -246,7 +245,7 @@ export default function RecallCampaignsPage() {
                         {campaign.name}
                       </TableCell>
                       <TableCell className="text-sm text-[hsl(var(--muted-foreground))]">
-                        {CAMPAIGN_TYPE_LABELS[campaign.campaign_type] ?? campaign.campaign_type}
+                        {CAMPAIGN_TYPE_LABELS[campaign.type] ?? campaign.type}
                       </TableCell>
                       <TableCell>
                         <Badge

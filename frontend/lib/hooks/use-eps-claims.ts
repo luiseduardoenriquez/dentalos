@@ -11,7 +11,7 @@ export interface EPSClaimProcedure {
   cups_code: string;
   description: string;
   quantity: number;
-  unit_price_cents: number;
+  unit_cost_cents: number;
 }
 
 export interface EPSClaimResponse {
@@ -19,7 +19,7 @@ export interface EPSClaimResponse {
   patient_id: string;
   eps_code: string;
   eps_name: string;
-  claim_type: "ambulatorio" | "urgencias" | "hospitalizacion" | "dental";
+  claim_type: "outpatient" | "emergency" | "hospitalization" | "dental";
   status: "draft" | "submitted" | "acknowledged" | "paid" | "rejected" | "appealed";
   total_amount_cents: number;
   copay_amount_cents: number;
@@ -45,7 +45,7 @@ export interface EPSClaimCreate {
   patient_id: string;
   eps_code: string;
   eps_name: string;
-  claim_type: "ambulatorio" | "urgencias" | "hospitalizacion" | "dental";
+  claim_type: "outpatient" | "emergency" | "hospitalization" | "dental";
   total_amount_cents: number;
   copay_amount_cents: number;
   procedures?: EPSClaimProcedure[];

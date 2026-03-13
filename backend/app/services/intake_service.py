@@ -189,6 +189,27 @@ class IntakeService:
         logger.info("Intake submission approved: id=%s", str(sub.id)[:8])
         return self._submission_to_dict(sub)
 
+    async def reject_submission(
+        self, *, db: AsyncSession, submission_id: str, reviewed_by: str,
+    ) -> dict[str, Any]:
+        """Reject a submission."""
+        sub = await self._get_submission(db, submission_id)
+
+        if sub.status == "rejected":
+            raise DentalOSError(
+                error=IntakeErrors.ALREADY_APPROVED,
+                message="Esta solicitud ya fue rechazada.",
+                status_code=409,
+            )
+
+        sub.status = "rejected"
+        sub.reviewed_by = uuid.UUID(reviewed_by)
+        sub.reviewed_at = datetime.now(UTC)
+        await db.flush()
+        await db.refresh(sub)
+        logger.info("Intake submission rejected: id=%s", str(sub.id)[:8])
+        return self._submission_to_dict(sub)
+
     async def _auto_populate_patient_records(
         self, *, db: AsyncSession, submission: IntakeSubmission,
     ) -> None:

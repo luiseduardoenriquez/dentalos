@@ -80,6 +80,13 @@ class RecallService:
             "page_size": page_size,
         }
 
+    async def get_campaign(
+        self, *, db: AsyncSession, campaign_id: str,
+    ) -> dict[str, Any]:
+        """Get a single campaign by ID with aggregated stats."""
+        campaign = await self._get_campaign(db, campaign_id)
+        return await self._campaign_to_dict(db, campaign)
+
     async def update_campaign(
         self, *, db: AsyncSession, campaign_id: str, **fields: Any,
     ) -> dict[str, Any]:

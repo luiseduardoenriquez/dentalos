@@ -30,6 +30,8 @@ class InvoiceCreate(BaseModel):
     items: list[InvoiceItemCreate] | None = None
     due_date: date | None = None
     notes: str | None = None
+    include_tax: bool = False
+    tax_rate: int = 0  # Basis points: 1900 = 19%
 
 
 class InvoiceItemResponse(BaseModel):
@@ -80,6 +82,8 @@ class InvoiceResponse(BaseModel):
     currency_code: str = "COP"
     exchange_rate: float | None = None
     exchange_rate_date: date | None = None
+    include_tax: bool = False
+    tax_rate: int = 0
     subtotal_formatted: str | None = None
     total_formatted: str | None = None
     amount_paid_formatted: str | None = None

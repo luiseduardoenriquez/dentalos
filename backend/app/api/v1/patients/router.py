@@ -857,3 +857,91 @@ async def list_referrals(
         page=result["page"],
         page_size=result["page_size"],
     )
+
+
+# ─── Patient Family Lookup ──────────────────────────────────────────────────
+
+from app.services.family_service import family_service
+
+
+@router.get("/{patient_id}/family")
+async def get_patient_family(
+    patient_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> dict | None:
+    """Get the family group that this patient belongs to, or null."""
+    result = await family_service.get_by_patient(db=db, patient_id=patient_id)
+    return result
+
+
+# ─── Patient Membership Convenience Endpoints ──────────────────────────────
+
+from app.services.membership_service import membership_service
+
+
+@router.get("/{patient_id}/membership")
+async def get_patient_membership(
+    patient_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> dict | None:
+    """Get the active membership for a patient, or null."""
+    result = await membership_service.list_subscriptions(
+        db=db, patient_id=patient_id, status="active",
+    )
+    subs = result.get("items", [])
+    return subs[0] if subs else None
+
+
+@router.post("/{patient_id}/membership", status_code=201)
+async def subscribe_patient_membership(
+    patient_id: str,
+    body: dict,
+    current_user: AuthenticatedUser = Depends(
+        require_permission("patients:write")
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> dict:
+    """Subscribe a patient to a membership plan."""
+    from datetime import date as date_type
+
+    plan_id = body.get("plan_id")
+    if not plan_id:
+        raise DentalOSError(
+            error="VALIDATION_missing_plan_id",
+            message="Se requiere plan_id.",
+            status_code=400,
+        )
+    result = await membership_service.subscribe_patient(
+        db=db,
+        patient_id=patient_id,
+        plan_id=plan_id,
+        start_date=date_type.today(),
+        created_by=str(current_user.user_id),
+    )
+    return result
+
+
+@router.post("/{patient_id}/membership/cancel")
+async def cancel_patient_membership(
+    patient_id: str,
+    current_user: AuthenticatedUser = Depends(
+        require_permission("patients:write")
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> dict:
+    """Cancel the active membership for a patient."""
+    result = await membership_service.list_subscriptions(
+        db=db, patient_id=patient_id, status="active",
+    )
+    subs = result.get("items", [])
+    if not subs:
+        raise ResourceNotFoundError(
+            error="MEMBERSHIP_not_found",
+            resource_name="Subscription",
+        )
+    sub_id = subs[0]["id"]
+    return await membership_service.cancel_subscription(
+        db=db, subscription_id=sub_id,
+    )

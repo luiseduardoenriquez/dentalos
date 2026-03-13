@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPut } from "@/lib/api-client";
+import { apiGet, apiPost } from "@/lib/api-client";
 import {
   Card,
   CardContent,
@@ -190,7 +190,7 @@ export default function IntakeSubmissionsPage() {
 
   const { mutate: processSubmission, isPending: isProcessing } = useMutation({
     mutationFn: ({ id, action }: { id: string; action: "approve" | "reject" }) =>
-      apiPut(`/intake/submissions/${id}/${action}`, {}),
+      apiPost(`/intake/submissions/${id}/${action}`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["intake", "submissions"] });
       setViewSubmission(null);

@@ -461,6 +461,21 @@ class PaymentService:
             tenant_id=tenant_id,
         )
 
+        # Re-fetch plan installments after record_payment flush
+        await db.refresh(plan, ["installments"])
+        # Re-find the installment reference (previous one may be stale)
+        installment = None
+        for inst in plan.installments:
+            if inst.installment_number == installment_number:
+                installment = inst
+                break
+
+        if installment is None:
+            raise ResourceNotFoundError(
+                error=BillingErrors.INSTALLMENT_NOT_FOUND,
+                resource_name="Installment",
+            )
+
         # Mark installment as paid
         installment.status = "paid"
         installment.paid_at = datetime.now(UTC)

@@ -112,6 +112,8 @@ export default function NewInvoicePage() {
         due_date: values.due_date as string,
         notes: (values.notes as string) || null,
         items,
+        include_tax: applyIva,
+        tax_rate: applyIva ? 1900 : 0,
       },
       {
         onSuccess: (invoice: InvoiceResponse) => {

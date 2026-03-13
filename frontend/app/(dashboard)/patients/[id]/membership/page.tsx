@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost, apiPut } from "@/lib/api-client";
+import { apiGet, apiPost } from "@/lib/api-client";
 import {
   Card,
   CardContent,
@@ -34,10 +34,10 @@ interface ActiveMembership {
   id: string;
   plan_id: string;
   plan_name: string;
-  price_monthly: number;
+  monthly_price_cents: number;
   discount_percentage: number;
-  benefits: string[];
-  started_at: string;
+  benefits: Record<string, unknown> | null;
+  start_date: string;
   next_billing_date: string;
   status: "active" | "cancelled" | "past_due";
 }
@@ -46,9 +46,9 @@ interface MembershipPlan {
   id: string;
   name: string;
   description: string | null;
-  price_monthly: number;
+  monthly_price_cents: number;
   discount_percentage: number;
-  benefits: string[];
+  benefits: Record<string, unknown> | null;
   is_active: boolean;
 }
 
@@ -97,7 +97,7 @@ export default function PatientMembershipPage() {
   });
 
   const { mutate: cancelMembership, isPending: isCancelling } = useMutation({
-    mutationFn: () => apiPut(`/patients/${patientId}/membership/cancel`, {}),
+    mutationFn: () => apiPost(`/patients/${patientId}/membership/cancel`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["patients", patientId, "membership"] });
       setCancelDialogOpen(false);
@@ -152,7 +152,7 @@ export default function PatientMembershipPage() {
               <div>
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">Precio mensual</p>
                 <p className="font-semibold tabular-nums">
-                  {formatCurrency(membership.price_monthly)}
+                  {formatCurrency(membership.monthly_price_cents)}
                 </p>
               </div>
               <div>
@@ -163,7 +163,7 @@ export default function PatientMembershipPage() {
               </div>
               <div>
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">Desde</p>
-                <p className="font-medium">{formatDate(membership.started_at)}</p>
+                <p className="font-medium">{formatDate(membership.start_date)}</p>
               </div>
               <div>
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">
@@ -173,16 +173,16 @@ export default function PatientMembershipPage() {
               </div>
             </div>
 
-            {membership.benefits.length > 0 && (
+            {membership.benefits && Object.keys(membership.benefits).length > 0 && (
               <div>
                 <p className="text-xs font-medium text-[hsl(var(--muted-foreground))] mb-2">
                   Beneficios incluidos
                 </p>
                 <ul className="space-y-1">
-                  {membership.benefits.map((b) => (
-                    <li key={b} className="flex items-center gap-2 text-sm">
+                  {Object.keys(membership.benefits).map((key) => (
+                    <li key={key} className="flex items-center gap-2 text-sm">
                       <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                      {b}
+                      {key}
                     </li>
                   ))}
                 </ul>

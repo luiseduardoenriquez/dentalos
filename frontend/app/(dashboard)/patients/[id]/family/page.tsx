@@ -39,36 +39,33 @@ import { formatCurrency } from "@/lib/utils";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface FamilyMember {
-  id: string;
   patient_id: string;
   patient_name: string;
   relationship: string;
-  is_head: boolean;
+  is_active: boolean;
 }
 
 interface FamilyGroup {
   id: string;
   name: string;
+  primary_contact_patient_id: string;
   members: FamilyMember[];
 }
 
 interface FamilyBillingMember {
   patient_id: string;
   patient_name: string;
-  relationship: string;
-  total_billed_cents: number;
-  total_paid_cents: number;
-  balance_cents: number;
+  total_billed: number;
+  total_paid: number;
+  total_balance: number;
 }
 
 interface FamilyBillingSummary {
   family_id: string;
   members: FamilyBillingMember[];
-  totals: {
-    total_billed_cents: number;
-    total_paid_cents: number;
-    balance_cents: number;
-  };
+  total_billed: number;
+  total_paid: number;
+  total_balance: number;
 }
 
 // ─── Relationship Labels ──────────────────────────────────────────────────────
@@ -183,7 +180,7 @@ function CreateFamilyDialog({
   const [familyName, setFamilyName] = React.useState("");
 
   const { mutate: createFamily, isPending } = useMutation({
-    mutationFn: (payload: { name: string; head_patient_id: string }) =>
+    mutationFn: (payload: { name: string; primary_contact_patient_id: string }) =>
       apiPost<FamilyGroup>("/families", payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["family"] });
@@ -195,7 +192,7 @@ function CreateFamilyDialog({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!familyName.trim()) return;
-    createFamily({ name: familyName.trim(), head_patient_id: patientId });
+    createFamily({ name: familyName.trim(), primary_contact_patient_id: patientId });
   }
 
   return (
@@ -359,7 +356,7 @@ export default function PatientFamilyPage() {
             </TableHeader>
             <TableBody>
               {family.members.map((member) => (
-                <TableRow key={member.id}>
+                <TableRow key={member.patient_id}>
                   <TableCell className="font-medium text-foreground">
                     {member.patient_name}
                   </TableCell>
@@ -369,7 +366,7 @@ export default function PatientFamilyPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {member.is_head ? (
+                    {String(member.patient_id) === String(family.primary_contact_patient_id) ? (
                       <Badge variant="default">Titular</Badge>
                     ) : (
                       <span className="text-xs text-[hsl(var(--muted-foreground))]">
@@ -398,7 +395,6 @@ export default function PatientFamilyPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Paciente</TableHead>
-                  <TableHead>Parentesco</TableHead>
                   <TableHead className="text-right">Total facturado</TableHead>
                   <TableHead className="text-right">Total pagado</TableHead>
                   <TableHead className="text-right">Saldo</TableHead>
@@ -410,48 +406,43 @@ export default function PatientFamilyPage() {
                     <TableCell className="font-medium text-foreground">
                       {m.patient_name}
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">
-                        {relationshipLabel(m.relationship)}
-                      </Badge>
-                    </TableCell>
                     <TableCell className="text-right tabular-nums text-sm">
-                      {formatCurrency(m.total_billed_cents)}
+                      {formatCurrency(m.total_billed)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-sm text-green-600 dark:text-green-400">
-                      {formatCurrency(m.total_paid_cents)}
+                      {formatCurrency(m.total_paid)}
                     </TableCell>
                     <TableCell
                       className={`text-right tabular-nums text-sm font-semibold ${
-                        m.balance_cents > 0
+                        m.total_balance > 0
                           ? "text-red-600 dark:text-red-400"
                           : "text-foreground"
                       }`}
                     >
-                      {formatCurrency(m.balance_cents)}
+                      {formatCurrency(m.total_balance)}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
               <TableFooter>
                 <TableRow className="bg-[hsl(var(--muted))]/50 font-semibold">
-                  <TableCell colSpan={2} className="font-bold text-foreground">
+                  <TableCell className="font-bold text-foreground">
                     Total grupo familiar
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatCurrency(billing.totals.total_billed_cents)}
+                    {formatCurrency(billing.total_billed)}
                   </TableCell>
                   <TableCell className="text-right tabular-nums text-green-600 dark:text-green-400">
-                    {formatCurrency(billing.totals.total_paid_cents)}
+                    {formatCurrency(billing.total_paid)}
                   </TableCell>
                   <TableCell
                     className={`text-right tabular-nums font-bold ${
-                      billing.totals.balance_cents > 0
+                      billing.total_balance > 0
                         ? "text-red-600 dark:text-red-400"
                         : "text-foreground"
                     }`}
                   >
-                    {formatCurrency(billing.totals.balance_cents)}
+                    {formatCurrency(billing.total_balance)}
                   </TableCell>
                 </TableRow>
               </TableFooter>

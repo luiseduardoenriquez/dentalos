@@ -18,9 +18,9 @@ import type { EPSClaimCreate, EPSClaimProcedure } from "@/lib/hooks/use-eps-clai
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const CLAIM_TYPE_LABELS: Record<EPSClaimCreate["claim_type"], string> = {
-  ambulatorio: "Ambulatorio",
-  urgencias: "Urgencias",
-  hospitalizacion: "Hospitalización",
+  outpatient: "Ambulatorio",
+  emergency: "Urgencias",
+  hospitalization: "Hospitalización",
   dental: "Dental",
 };
 
@@ -31,7 +31,7 @@ function emptyProcedure(): EPSClaimProcedure {
     cups_code: "",
     description: "",
     quantity: 1,
-    unit_price_cents: 0,
+    unit_cost_cents: 0,
   };
 }
 
@@ -61,7 +61,7 @@ export function EPSClaimForm({
   const [epsCode, setEpsCode] = React.useState(defaultValues?.eps_code ?? "");
   const [epsName, setEpsName] = React.useState(defaultValues?.eps_name ?? "");
   const [claimType, setClaimType] = React.useState<EPSClaimCreate["claim_type"]>(
-    defaultValues?.claim_type ?? "ambulatorio",
+    defaultValues?.claim_type ?? "outpatient",
   );
   const [totalAmountCents, setTotalAmountCents] = React.useState(
     defaultValues?.total_amount_cents ?? 0,
@@ -320,11 +320,11 @@ export function EPSClaimForm({
                     id={`proc-price-${index}`}
                     type="number"
                     min={0}
-                    value={proc.unit_price_cents}
+                    value={proc.unit_cost_cents}
                     onChange={(e) =>
                       updateProcedure(
                         index,
-                        "unit_price_cents",
+                        "unit_cost_cents",
                         parseInt(e.target.value, 10) || 0,
                       )
                     }

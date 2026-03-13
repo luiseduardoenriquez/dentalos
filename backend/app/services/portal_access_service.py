@@ -81,14 +81,26 @@ class PortalAccessService:
         # Generate a temporary password for the patient
         temp_password = secrets.token_urlsafe(8)[:10]
 
-        # Create credentials row with hashed temp password
-        creds = PortalCredentials(
-            patient_id=pid,
-            password_hash=hash_password(temp_password),
-            is_active=True,
-            must_change_password=True,
+        # Check if credentials already exist
+        existing_creds = await db.execute(
+            select(PortalCredentials).where(PortalCredentials.patient_id == pid)
         )
-        db.add(creds)
+        creds = existing_creds.scalar_one_or_none()
+
+        if creds is not None:
+            # Reactivate existing credentials with new password
+            creds.password_hash = hash_password(temp_password)
+            creds.is_active = True
+            creds.must_change_password = True
+        else:
+            # Create new credentials row
+            creds = PortalCredentials(
+                patient_id=pid,
+                password_hash=hash_password(temp_password),
+                is_active=True,
+                must_change_password=True,
+            )
+            db.add(creds)
 
         # Update patient
         patient.portal_access = True

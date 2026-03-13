@@ -21,7 +21,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/pagination";
 import { EPSClaimsTable } from "@/components/billing/eps-claims-table";
 import { useEPSClaims, useEPSClaimsAging } from "@/lib/hooks/use-eps-claims";
-import { formatCurrency } from "@/lib/utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -46,7 +45,7 @@ function AgingCard({ label, amount, colorClass }: AgingCardProps) {
           </p>
         </div>
         <p className={`text-lg font-bold tabular-nums ${colorClass}`}>
-          {formatCurrency(amount, "COP")}
+          {amount} <span className="text-xs font-normal">reclamaciones</span>
         </p>
       </CardContent>
     </Card>

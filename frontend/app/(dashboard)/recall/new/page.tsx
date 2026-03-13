@@ -29,31 +29,29 @@ import Link from "next/link";
 
 interface RecallCampaignCreate {
   name: string;
-  campaign_type: string;
-  patient_filter: {
+  type: string;
+  filters: {
     min_days_since_visit: number | null;
     max_days_since_visit: number | null;
     treatment_types: string[];
   };
-  channels: string[];
-  steps: RecallStep[];
+  channel: string;
+  schedule: Array<{ day_offset: number; channel: string; message_template: string }>;
 }
 
 // ─── Options ──────────────────────────────────────────────────────────────────
 
 const CAMPAIGN_TYPES = [
-  { value: "recall_6m", label: "Recall 6 meses" },
-  { value: "recall_1y", label: "Recall 1 año" },
-  { value: "inactive", label: "Pacientes inactivos (+1 año)" },
+  { value: "recall", label: "Recall" },
+  { value: "reactivation", label: "Pacientes inactivos (+1 año)" },
   { value: "birthday", label: "Cumpleaños" },
-  { value: "custom", label: "Personalizada" },
+  { value: "treatment_followup", label: "Seguimiento de tratamiento" },
 ];
 
 const CHANNEL_OPTIONS = [
   { value: "whatsapp", label: "WhatsApp" },
   { value: "sms", label: "SMS" },
   { value: "email", label: "Correo electrónico" },
-  { value: "in_app", label: "Notificación en app" },
 ];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -105,14 +103,18 @@ export default function NewRecallCampaignPage() {
 
     createCampaign({
       name: name.trim(),
-      campaign_type: campaignType,
-      patient_filter: {
+      type: campaignType,
+      filters: {
         min_days_since_visit: minDays ? parseInt(minDays) : null,
         max_days_since_visit: maxDays ? parseInt(maxDays) : null,
         treatment_types: [],
       },
-      channels: selectedChannels,
-      steps,
+      channel: selectedChannels.length === 1 ? selectedChannels[0] : "whatsapp",
+      schedule: steps.map(({ day_offset, channel, message_template }) => ({
+        day_offset,
+        channel,
+        message_template,
+      })),
     });
   }
 

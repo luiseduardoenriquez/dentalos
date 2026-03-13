@@ -126,7 +126,10 @@ class MembershipService:
         await db.refresh(sub)
 
         logger.info("Patient subscribed to plan: plan=%s", str(plid)[:8])
-        return self._subscription_to_dict(sub, plan_name=plan.name, discount=plan.discount_percentage)
+        return self._subscription_to_dict(
+            sub, plan_name=plan.name, discount=plan.discount_percentage,
+            monthly_price_cents=plan.monthly_price_cents, benefits=plan.benefits,
+        )
 
     async def list_subscriptions(
         self, *, db: AsyncSession, status: str | None = None,
@@ -146,7 +149,13 @@ class MembershipService:
         )).scalar_one()
 
         result = await db.execute(
-            select(MembershipSubscription, MembershipPlan.name, MembershipPlan.discount_percentage)
+            select(
+                MembershipSubscription,
+                MembershipPlan.name,
+                MembershipPlan.discount_percentage,
+                MembershipPlan.monthly_price_cents,
+                MembershipPlan.benefits,
+            )
             .join(MembershipPlan, MembershipSubscription.plan_id == MembershipPlan.id)
             .where(*conditions)
             .order_by(MembershipSubscription.created_at.desc())
@@ -157,7 +166,10 @@ class MembershipService:
 
         return {
             "items": [
-                self._subscription_to_dict(r[0], plan_name=r[1], discount=r[2])
+                self._subscription_to_dict(
+                    r[0], plan_name=r[1], discount=r[2],
+                    monthly_price_cents=r[3], benefits=r[4],
+                )
                 for r in rows
             ],
             "total": total,
@@ -337,19 +349,23 @@ class MembershipService:
         self, sub: MembershipSubscription,
         plan_name: str | None = None,
         discount: int = 0,
+        monthly_price_cents: int = 0,
+        benefits: dict | None = None,
     ) -> dict[str, Any]:
         return {
             "id": str(sub.id),
             "patient_id": str(sub.patient_id),
             "plan_id": str(sub.plan_id),
             "plan_name": plan_name,
+            "monthly_price_cents": monthly_price_cents,
+            "discount_percentage": discount,
+            "benefits": benefits,
             "status": sub.status,
             "start_date": sub.start_date,
             "next_billing_date": sub.next_billing_date,
             "cancelled_at": sub.cancelled_at,
             "paused_at": sub.paused_at,
             "payment_method": sub.payment_method,
-            "discount_percentage": discount,
             "is_active": sub.is_active,
             "created_at": sub.created_at,
             "updated_at": sub.updated_at,

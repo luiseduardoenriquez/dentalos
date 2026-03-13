@@ -150,9 +150,9 @@ function DetailSkeleton() {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const CLAIM_TYPE_LABELS: Record<string, string> = {
-  ambulatorio: "Ambulatorio",
-  urgencias: "Urgencias",
-  hospitalizacion: "Hospitalización",
+  outpatient: "Ambulatorio",
+  emergency: "Urgencias",
+  hospitalization: "Hospitalización",
   dental: "Dental",
 };
 
@@ -394,11 +394,11 @@ export default function EPSClaimDetailPage() {
                         {proc.quantity}
                       </TableCell>
                       <TableCell className="text-right text-sm tabular-nums text-[hsl(var(--muted-foreground))]">
-                        {formatCurrency(proc.unit_price_cents, "COP")}
+                        {formatCurrency(proc.unit_cost_cents, "COP")}
                       </TableCell>
                       <TableCell className="text-right text-sm font-semibold tabular-nums text-foreground">
                         {formatCurrency(
-                          proc.quantity * proc.unit_price_cents,
+                          proc.quantity * proc.unit_cost_cents,
                           "COP",
                         )}
                       </TableCell>

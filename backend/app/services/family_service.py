@@ -71,6 +71,24 @@ class FamilyService:
         group = await self._get_group(db, family_id)
         return await self._group_to_dict(db, group)
 
+    async def get_by_patient(
+        self, *, db: AsyncSession, patient_id: str,
+    ) -> dict[str, Any] | None:
+        """Find the family group that a patient belongs to, or return None."""
+        pid = uuid.UUID(patient_id)
+        result = await db.execute(
+            select(FamilyMember).where(
+                FamilyMember.patient_id == pid,
+                FamilyMember.is_active.is_(True),
+            )
+        )
+        member = result.scalar_one_or_none()
+        if member is None:
+            return None
+
+        group = await self._get_group(db, str(member.family_group_id))
+        return await self._group_to_dict(db, group)
+
     # ── Member Management ──────────────────────────────────────────────────────
 
     async def add_member(

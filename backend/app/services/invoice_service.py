@@ -132,6 +132,8 @@ def _invoice_to_dict(inv: Invoice) -> dict[str, Any]:
         "currency_code": currency,
         "exchange_rate": float(inv.exchange_rate) if getattr(inv, "exchange_rate", None) else None,
         "exchange_rate_date": inv.exchange_rate_date if getattr(inv, "exchange_rate_date", None) else None,
+        "include_tax": getattr(inv, "include_tax", False),
+        "tax_rate": getattr(inv, "tax_rate", 0),
         "is_active": inv.is_active,
         "created_at": inv.created_at,
         "updated_at": inv.updated_at,
@@ -289,6 +291,8 @@ class InvoiceService:
         due_date: date | None = None,
         notes: str | None = None,
         currency_code: str = "COP",
+        include_tax: bool = False,
+        tax_rate: int = 0,
     ) -> dict[str, Any]:
         """Create a new invoice from a quotation, treatment plan, or manual items.
 
@@ -498,21 +502,21 @@ class InvoiceService:
             base = ii["unit_price"] * ii["quantity"]
             # Step 2a: Apply membership discount first
             if membership_discount_pct > 0:
-                membership_disc = base * membership_discount_pct // 100
+                membership_disc = round(base * membership_discount_pct / 100)
                 ii["discount"] = ii["discount"] + membership_disc
                 total_membership_discount_cents += membership_disc
             # Step 2b: Apply convenio discount on remaining (after membership)
             if convenio_discount_pct > 0:
                 remaining = base - ii["discount"]
-                convenio_disc = remaining * convenio_discount_pct // 100
+                convenio_disc = round(remaining * convenio_discount_pct / 100)
                 ii["discount"] = ii["discount"] + convenio_disc
                 total_convenio_discount_cents += convenio_disc
             line_total = (ii["unit_price"] * ii["quantity"]) - ii["discount"]
             ii["line_total"] = max(line_total, 0)
             subtotal += ii["line_total"]
 
-        # Tax: CO = 0% for dental
-        tax = 0
+        # Tax calculation: tax_rate is in basis points (1900 = 19%)
+        tax = subtotal * tax_rate // 10000 if include_tax else 0
         total = subtotal + tax
 
         # Sprint 25-26: Fetch exchange rate for multi-currency invoices (step 3)
@@ -540,6 +544,8 @@ class InvoiceService:
             status="draft",
             due_date=due_date,
             notes=notes,
+            include_tax=include_tax,
+            tax_rate=tax_rate,
             is_active=True,
             currency_code=currency_code,
             exchange_rate=exchange_rate_val,

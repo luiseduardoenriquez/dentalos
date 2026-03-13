@@ -101,3 +101,16 @@ async def approve_submission(
         db=db, submission_id=submission_id, reviewed_by=str(current_user.user_id),
     )
     return IntakeSubmissionResponse(**result)
+
+
+@router.post("/submissions/{submission_id}/reject", response_model=IntakeSubmissionResponse)
+async def reject_submission(
+    submission_id: str,
+    current_user: AuthenticatedUser = Depends(require_permission("intake:write")),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> IntakeSubmissionResponse:
+    """Reject a submission."""
+    result = await intake_service.reject_submission(
+        db=db, submission_id=submission_id, reviewed_by=str(current_user.user_id),
+    )
+    return IntakeSubmissionResponse(**result)

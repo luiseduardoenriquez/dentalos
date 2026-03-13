@@ -53,6 +53,17 @@ async def list_campaigns(
     return await recall_service.list_campaigns(db=db, page=page, page_size=page_size)
 
 
+@router.get("/campaigns/{campaign_id}", response_model=RecallCampaignResponse)
+async def get_campaign(
+    campaign_id: str,
+    current_user: AuthenticatedUser = Depends(require_permission("recall:read")),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> RecallCampaignResponse:
+    """Get a single recall campaign by ID."""
+    result = await recall_service.get_campaign(db=db, campaign_id=campaign_id)
+    return RecallCampaignResponse(**result)
+
+
 @router.put("/campaigns/{campaign_id}", response_model=RecallCampaignResponse)
 async def update_campaign(
     campaign_id: str,

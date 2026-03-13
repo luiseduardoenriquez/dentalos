@@ -262,7 +262,30 @@ class WhatsAppChatService:
         """List conversations with offset pagination.
 
         Ordered by last_message_at descending (most recent first).
+        Returns empty list on ProgrammingError (table may not exist yet).
         """
+        try:
+            return await self._get_conversations_inner(
+                db, page, page_size, status_filter, assigned_to,
+            )
+        except Exception as exc:
+            # Table may not exist yet if migration hasn't run
+            err_str = str(exc).lower()
+            if "relation" in err_str and "does not exist" in err_str:
+                logger.warning("whatsapp_conversations table not found — returning empty")
+                await db.rollback()
+                return {"items": [], "total": 0, "page": page, "page_size": page_size}
+            raise
+
+    async def _get_conversations_inner(
+        self,
+        db: AsyncSession,
+        page: int = 1,
+        page_size: int = 20,
+        status_filter: str | None = None,
+        assigned_to: str | None = None,
+    ) -> dict[str, Any]:
+        """Inner implementation of get_conversations."""
         conditions: list = []
 
         if status_filter:

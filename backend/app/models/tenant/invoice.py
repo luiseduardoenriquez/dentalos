@@ -96,6 +96,14 @@ class Invoice(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
     )
     exchange_rate_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # Tax configuration (Sprint features-competation)
+    include_tax: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    tax_rate: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+
     # Notes
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 

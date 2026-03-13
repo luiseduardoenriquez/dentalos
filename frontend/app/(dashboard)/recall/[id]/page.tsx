@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPut } from "@/lib/api-client";
+import { apiGet, apiPost } from "@/lib/api-client";
 import {
   Card,
   CardContent,
@@ -40,7 +40,6 @@ import { formatDate, cn } from "@/lib/utils";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface CampaignStep {
-  id: string;
   day_offset: number;
   channel: string;
   message_template: string;
@@ -62,7 +61,7 @@ interface RecipientRow {
 interface CampaignDetail {
   id: string;
   name: string;
-  campaign_type: string;
+  type: string;
   status: "draft" | "active" | "paused" | "completed";
   total_recipients: number;
   sent_count: number;
@@ -70,7 +69,7 @@ interface CampaignDetail {
   opened_count: number;
   booked_count: number;
   created_at: string;
-  steps: CampaignStep[];
+  schedule: CampaignStep[];
   recipients: RecipientRow[];
 }
 
@@ -135,7 +134,7 @@ export default function RecallCampaignDetailPage() {
 
   const { mutate: toggleStatus, isPending: isToggling } = useMutation({
     mutationFn: (action: "activate" | "pause") =>
-      apiPut(`/recall/campaigns/${campaignId}/${action}`, {}),
+      apiPost(`/recall/campaigns/${campaignId}/${action}`, {}),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["recall", "campaigns", campaignId] }),
   });
@@ -259,7 +258,7 @@ export default function RecallCampaignDetailPage() {
       </Card>
 
       {/* Steps performance */}
-      {campaign.steps.length > 0 && (
+      {(campaign.schedule ?? []).length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Rendimiento por paso</CardTitle>
@@ -275,8 +274,8 @@ export default function RecallCampaignDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {campaign.steps.map((step) => (
-                  <TableRow key={step.id}>
+                {(campaign.schedule ?? []).map((step, idx) => (
+                  <TableRow key={idx}>
                     <TableCell className="text-sm">Día {step.day_offset}</TableCell>
                     <TableCell className="text-sm capitalize">{step.channel}</TableCell>
                     <TableCell className="text-sm text-right tabular-nums">

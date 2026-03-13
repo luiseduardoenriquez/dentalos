@@ -994,6 +994,16 @@ Wave 4 (Enhanced features):
 - [x] High-priority bug fixes (P1: workflow blockers) — dashboard link fix, portal error boundary move, portal error handling with retry, anthropic dependency
 - [x] UX improvements from clinical staff feedback — portal Link navigation, dark mode global-error, calendar AM/PM Spanish format, useStartAppointment body fix, not-found redirect logic
 - [x] Mobile/tablet usability fixes
+- [x] E2E receptionist flow bug fixes (flows 18.1–18.34) — 13 FE↔BE mismatches across 7 modules:
+  - [x] FE: Intake apiPut→apiPost (405 fix), EPS Claims field+enum renames (unit_cost_cents, English enums), aging display counts not currency
+  - [x] FE: Recall 4 field renames (type, channel, schedule, filters) + type enum mapping, removed in_app channel
+  - [x] FE: Families field renames (primary_contact_patient_id, billing flat fields), Memberships apiPost+field renames
+  - [x] FE: Invoice new page — pass include_tax+tax_rate to API
+  - [x] BE: Add GET /recall/campaigns/{id}, POST /intake/submissions/{id}/reject endpoints
+  - [x] BE: Add patient-scoped membership endpoints (GET/POST /patients/{id}/membership, POST cancel)
+  - [x] BE: Add GET /patients/{id}/family endpoint + family_service.get_by_patient()
+  - [x] BE: Portal 500 fix (duplicate PortalCredentials), installment stale reference fix, WhatsApp defensive error handling
+  - [x] BE: IVA persistence (include_tax+tax_rate columns, migration 026), rounding fix (floor→round)
 
 ### Additional Infrastructure
 
