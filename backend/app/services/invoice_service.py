@@ -147,7 +147,7 @@ class InvoiceService:
         """Return treatment plan items that can be invoiced.
 
         Criteria:
-          - Plan status = 'active'
+          - Plan status in ('active', 'completed')
           - Item status in ('completed', 'scheduled')
           - Not already linked to an invoice_item
         """
@@ -165,7 +165,7 @@ class InvoiceService:
             .join(TreatmentPlan, TreatmentPlanItem.treatment_plan_id == TreatmentPlan.id)
             .where(
                 TreatmentPlan.patient_id == pid,
-                TreatmentPlan.status == "active",
+                TreatmentPlan.status.in_(["active", "completed"]),
                 TreatmentPlan.is_active.is_(True),
                 TreatmentPlanItem.status.in_(["completed", "scheduled"]),
                 TreatmentPlanItem.id.notin_(already_invoiced),
