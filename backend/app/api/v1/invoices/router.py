@@ -18,6 +18,7 @@ from app.core.database import get_tenant_db
 from app.core.exceptions import ResourceNotFoundError
 from app.schemas.invoice import (
     BillableItemsListResponse,
+    BillableOrthoItemsListResponse,
     InvoiceCreate,
     InvoiceListResponse,
     InvoiceResponse,
@@ -47,6 +48,22 @@ async def get_billable_items(
         patient_id=patient_id,
     )
     return BillableItemsListResponse(**result)
+
+
+@router.get("/billable-ortho-items", response_model=BillableOrthoItemsListResponse)
+async def get_billable_ortho_items(
+    patient_id: str,
+    current_user: AuthenticatedUser = Depends(
+        require_permission("billing:read")
+    ),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> BillableOrthoItemsListResponse:
+    """Return orthodontic items eligible for invoicing (initial payments + pending controls)."""
+    result = await invoice_service.get_billable_ortho_items(
+        db=db,
+        patient_id=patient_id,
+    )
+    return BillableOrthoItemsListResponse(**result)
 
 
 # ─── B-01: Create invoice ───────────────────────────────────────────────────

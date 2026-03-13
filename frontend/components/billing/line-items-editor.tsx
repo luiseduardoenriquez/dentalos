@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utils";
 import { BillableItemsPicker } from "@/components/billing/billable-items-picker";
-import type { BillableItem } from "@/lib/hooks/use-invoices";
+import { BillableOrthoItemsPicker } from "@/components/billing/billable-ortho-items-picker";
+import type { BillableItem, BillableOrthoItem } from "@/lib/hooks/use-invoices";
 
 interface LineItemsEditorProps {
   patientId?: string;
@@ -67,15 +68,38 @@ export function LineItemsEditor({ patientId, disabled = false }: LineItemsEditor
     }
   }
 
+  function handleLoadOrthoItems(items: BillableOrthoItem[]) {
+    for (const item of items) {
+      append({
+        description: item.description,
+        service_id: null,
+        cups_code: null,
+        quantity: "1",
+        unit_price_display: String(item.amount / 100),
+        discount_display: "0",
+        tooth_number: "",
+        ortho_case_id: item.ortho_case_id || null,
+        ortho_visit_id: item.ortho_visit_id || null,
+      });
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm font-semibold text-foreground">Ítems</p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {patientId && (
             <BillableItemsPicker
               patientId={patientId}
               onSelect={handleLoadBillableItems}
+              disabled={disabled}
+            />
+          )}
+          {patientId && (
+            <BillableOrthoItemsPicker
+              patientId={patientId}
+              onSelect={handleLoadOrthoItems}
               disabled={disabled}
             />
           )}
@@ -97,11 +121,18 @@ export function LineItemsEditor({ patientId, disabled = false }: LineItemsEditor
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
             No hay ítems. Agrega el primero.
           </p>
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
             {patientId && (
               <BillableItemsPicker
                 patientId={patientId}
                 onSelect={handleLoadBillableItems}
+                disabled={disabled}
+              />
+            )}
+            {patientId && (
+              <BillableOrthoItemsPicker
+                patientId={patientId}
+                onSelect={handleLoadOrthoItems}
                 disabled={disabled}
               />
             )}

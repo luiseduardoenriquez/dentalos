@@ -18,7 +18,8 @@ from app.core.error_codes import BillingErrors
 from app.core.exceptions import BillingError, ResourceNotFoundError
 from app.core.queue import publish_message
 from app.models.tenant.cash_register import CashMovement, CashRegister
-from app.models.tenant.invoice import Invoice
+from app.models.tenant.invoice import Invoice, InvoiceItem
+from app.models.tenant.ortho import OrthoVisit
 from app.models.tenant.payment import Payment
 from app.models.tenant.payment_plan import PaymentPlan, PaymentPlanInstallment
 from app.schemas.queue import QueueMessage
@@ -174,6 +175,24 @@ class PaymentService:
 
         # Recalculate invoice balance
         inv = await invoice_service.recalculate_balance(db=db, invoice_id=iid)
+
+        # Bridge: sync OrthoVisit payment_status when invoice is fully paid
+        if inv.status == "paid":
+            ortho_items_result = await db.execute(
+                select(InvoiceItem.ortho_visit_id).where(
+                    InvoiceItem.invoice_id == iid,
+                    InvoiceItem.ortho_visit_id.isnot(None),
+                )
+            )
+            ortho_visit_ids = [row[0] for row in ortho_items_result.all()]
+            if ortho_visit_ids:
+                visits_result = await db.execute(
+                    select(OrthoVisit).where(OrthoVisit.id.in_(ortho_visit_ids))
+                )
+                for visit in visits_result.scalars().all():
+                    visit.payment_status = "paid"
+                    visit.payment_id = payment.id
+                await db.flush()
 
         # Enqueue payment receipt notification
         await publish_message(

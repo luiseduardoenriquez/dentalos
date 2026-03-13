@@ -19,6 +19,7 @@ from app.core.error_codes import BillingErrors
 from app.core.exceptions import BillingError, DentalOSError, ResourceNotFoundError
 from app.core.queue import publish_message
 from app.models.tenant.invoice import Invoice, InvoiceItem
+from app.models.tenant.ortho import OrthoCase, OrthoVisit
 from app.models.tenant.patient import Patient
 from app.models.tenant.payment import Payment
 from app.models.tenant.quotation import Quotation
@@ -88,6 +89,8 @@ def _item_to_dict(item: InvoiceItem) -> dict[str, Any]:
         "sort_order": item.sort_order,
         "tooth_number": item.tooth_number,
         "treatment_plan_item_id": str(item.treatment_plan_item_id) if item.treatment_plan_item_id else None,
+        "ortho_case_id": str(item.ortho_case_id) if item.ortho_case_id else None,
+        "ortho_visit_id": str(item.ortho_visit_id) if item.ortho_visit_id else None,
         "doctor_id": str(item.doctor_id) if item.doctor_id else None,
         "created_at": item.created_at,
         "updated_at": item.updated_at,
@@ -186,6 +189,90 @@ class InvoiceService:
                 "tooth_number": item.tooth_number,
                 "doctor_id": str(doctor_id) if doctor_id else None,
                 "status": item.status,
+            })
+
+        return {"items": billable, "total": len(billable)}
+
+    async def get_billable_ortho_items(
+        self,
+        *,
+        db: AsyncSession,
+        patient_id: str,
+    ) -> dict[str, Any]:
+        """Return orthodontic items that can be invoiced.
+
+        Two types:
+          a) Initial payment — active case with initial_payment > 0, not yet invoiced
+             (no InvoiceItem with ortho_case_id=X and ortho_visit_id IS NULL).
+          b) Monthly controls — visits with payment_status='pending', not yet invoiced
+             (no InvoiceItem with ortho_visit_id=X).
+        """
+        pid = uuid.UUID(patient_id)
+
+        # Subquery: ortho_case_ids that already have an initial payment invoiced
+        # (ortho_case_id set, ortho_visit_id is NULL → initial payment item)
+        initial_already_invoiced = (
+            select(InvoiceItem.ortho_case_id)
+            .where(
+                InvoiceItem.ortho_case_id.isnot(None),
+                InvoiceItem.ortho_visit_id.is_(None),
+            )
+            .scalar_subquery()
+        )
+
+        # Subquery: ortho_visit_ids already invoiced
+        visits_already_invoiced = (
+            select(InvoiceItem.ortho_visit_id)
+            .where(InvoiceItem.ortho_visit_id.isnot(None))
+            .scalar_subquery()
+        )
+
+        billable: list[dict[str, Any]] = []
+
+        # a) Initial payments from active cases
+        cases_result = await db.execute(
+            select(OrthoCase).where(
+                OrthoCase.patient_id == pid,
+                OrthoCase.is_active.is_(True),
+                OrthoCase.status.in_(["planning", "bonding", "active_treatment", "retention"]),
+                OrthoCase.initial_payment > 0,
+                OrthoCase.id.notin_(initial_already_invoiced),
+            )
+        )
+        for case in cases_result.scalars().all():
+            billable.append({
+                "type": "initial_payment",
+                "ortho_case_id": str(case.id),
+                "case_number": case.case_number,
+                "description": f"Cuota inicial - {case.case_number}",
+                "amount": case.initial_payment,
+                "doctor_id": str(case.doctor_id),
+            })
+
+        # b) Monthly controls — pending visits not yet invoiced
+        visits_result = await db.execute(
+            select(OrthoVisit, OrthoCase.case_number, OrthoCase.doctor_id)
+            .join(OrthoCase, OrthoVisit.ortho_case_id == OrthoCase.id)
+            .where(
+                OrthoCase.patient_id == pid,
+                OrthoCase.is_active.is_(True),
+                OrthoVisit.is_active.is_(True),
+                OrthoVisit.payment_status == "pending",
+                OrthoVisit.id.notin_(visits_already_invoiced),
+            )
+            .order_by(OrthoVisit.visit_date)
+        )
+        for visit, case_number, doctor_id in visits_result.all():
+            billable.append({
+                "type": "monthly_control",
+                "ortho_visit_id": str(visit.id),
+                "ortho_case_id": str(visit.ortho_case_id),
+                "case_number": case_number,
+                "visit_number": visit.visit_number,
+                "visit_date": visit.visit_date,
+                "description": f"Control mensual #{visit.visit_number} - {case_number}",
+                "amount": visit.payment_amount,
+                "doctor_id": str(doctor_id),
             })
 
         return {"items": billable, "total": len(billable)}
@@ -340,6 +427,40 @@ class InvoiceService:
                             message="El item del plan de tratamiento ya fue facturado.",
                             status_code=409,
                         )
+
+                # Validate ortho_visit_id if provided (duplicate guard)
+                ortho_visit_id = item.get("ortho_visit_id")
+                if ortho_visit_id:
+                    ov_uuid = uuid.UUID(ortho_visit_id)
+                    existing_ov = await db.execute(
+                        select(InvoiceItem.id).where(
+                            InvoiceItem.ortho_visit_id == ov_uuid,
+                        )
+                    )
+                    if existing_ov.scalar_one_or_none() is not None:
+                        raise BillingError(
+                            error=BillingErrors.ORTHO_VISIT_ALREADY_INVOICED,
+                            message="La visita de ortodoncia ya fue facturada.",
+                            status_code=409,
+                        )
+
+                # Validate ortho_case_id initial payment (no visit → initial payment)
+                ortho_case_id = item.get("ortho_case_id")
+                if ortho_case_id and not ortho_visit_id:
+                    oc_uuid = uuid.UUID(ortho_case_id)
+                    existing_oc = await db.execute(
+                        select(InvoiceItem.id).where(
+                            InvoiceItem.ortho_case_id == oc_uuid,
+                            InvoiceItem.ortho_visit_id.is_(None),
+                        )
+                    )
+                    if existing_oc.scalar_one_or_none() is not None:
+                        raise BillingError(
+                            error=BillingErrors.ORTHO_INITIAL_ALREADY_INVOICED,
+                            message="La cuota inicial de este caso de ortodoncia ya fue facturada.",
+                            status_code=409,
+                        )
+
                 invoice_items.append({
                     "description": item["description"],
                     "cups_code": item.get("cups_code"),
@@ -349,6 +470,8 @@ class InvoiceService:
                     "discount": item.get("discount", 0),
                     "tooth_number": item.get("tooth_number"),
                     "treatment_plan_item_id": tpi_id,
+                    "ortho_case_id": ortho_case_id,
+                    "ortho_visit_id": ortho_visit_id,
                     "doctor_id": item.get("doctor_id"),
                     "sort_order": idx,
                 })
@@ -429,6 +552,8 @@ class InvoiceService:
         for ii in invoice_items:
             tpi_id = ii.get("treatment_plan_item_id")
             doc_id = ii.get("doctor_id")
+            oc_id = ii.get("ortho_case_id")
+            ov_id = ii.get("ortho_visit_id")
             item = InvoiceItem(
                 invoice_id=invoice.id,
                 service_id=uuid.UUID(ii["service_id"]) if ii.get("service_id") else None,
@@ -441,6 +566,8 @@ class InvoiceService:
                 sort_order=ii["sort_order"],
                 tooth_number=ii.get("tooth_number"),
                 treatment_plan_item_id=uuid.UUID(tpi_id) if tpi_id else None,
+                ortho_case_id=uuid.UUID(oc_id) if oc_id else None,
+                ortho_visit_id=uuid.UUID(ov_id) if ov_id else None,
                 doctor_id=uuid.UUID(doc_id) if doc_id else None,
             )
             db.add(item)

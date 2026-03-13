@@ -167,6 +167,18 @@ class InvoiceItem(UUIDPrimaryKeyMixin, TimestampMixin, TenantBase):
         nullable=True,
     )
 
+    # Orthodontics link — connects invoice item to an ortho case/visit
+    ortho_case_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ortho_cases.id"),
+        nullable=True,
+    )
+    ortho_visit_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ortho_visits.id"),
+        nullable=True,
+    )
+
     # Doctor who performed/will perform this service (for commission tracking)
     doctor_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),

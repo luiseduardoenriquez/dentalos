@@ -336,7 +336,7 @@ class OrthoVisitCreate(BaseModel):
     elastics: str | None = Field(default=None, max_length=200)
     adjustments: str | None = Field(default=None, max_length=5000)
     next_visit_date: date | None = None
-    payment_amount: int = Field(default=0, ge=0)
+    payment_amount: int | None = None
     notes: str | None = None
 
     @field_validator("wire_upper", "wire_lower", "elastics", "adjustments", "notes")

@@ -91,6 +91,8 @@ export default function NewInvoicePage() {
       discount_display: number; // already cents from zod transform
       tooth_number?: number | null;
       treatment_plan_item_id?: string | null;
+      ortho_case_id?: string | null;
+      ortho_visit_id?: string | null;
     }>).map((item) => ({
       description: item.description,
       service_id: item.service_id || null,
@@ -100,6 +102,8 @@ export default function NewInvoicePage() {
       discount: item.discount_display,
       tooth_number: item.tooth_number ?? null,
       treatment_plan_item_id: item.treatment_plan_item_id || null,
+      ortho_case_id: item.ortho_case_id || null,
+      ortho_visit_id: item.ortho_visit_id || null,
     }));
 
     createInvoice(

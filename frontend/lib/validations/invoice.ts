@@ -52,6 +52,8 @@ export const invoiceItemSchema = z.object({
     }),
 
   treatment_plan_item_id: z.string().uuid().optional().nullable(),
+  ortho_case_id: z.string().uuid().optional().nullable(),
+  ortho_visit_id: z.string().uuid().optional().nullable(),
 });
 
 export type InvoiceItemFormValues = z.infer<typeof invoiceItemSchema>;

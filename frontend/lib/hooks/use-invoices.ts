@@ -61,6 +61,8 @@ export interface InvoiceItemCreate {
   discount?: number; // cents
   tooth_number?: number | null;
   treatment_plan_item_id?: string | null;
+  ortho_case_id?: string | null;
+  ortho_visit_id?: string | null;
 }
 
 export interface InvoiceCreate {
@@ -86,6 +88,25 @@ export interface BillableItem {
 
 export interface BillableItemsResponse {
   items: BillableItem[];
+  total: number;
+}
+
+// ─── Billable Ortho Items ─────────────────────────────────────────────────────
+
+export interface BillableOrthoItem {
+  type: "initial_payment" | "monthly_control";
+  ortho_case_id: string;
+  ortho_visit_id: string | null;
+  case_number: string;
+  visit_number: number | null;
+  visit_date: string | null;
+  description: string;
+  amount: number; // cents
+  doctor_id: string;
+}
+
+export interface BillableOrthoItemsResponse {
+  items: BillableOrthoItem[];
   total: number;
 }
 
@@ -115,6 +136,23 @@ export function useBillableItems(patientId: string) {
     queryFn: () =>
       apiGet<BillableItemsResponse>(
         `/patients/${patientId}/invoices/billable-items`,
+      ),
+    enabled: Boolean(patientId),
+    staleTime: 30_000,
+  });
+}
+
+// ─── useBillableOrthoItems ───────────────────────────────────────────────────
+
+/**
+ * GET /patients/{id}/invoices/billable-ortho-items — ortho items not yet invoiced.
+ */
+export function useBillableOrthoItems(patientId: string) {
+  return useQuery({
+    queryKey: ["billable-ortho-items", patientId],
+    queryFn: () =>
+      apiGet<BillableOrthoItemsResponse>(
+        `/patients/${patientId}/invoices/billable-ortho-items`,
       ),
     enabled: Boolean(patientId),
     staleTime: 30_000,

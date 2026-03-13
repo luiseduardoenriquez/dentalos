@@ -16,6 +16,8 @@ class InvoiceItemCreate(BaseModel):
     discount: int = Field(default=0, ge=0)
     tooth_number: int | None = None
     treatment_plan_item_id: str | None = None
+    ortho_case_id: str | None = None
+    ortho_visit_id: str | None = None
     doctor_id: str | None = None
 
 
@@ -47,6 +49,8 @@ class InvoiceItemResponse(BaseModel):
     sort_order: int
     tooth_number: int | None = None
     treatment_plan_item_id: str | None = None
+    ortho_case_id: str | None = None
+    ortho_visit_id: str | None = None
     doctor_id: str | None = None
     created_at: datetime
     updated_at: datetime
@@ -112,4 +116,25 @@ class BillableItemsListResponse(BaseModel):
     """List of billable items from active treatment plans."""
 
     items: list[BillableItemResponse]
+    total: int
+
+
+class BillableOrthoItemResponse(BaseModel):
+    """An orthodontic item that can be invoiced."""
+
+    type: str  # "initial_payment" or "monthly_control"
+    ortho_case_id: str
+    ortho_visit_id: str | None = None
+    case_number: str
+    visit_number: int | None = None
+    visit_date: date | None = None
+    description: str
+    amount: int
+    doctor_id: str
+
+
+class BillableOrthoItemsListResponse(BaseModel):
+    """List of billable orthodontic items."""
+
+    items: list[BillableOrthoItemResponse]
     total: int
