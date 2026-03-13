@@ -75,7 +75,7 @@ export function VoiceContextualPanel({
   }, []);
 
   function handleCancel() {
-    orchestrator.cancel();
+    orchestrator.cancel({ discard: true });
     voiceStore.reset();
     onClose();
   }

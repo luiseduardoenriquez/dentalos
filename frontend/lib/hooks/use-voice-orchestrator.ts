@@ -270,8 +270,8 @@ export function useVoiceOrchestrator(
       // Recovery hook will call createSession later.
     }
 
-    // Persist recording metadata to IndexedDB (even without session_id)
-    await createRecordingEntry({
+    // Persist recording metadata to IndexedDB (fire-and-forget — never block recording)
+    createRecordingEntry({
       recording_id: recordingId,
       session_id: sid,
       patient_id,
@@ -281,19 +281,19 @@ export function useVoiceOrchestrator(
       started_at: Date.now(),
       elapsed_seconds: 0,
       idempotency_key: idempotencyKey,
-    });
+    }).catch(() => {});
 
     // If session creation failed, update IDB and bail
     if (!sid) {
       setPhase("error");
       setError("No se pudo crear la sesion de voz.");
       on_error?.("No se pudo crear la sesion de voz.");
-      await updateRecordingStatus(recordingId, "failed", "No se pudo crear sesion");
+      updateRecordingStatus(recordingId, "failed", "No se pudo crear sesion").catch(() => {});
       return;
     }
 
-    // Update IDB with session_id
-    await updateRecordingSessionId(recordingId, sid);
+    // Update IDB with session_id (fire-and-forget)
+    updateRecordingSessionId(recordingId, sid).catch(() => {});
 
     // 2. Request mic access
     let stream: MediaStream;
@@ -315,7 +315,7 @@ export function useVoiceOrchestrator(
       }
       setPhase("error");
       on_error?.("Error de microfono");
-      await cleanupRecording(recordingId);
+      cleanupRecording(recordingId).catch(() => {});
       return;
     }
 
