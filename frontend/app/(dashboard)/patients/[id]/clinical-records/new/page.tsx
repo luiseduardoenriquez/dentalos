@@ -33,6 +33,7 @@ import {
   useEvolutionTemplates,
 } from "@/lib/hooks/use-clinical-records";
 import { cn } from "@/lib/utils";
+import { DictateClinicalNoteButton } from "@/components/voice/dictate-clinical-note-button";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -178,6 +179,21 @@ export default function NewClinicalRecordPage() {
           Selecciona el tipo de registro y completa la información.
         </p>
       </div>
+
+      {/* ─── AI Dictation (evolution notes) ──────────────────────────────── */}
+      {recordType === "evolution_note" && (
+        <Card>
+          <CardContent className="flex items-center justify-between py-3">
+            <div>
+              <p className="text-sm font-medium text-foreground">Dictado con IA</p>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                Dicta tu nota y la IA la estructura en formato SOAP automáticamente.
+              </p>
+            </div>
+            <DictateClinicalNoteButton patientId={patientId} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* ─── Type Selector ───────────────────────────────────────────────── */}
       <div className="flex gap-2">

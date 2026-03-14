@@ -13,6 +13,8 @@ import {
 } from "@/lib/hooks/use-voice";
 import { formatDateTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { VoiceClinicalNoteRecorder } from "@/components/voice/voice-clinical-note-recorder";
+import { SOAPNoteReviewPanel } from "@/components/voice/soap-note-review-panel";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -125,6 +127,7 @@ function TranscriptionChunkCard({ chunk }: { chunk: TranscriptionChunk }) {
 
 function SessionDetail({ sessionId }: { sessionId: string }) {
   const { data: detail, isLoading } = useVoiceSessionDetail(sessionId);
+  const [clinicalNoteId, setClinicalNoteId] = React.useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -138,6 +141,10 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
   if (!detail) return null;
 
   const transcriptions = detail.transcriptions ?? [];
+  const hasCompletedTranscriptions = transcriptions.some(
+    (t) => t.status === "completed" && t.text,
+  );
+  const isEvolutionContext = detail.context === "evolution";
 
   return (
     <div className="space-y-3 pt-3 border-t border-[hsl(var(--border))]">
@@ -160,6 +167,19 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
             <TranscriptionChunkCard key={chunk.id} chunk={chunk} />
           ))}
         </div>
+      )}
+
+      {/* AI-03: Structure as SOAP note (only for evolution context with completed transcriptions) */}
+      {isEvolutionContext && hasCompletedTranscriptions && !clinicalNoteId && (
+        <VoiceClinicalNoteRecorder
+          sessionId={sessionId}
+          onNoteCreated={(noteId) => setClinicalNoteId(noteId)}
+        />
+      )}
+
+      {/* AI-03: SOAP note review panel */}
+      {clinicalNoteId && (
+        <SOAPNoteReviewPanel noteId={clinicalNoteId} />
       )}
     </div>
   );

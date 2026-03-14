@@ -150,6 +150,14 @@ class VoiceErrors:
     PARSE_FAILED = "VOICE_parse_failed"
     APPLY_FAILED = "VOICE_apply_failed"
 
+    # AI-03: Voice Clinical Notes
+    STRUCTURING_FAILED = "VOICE_structuring_failed"
+    NOTE_NOT_FOUND = "VOICE_note_not_found"
+    NOTE_ALREADY_SAVED = "VOICE_note_already_saved"
+    NOTE_NOT_COMPLETED = "VOICE_note_not_completed"
+    TRANSCRIPTION_NOT_READY = "VOICE_transcription_not_ready"
+    SAVE_FAILED = "VOICE_save_failed"
+
 
 class BillingErrors:
     """BILLING domain — invoicing, payments, and quotation error codes."""

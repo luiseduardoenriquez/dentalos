@@ -305,4 +305,9 @@ from app.api.v1.clinical_summary import router as clinical_summary_router
 
 api_v1_router.include_router(clinical_summary_router)
 
+# AI-03: AI Voice Clinical Notes
+from app.api.v1.voice.clinical_note_router import router as voice_clinical_note_router
+
+api_v1_router.include_router(voice_clinical_note_router)
+
 # Sprint 15-16: Admin (included at top of file for route priority)

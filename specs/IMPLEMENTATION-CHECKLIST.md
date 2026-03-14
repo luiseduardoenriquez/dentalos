@@ -2139,20 +2139,20 @@ Tests:
 ### AI-03: AI Voice Clinical Notes (AI Voice add-on)
 
 Backend:
-- [ ] **AI03-B1** Create model: `models/tenant/voice_clinical_note.py` (voice_clinical_notes table, SOAP JSONB, linked codes)
-- [ ] **AI03-B2** Create migration: `alembic_tenant/versions/028_voice_clinical_notes.py`
-- [ ] **AI03-B3** Add voice note error codes to existing `VoiceErrors` class (6 new codes)
-- [ ] **AI03-B4** Create Pydantic schemas: `schemas/voice_clinical_note.py` (StructureRequest, SOAPNote, Response)
-- [ ] **AI03-B5** Create service: `services/voice_clinical_notes_service.py` (structure, get, save as evolution note)
-- [ ] **AI03-B6** Add worker handler for `voice_notes.structure` in clinical worker
-- [ ] **AI03-B7** Create API routes: `api/v1/voice/clinical_note_router.py` (POST structure, GET detail, POST save)
-- [ ] **AI03-B8** Register router in `api/v1/router.py`
+- [x] **AI03-B1** Create model: `models/tenant/voice_clinical_note.py` (voice_clinical_notes table, SOAP JSONB, linked codes)
+- [x] **AI03-B2** Create migration: `alembic_tenant/versions/028_voice_clinical_notes.py`
+- [x] **AI03-B3** Add voice note error codes to existing `VoiceErrors` class (6 new codes)
+- [x] **AI03-B4** Create Pydantic schemas: `schemas/voice_clinical_note.py` (StructureRequest, SOAPNote, Response)
+- [x] **AI03-B5** Create service: `services/voice_clinical_notes_service.py` (structure, get, save as evolution note)
+- [x] **AI03-B6** Add worker handler for `voice_notes.structure` in clinical worker
+- [x] **AI03-B7** Create API routes: `api/v1/voice/clinical_note_router.py` (POST structure, GET detail, POST save)
+- [x] **AI03-B8** Register router in `api/v1/router.py`
 
 Frontend:
-- [ ] **AI03-F1** Create hook: `lib/hooks/use-voice-clinical-note.ts` (structure mutation, detail with polling, save mutation)
-- [ ] **AI03-F2** Create component: `components/voice/voice-clinical-note-recorder.tsx` (audio capture, extends existing voice UI)
-- [ ] **AI03-F3** Create component: `components/voice/soap-note-review-panel.tsx` (SOAP sections, linked codes, edit, confirm)
-- [ ] **AI03-F4** Integrate into clinical records: "Dictar nota clínica" button in evolution note creation
+- [x] **AI03-F1** Create hook: `lib/hooks/use-voice-clinical-note.ts` (structure mutation, detail with polling, save mutation)
+- [x] **AI03-F2** Create component: `components/voice/voice-clinical-note-recorder.tsx` (audio capture, extends existing voice UI)
+- [x] **AI03-F3** Create component: `components/voice/soap-note-review-panel.tsx` (SOAP sections, linked codes, edit, confirm)
+- [x] **AI03-F4** Integrate into clinical records: "Dictar nota clínica" button in evolution note creation
 
 Tests:
 - [ ] **AI03-T1** Unit tests: service (structure, SOAP mapping, code extraction, template matching) (10 tests)
@@ -2171,7 +2171,7 @@ Tests:
 - [x] **AI-S1** `specs/ai/AI-STRATEGY.md` — AI strategy, competitive analysis, roadmap
 - [x] **AI-S2** `specs/ai/radiograph-analysis.md` — Full API spec
 - [x] **AI-S3** `specs/ai/clinical-summary.md` — Full API spec
-- [ ] **AI-S4** `specs/ai/voice-clinical-notes.md` — Full API spec
+- [x] **AI-S4** `specs/ai/voice-clinical-notes.md` — Full API spec
 
 ---
 

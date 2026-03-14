@@ -43,7 +43,9 @@ class ClinicalWorker(BaseWorker):
         """Route message to the appropriate handler."""
         if message.job_type == "radiograph.analyze":
             await self._handle_radiograph_analyze(message)
-        # Future: smile.simulate, voice_notes.structure, etc.
+        elif message.job_type == "voice_notes.structure":
+            await self._handle_voice_notes_structure(message)
+        # Future: smile.simulate, etc.
 
     async def _handle_radiograph_analyze(self, message: QueueMessage) -> None:
         """Process a radiograph analysis job."""
@@ -120,6 +122,92 @@ class ClinicalWorker(BaseWorker):
             )
             await self._mark_analysis_failed(message, analysis_id)
             raise
+
+    async def _handle_voice_notes_structure(self, message: QueueMessage) -> None:
+        """Process a voice clinical note structuring job."""
+        note_id = message.payload.get("note_id")
+        input_text = message.payload.get("input_text", "")
+        template_id = message.payload.get("template_id")
+
+        if not note_id or not input_text:
+            logger.warning(
+                "voice_notes.structure missing required fields: message_id=%s",
+                message.message_id,
+            )
+            return
+
+        logger.info(
+            "Processing voice clinical note: id=%s tenant=%s",
+            str(note_id)[:8],
+            message.tenant_id[:8] if message.tenant_id else "?",
+        )
+
+        try:
+            from app.core.database import get_tenant_session
+            from app.services.voice_clinical_notes_service import (
+                voice_clinical_notes_service,
+            )
+
+            result = await voice_clinical_notes_service.run_structuring(
+                input_text=input_text,
+                template_id=template_id,
+            )
+
+            aid = uuid_mod.UUID(note_id)
+            async with get_tenant_session(message.tenant_id) as db:
+                await voice_clinical_notes_service.complete_structuring(
+                    db=db,
+                    note_id=aid,
+                    structured_note=result["structured_note"],
+                    linked_teeth=result["linked_teeth"],
+                    linked_cie10=result["linked_cie10"],
+                    linked_cups=result["linked_cups"],
+                    model_used=result["model_used"],
+                    input_tokens=result["input_tokens"],
+                    output_tokens=result["output_tokens"],
+                )
+
+            logger.info(
+                "Voice clinical note completed: id=%s tenant=%s",
+                str(note_id)[:8],
+                message.tenant_id[:8],
+            )
+
+        except Exception:
+            logger.exception(
+                "Failed to process voice clinical note: id=%s",
+                str(note_id)[:8],
+            )
+            await self._mark_note_failed(message, note_id)
+            raise
+
+    async def _mark_note_failed(
+        self, message: QueueMessage, note_id: str
+    ) -> None:
+        """Best-effort update of note status to 'failed'."""
+        try:
+            from app.core.database import get_tenant_session
+            from app.services.voice_clinical_notes_service import (
+                voice_clinical_notes_service,
+            )
+
+            aid = uuid_mod.UUID(note_id)
+            async with get_tenant_session(message.tenant_id) as db:
+                await voice_clinical_notes_service.fail_structuring(
+                    db=db,
+                    note_id=aid,
+                    error_message="Error interno al estructurar la nota clínica.",
+                )
+
+            logger.info(
+                "Marked voice clinical note as failed: id=%s",
+                str(note_id)[:8],
+            )
+        except Exception:
+            logger.exception(
+                "Could not mark voice note as failed: id=%s",
+                str(note_id)[:8],
+            )
 
     async def _mark_analysis_failed(
         self, message: QueueMessage, analysis_id: str

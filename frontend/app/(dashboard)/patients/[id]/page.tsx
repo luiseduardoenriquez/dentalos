@@ -62,6 +62,7 @@ import { RadiographAnalysisHistory } from "@/components/radiograph-analysis/radi
 import { RadiographAnalyzeButton } from "@/components/radiograph-analysis/radiograph-analyze-button";
 import { ClinicalSummaryPanel } from "@/components/clinical-summary/clinical-summary-panel";
 import { useClinicalSummary } from "@/lib/hooks/use-clinical-summary";
+import { DictateClinicalNoteButton } from "@/components/voice/dictate-clinical-note-button";
 
 // ─── Appointment Status Config ────────────────────────────────────────────────
 
@@ -1052,6 +1053,7 @@ export default function PatientDetailPage() {
                     Anamnesis
                   </Link>
                 </Button>
+                <DictateClinicalNoteButton patientId={patient.id} />
                 <Button size="sm" asChild>
                   <Link href={`/patients/${patient.id}/clinical-records/new`}>
                     <FilePlus className="mr-1.5 h-3.5 w-3.5" />
