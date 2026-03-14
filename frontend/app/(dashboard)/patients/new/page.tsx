@@ -84,6 +84,10 @@ export default function NewPatientPage() {
 
     createPatient(payload as Record<string, unknown>, {
       onSuccess: (patient) => {
+        // Offline-queued: stay on form, don't navigate to non-existent patient
+        if ((patient as unknown as { _offlineQueued?: boolean })._offlineQueued) {
+          return;
+        }
         router.push(`/patients/${patient.id}`);
       },
     });

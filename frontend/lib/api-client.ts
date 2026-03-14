@@ -18,6 +18,7 @@ import axios, {
 } from "axios";
 import { clearAccessToken, getAccessToken, setAccessToken } from "./auth";
 import { getApiBaseUrl } from "./api-base-url";
+import { useOnlineStore } from "./stores/online-store";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -179,6 +180,9 @@ apiClient.interceptors.response.use(
 
     // Do not retry auth endpoints (refresh is handled separately)
     if (config.url?.includes("/auth/")) return Promise.reject(error);
+
+    // Do not retry if offline — the offline mutation interceptor already handled it
+    if (!useOnlineStore.getState().is_online) return Promise.reject(error);
 
     const retryCount = config._retryCount ?? 0;
     if (retryCount >= MAX_RETRIES) return Promise.reject(error);

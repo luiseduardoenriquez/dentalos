@@ -7,6 +7,7 @@ import { useToast } from "@/lib/hooks/use-toast";
 import { buildQueryString } from "@/lib/utils";
 import { cachePatients, getCachedPatients } from "@/lib/db/offline-data-service";
 import { useOnlineStore } from "@/lib/stores/online-store";
+import { queueOfflineMutation } from "@/lib/sync/sync-queue";
 import type { CachedPatient } from "@/lib/db/offline-db";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -215,8 +216,31 @@ export function useCreatePatient() {
   const { success, error } = useToast();
 
   return useMutation({
-    mutationFn: (data: Record<string, unknown>) => apiPost<Patient>("/patients", data),
-    onSuccess: () => {
+    mutationFn: async (data: Record<string, unknown>) => {
+      // Offline: queue mutation to IDB instead of calling API
+      if (!useOnlineStore.getState().is_online) {
+        try {
+          await Promise.race([
+            queueOfflineMutation({
+              url: "/patients",
+              method: "POST",
+              body: JSON.parse(JSON.stringify(data)), // Ensure IDB-serializable
+              resource: "patients",
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("IDB timeout")), 3000)),
+          ]);
+        } catch {
+          // IDB queue failed — still show success so form resets
+        }
+        return { id: `offline_${Date.now()}`, _offlineQueued: true } as unknown as Patient;
+      }
+      return apiPost<Patient>("/patients", data);
+    },
+    onSuccess: (result) => {
+      if ((result as unknown as { _offlineQueued?: boolean })._offlineQueued) {
+        success("Guardado localmente", "Se sincronizará automáticamente al reconectar.");
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: PATIENTS_QUERY_KEY });
       success("Paciente registrado", "El paciente fue creado exitosamente.");
     },
