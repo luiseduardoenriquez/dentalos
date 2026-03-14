@@ -2118,18 +2118,18 @@ Tests:
 ### AI-02: AI Clinical Summary (Pro+ plan)
 
 Backend:
-- [ ] **AI02-B1** Create service: `services/clinical_summary_service.py` (aggregate 9 data sources, build prompt, call Claude Haiku, cache 5min)
-- [ ] **AI02-B2** Add `AIClinicalSummaryErrors` to `core/error_codes.py` (7 error codes)
-- [ ] **AI02-B3** Create Pydantic schemas: `schemas/clinical_summary.py` (Response with 8 sections)
-- [ ] **AI02-B4** Create API route: `api/v1/clinical_summary.py` (GET /patients/{id}/clinical-summary)
-- [ ] **AI02-B5** Register router in `api/v1/router.py`
-- [ ] **AI02-B6** Add Redis cache key pattern: `dentalos:{tid}:ai:clinical_summary:{pid}` TTL 5min
-- [ ] **AI02-B7** Add cache invalidation hooks on patient data mutations (9 event sources)
+- [x] **AI02-B1** Create service: `services/clinical_summary_service.py` (aggregate 9 data sources, build prompt, call Claude Haiku, cache 5min)
+- [x] **AI02-B2** Add `AIClinicalSummaryErrors` to `core/error_codes.py` (7 error codes)
+- [x] **AI02-B3** Create Pydantic schemas: `schemas/clinical_summary.py` (Response with 8 sections)
+- [x] **AI02-B4** Create API route: `api/v1/clinical_summary.py` (GET /patients/{id}/clinical-summary)
+- [x] **AI02-B5** Register router in `api/v1/router.py`
+- [x] **AI02-B6** Add Redis cache key pattern: `dentalos:{tid}:ai:clinical_summary:{pid}` TTL 5min
+- [x] **AI02-B7** Add cache invalidation hooks on patient data mutations (9 event sources)
 
 Frontend:
-- [ ] **AI02-F1** Create hook: `lib/hooks/use-clinical-summary.ts` (React Query with staleTime 5min)
-- [ ] **AI02-F2** Create component: `components/clinical-summary/clinical-summary-panel.tsx` (accordion sections, risk alerts, action suggestions)
-- [ ] **AI02-F3** Integrate into patient detail page: summary panel on Overview tab (auto-load for doctors)
+- [x] **AI02-F1** Create hook: `lib/hooks/use-clinical-summary.ts` (React Query with staleTime 5min)
+- [x] **AI02-F2** Create component: `components/clinical-summary/clinical-summary-panel.tsx` (accordion sections, risk alerts, action suggestions)
+- [x] **AI02-F3** Integrate into patient detail page: summary panel on Overview tab (auto-load for doctors)
 
 Tests:
 - [ ] **AI02-T1** Unit tests: service (data aggregation, prompt building, cache hit/miss, fallback on AI failure) (10 tests)
@@ -2170,7 +2170,7 @@ Tests:
 
 - [x] **AI-S1** `specs/ai/AI-STRATEGY.md` — AI strategy, competitive analysis, roadmap
 - [x] **AI-S2** `specs/ai/radiograph-analysis.md` — Full API spec
-- [ ] **AI-S3** `specs/ai/clinical-summary.md` — Full API spec
+- [x] **AI-S3** `specs/ai/clinical-summary.md` — Full API spec
 - [ ] **AI-S4** `specs/ai/voice-clinical-notes.md` — Full API spec
 
 ---

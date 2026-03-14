@@ -60,6 +60,7 @@ import {
 import { VoiceSessionHistory } from "@/components/voice/voice-session-history";
 import { RadiographAnalysisHistory } from "@/components/radiograph-analysis/radiograph-analysis-history";
 import { RadiographAnalyzeButton } from "@/components/radiograph-analysis/radiograph-analyze-button";
+import { ClinicalSummaryPanel } from "@/components/clinical-summary/clinical-summary-panel";
 
 // ─── Appointment Status Config ────────────────────────────────────────────────
 
@@ -814,6 +815,13 @@ export default function PatientDetailPage() {
 
           {/* ── Resumen Tab ─────────────────────────────────────────────── */}
           <TabsContent value="resumen" className="mt-4">
+            {/* AI Clinical Summary — shown first so doctors get instant context */}
+            <Card className="mb-4">
+              <CardContent className="pt-4">
+                <ClinicalSummaryPanel patientId={patient.id} />
+              </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {/* Personal */}
               <Card>

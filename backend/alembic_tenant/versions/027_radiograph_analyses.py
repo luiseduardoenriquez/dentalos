@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision = "027"
-down_revision = "026_invoice_tax_fields"
+down_revision = "026"
 branch_labels = None
 depends_on = None
 

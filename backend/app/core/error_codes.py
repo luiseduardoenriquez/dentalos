@@ -542,6 +542,18 @@ class RadiographAnalysisErrors:
     ALREADY_DELETED = "RADIOGRAPH_ANALYSIS_already_deleted"
 
 
+class AIClinicalSummaryErrors:
+    """AI_CLINICAL_SUMMARY domain — AI clinical summary error codes."""
+
+    PATIENT_NOT_FOUND = "AI_CLINICAL_SUMMARY_patient_not_found"
+    GENERATION_FAILED = "AI_CLINICAL_SUMMARY_generation_failed"
+    FEATURE_DISABLED = "AI_CLINICAL_SUMMARY_feature_disabled"
+    PLAN_REQUIRED = "AI_CLINICAL_SUMMARY_plan_required"
+    INSUFFICIENT_DATA = "AI_CLINICAL_SUMMARY_insufficient_data"
+    CACHE_ERROR = "AI_CLINICAL_SUMMARY_cache_error"
+    RATE_LIMITED = "AI_CLINICAL_SUMMARY_rate_limited"
+
+
 class SystemErrors:
     """SYSTEM domain — infrastructure, HTTP, and platform-level error codes."""
 

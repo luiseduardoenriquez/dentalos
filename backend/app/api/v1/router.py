@@ -300,4 +300,9 @@ from app.api.v1.radiograph_analysis import router as radiograph_analysis_router
 
 api_v1_router.include_router(radiograph_analysis_router)
 
+# AI-02: AI Clinical Summary
+from app.api.v1.clinical_summary import router as clinical_summary_router
+
+api_v1_router.include_router(clinical_summary_router)
+
 # Sprint 15-16: Admin (included at top of file for route priority)
