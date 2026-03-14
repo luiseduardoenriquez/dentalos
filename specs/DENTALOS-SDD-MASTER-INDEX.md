@@ -693,6 +693,45 @@ Voice-to-Odontogram and voice dictation screens. Requires AI Voice-to-Chart add-
 
 ---
 
+# SECTION 7: AI FEATURES (`ai/`)
+
+AI-native features that make DentalOS the most intelligent dental platform in LATAM. Strategy doc: `ai/AI-STRATEGY.md`.
+
+## 7.1 Strategy & Architecture
+
+| # | File Path | Description | Priority | Dependencies |
+|---|-----------|-------------|----------|--------------|
+| AI-S0 | `ai/AI-STRATEGY.md` | **AI Strategy document.** Competitive analysis (Dentalink, Overjet, Pearl, VELMENI), 12-feature roadmap across 3 tiers, pricing, cost model, architecture, security. | Critical | None |
+
+## 7.2 Tier 1 — Competitive Parity (Sprint 35-36)
+
+| # | File Path | Description | Priority | Dependencies |
+|---|-----------|-------------|----------|--------------|
+| AI-01 | `ai/radiograph-analysis.md` | **AI Radiograph Analysis.** Upload radiograph → Claude Vision identifies findings (caries, bone loss, periapical lesions) → doctor reviews per finding. Async via RabbitMQ. Adapter pattern. FDI mapping, severity scoring, JSONB findings. $20/doc/mo add-on. | Critical | V-01, I-06, INT-03 |
+| AI-02 | `ai/clinical-summary.md` | **AI Clinical Summary.** Pre-appointment briefing: active conditions, pending treatments, risk alerts, action suggestions. Aggregates 9 data sources. Claude Haiku, Redis-cached 5min. Pro+ plan. | Critical | P-01, OD-01, CR-01, TP-01, AP-01, B-01 |
+| AI-03 | `ai/voice-clinical-notes.md` | **AI Voice Clinical Notes.** Voice dictation → Whisper → Claude SOAP structuring → evolution note. Auto-links FDI teeth, CIE-10 diagnoses, CUPS procedures. Extends voice pipeline. $10/doc/mo (bundled with AI Voice). | Critical | V-01, V-02, V-03, CR-01 |
+
+## 7.3 Tier 2 — Differentiation (Sprint 37-38)
+
+| # | File Path | Description | Priority | Dependencies |
+|---|-----------|-------------|----------|--------------|
+| AI-04 | `ai/smile-simulator.md` | **AI Smile Simulator.** Upload smile photo → Claude Vision analysis → image generation (DALL-E/Flux) → 3 variants (conservative, moderate, ideal). Before/after slider. Portal shareable. Linked to quotations. $20/doc/mo (bundled with Radiograph). | High | AI-01, P-01 |
+| AI-05 | `ai/contact-center.md` | **AI Contact Center (Unified).** Single AI agent across WhatsApp + VoIP + web chat. 15+ intents, cross-channel context, proactive outreach (confirmations, recalls, payments). Human escalation. $25/location/mo. | High | VP-12, VP-16, VP-18 |
+| AI-06 | `ai/workflow-supervisor.md` | **AI Workflow Supervisor.** 25 built-in rules + custom rules. Compliance scoring, auto-remediation, per-doctor metrics. Scheduled scan (15min) + event-driven. Resolution 1888 aware. Clinica+ plan. | High | GAP-15, I-11 |
+
+## 7.4 Tier 3 — Leapfrog (Sprint 39-40)
+
+| # | File Path | Description | Priority | Dependencies |
+|---|-----------|-------------|----------|--------------|
+| AI-07 | `ai/voice-perio-charting.md` | **AI Voice Perio Charting.** Dictate probing depths → auto-fill periodontal chart. Real-time voice → number extraction. Bundled with AI Voice. | Medium | AI-03, V-01 |
+| AI-08 | `ai/treatment-acceptance-predictor.md` | **AI Treatment Acceptance Predictor.** Logistic regression per clinic. Predicts acceptance probability (0-100) from cost, history, insurance, procedure type. Score badge on quotation. Clinica+ plan. | Medium | TP-01, B-16 |
+| AI-09 | `ai/patient-risk-score.md` | **AI Patient Risk Score.** 4 dimensions: caries, periodontal, no-show, payment risk. Rule-based weighted scoring. Event-driven recalculation. Color badges on patient card. Pro+ plan. | Medium | P-01, OD-01, AP-01, B-01 |
+| AI-10 | `ai/smart-scheduling.md` | **AI Smart Scheduling.** Slot scoring: learned duration, no-show risk, revenue optimization, buffer time. Advisor panel next to calendar. Clinica+ plan. | Medium | AP-01, AI-09 |
+| AI-11 | `ai/revenue-optimizer.md` | **AI Revenue Optimizer.** 6 analysis types: unfinished plans, recall-due, underutilized slots, upsell, pricing. Weekly digest + dashboard widget. Claude for NL insights. Enterprise plan. | Low | AN-01, AI-09 |
+| AI-12 | `ai/radiograph-overlay.md` | **AI Radiograph Overlay.** Color-coded Canvas overlays on radiographs. Red=caries, yellow=bone loss, blue=restorations. Toggle per finding type. Client-side rendering. Extends AI-01. Bundled with Radiograph add-on. | Medium | AI-01 |
+
+---
+
 # SUMMARY STATISTICS
 
 ## Spec Count by Section
@@ -740,7 +779,8 @@ Voice-to-Odontogram and voice dictation screens. Requires AI Voice-to-Chart add-
 | Frontend: Voice UI | 3 |
 | Frontend: Inventory | 3 |
 | Email/Notification Templates | 18 |
-| **TOTAL** | **~381** |
+| AI Features (Strategy + 12 specs) | 13 |
+| **TOTAL** | **~394** |
 
 ## Spec Count by Priority
 

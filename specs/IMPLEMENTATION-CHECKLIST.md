@@ -2077,4 +2077,252 @@ Track G: Competitive Gap Closures (Sprint 23+)
 *v1.3: Added 10 competitive gap closures (GAP-01 through GAP-10, GAP-14) + post-S32 backlog (GAP-07, GAP-11 through GAP-20) from Dentalink/Dentrix/Open Dental/Curve analysis*
 *v1.2: Added 22 post-launch value propositions (VP-01 through VP-22) across Sprints 21-32*
 *v1.1: Revised based on client interview findings (2026-02-25)*
+
+---
+
+## Sprint 35-36: AI Core — Tier 1 (Competitive Parity)
+
+**Goal:** Close the AI gap with Dentalink. Ship radiograph analysis, clinical summary, and voice clinical notes.
+
+**Spec references:** `specs/ai/AI-STRATEGY.md`, `specs/ai/radiograph-analysis.md`, `specs/ai/clinical-summary.md`, `specs/ai/voice-clinical-notes.md`
+
+### AI-01: AI Radiograph Analysis ($20/doc/mo add-on)
+
+Backend:
+- [ ] **AI01-B1** Add `call_claude_vision()` to `ai_claude_client.py` (image+text content blocks, 120s timeout)
+- [ ] **AI01-B2** Create integration adapter: `integrations/radiograph_analysis/__init__.py`, `schemas.py`, `base.py`
+- [ ] **AI01-B3** Create Claude Vision adapter: `integrations/radiograph_analysis/claude_service.py` (dental prompt, FDI validation, image resize >5MB)
+- [ ] **AI01-B4** Create mock adapter: `integrations/radiograph_analysis/mock_service.py` (deterministic findings)
+- [ ] **AI01-B5** Create model: `models/tenant/radiograph_analysis.py` (radiograph_analyses table, JSONB findings, soft delete)
+- [ ] **AI01-B6** Create migration: `alembic_tenant/versions/027_radiograph_analyses.py`
+- [ ] **AI01-B7** Add `RadiographAnalysisErrors` to `core/error_codes.py` (14 error codes)
+- [ ] **AI01-B8** Create Pydantic schemas: `schemas/radiograph_analysis.py` (Create, Review, Response, Finding, List)
+- [ ] **AI01-B9** Create service: `services/radiograph_analysis_service.py` (analyze, complete, fail, get, list, review)
+- [ ] **AI01-B10** Create/extend clinical worker: `workers/clinical_worker.py` handler for `radiograph.analyze`
+- [ ] **AI01-B11** Create API routes: `api/v1/radiograph_analysis.py` (POST create, GET list, GET detail, PUT review, POST retry, DELETE)
+- [ ] **AI01-B12** Register router in `api/v1/router.py`
+- [ ] **AI01-B13** Add `ai_usage_logs` table for AI cost tracking (shared across all AI features)
+
+Frontend:
+- [ ] **AI01-F1** Create hook: `lib/hooks/use-radiograph-analysis.ts` (list, detail with polling, analyze mutation, review mutation)
+- [ ] **AI01-F2** Create component: `components/radiograph-analysis/radiograph-analyze-button.tsx` (feature flag check, 402 upsell)
+- [ ] **AI01-F3** Create component: `components/radiograph-analysis/radiograph-analysis-panel.tsx` (findings display, accept/reject, severity badges)
+- [ ] **AI01-F4** Create component: `components/radiograph-analysis/radiograph-analysis-history.tsx` (past analyses list)
+- [ ] **AI01-F5** Integrate into patient detail page: "Radiografía IA" tab + "Analizar con IA" button in Documents tab
+
+Tests:
+- [ ] **AI01-T1** Unit tests: service (analyze, complete, fail, review), adapter (claude, mock), worker handler (12 tests)
+- [ ] **AI01-T2** Integration tests: API endpoints CRUD + review flow + feature flag gating (10 tests)
+- [ ] **AI01-T3** Frontend tests: hook polling, button states, panel interactions (8 tests)
+
+### AI-02: AI Clinical Summary (Pro+ plan)
+
+Backend:
+- [ ] **AI02-B1** Create service: `services/clinical_summary_service.py` (aggregate 9 data sources, build prompt, call Claude Haiku, cache 5min)
+- [ ] **AI02-B2** Add `AIClinicalSummaryErrors` to `core/error_codes.py` (7 error codes)
+- [ ] **AI02-B3** Create Pydantic schemas: `schemas/clinical_summary.py` (Response with 8 sections)
+- [ ] **AI02-B4** Create API route: `api/v1/clinical_summary.py` (GET /patients/{id}/clinical-summary)
+- [ ] **AI02-B5** Register router in `api/v1/router.py`
+- [ ] **AI02-B6** Add Redis cache key pattern: `dentalos:{tid}:ai:clinical_summary:{pid}` TTL 5min
+- [ ] **AI02-B7** Add cache invalidation hooks on patient data mutations (9 event sources)
+
+Frontend:
+- [ ] **AI02-F1** Create hook: `lib/hooks/use-clinical-summary.ts` (React Query with staleTime 5min)
+- [ ] **AI02-F2** Create component: `components/clinical-summary/clinical-summary-panel.tsx` (accordion sections, risk alerts, action suggestions)
+- [ ] **AI02-F3** Integrate into patient detail page: summary panel on Overview tab (auto-load for doctors)
+
+Tests:
+- [ ] **AI02-T1** Unit tests: service (data aggregation, prompt building, cache hit/miss, fallback on AI failure) (10 tests)
+- [ ] **AI02-T2** Integration tests: API endpoint + plan gating + cache behavior (5 tests)
+- [ ] **AI02-T3** Frontend tests: panel rendering, loading states, section expand/collapse (5 tests)
+
+### AI-03: AI Voice Clinical Notes (AI Voice add-on)
+
+Backend:
+- [ ] **AI03-B1** Create model: `models/tenant/voice_clinical_note.py` (voice_clinical_notes table, SOAP JSONB, linked codes)
+- [ ] **AI03-B2** Create migration: `alembic_tenant/versions/028_voice_clinical_notes.py`
+- [ ] **AI03-B3** Add voice note error codes to existing `VoiceErrors` class (6 new codes)
+- [ ] **AI03-B4** Create Pydantic schemas: `schemas/voice_clinical_note.py` (StructureRequest, SOAPNote, Response)
+- [ ] **AI03-B5** Create service: `services/voice_clinical_notes_service.py` (structure, get, save as evolution note)
+- [ ] **AI03-B6** Add worker handler for `voice_notes.structure` in clinical worker
+- [ ] **AI03-B7** Create API routes: `api/v1/voice/clinical_note_router.py` (POST structure, GET detail, POST save)
+- [ ] **AI03-B8** Register router in `api/v1/router.py`
+
+Frontend:
+- [ ] **AI03-F1** Create hook: `lib/hooks/use-voice-clinical-note.ts` (structure mutation, detail with polling, save mutation)
+- [ ] **AI03-F2** Create component: `components/voice/voice-clinical-note-recorder.tsx` (audio capture, extends existing voice UI)
+- [ ] **AI03-F3** Create component: `components/voice/soap-note-review-panel.tsx` (SOAP sections, linked codes, edit, confirm)
+- [ ] **AI03-F4** Integrate into clinical records: "Dictar nota clínica" button in evolution note creation
+
+Tests:
+- [ ] **AI03-T1** Unit tests: service (structure, SOAP mapping, code extraction, template matching) (10 tests)
+- [ ] **AI03-T2** Integration tests: API endpoints + voice pipeline end-to-end (5 tests)
+- [ ] **AI03-T3** Frontend tests: recorder, SOAP panel, save flow (5 tests)
+
+### Feature Flags & Admin (Shared)
+
+- [ ] **AI-FF1** Add feature flags to `AD-05` system: `ai_radiograph`, `ai_clinical_summary`, `ai_voice_notes`
+- [ ] **AI-FF2** Add AI usage tracking: `ai_usage_logs` table in tenant schema + logging middleware
+- [ ] **AI-FF3** Admin portal: AI usage dashboard (tokens consumed, cost per tenant, feature adoption)
+- [ ] **AI-FF4** Add AI disclaimer component: "Esta es una sugerencia de IA. El diagnóstico final es responsabilidad del profesional."
+
+### Spec Documents (Tier 1)
+
+- [ ] **AI-S1** `specs/ai/AI-STRATEGY.md` — AI strategy, competitive analysis, roadmap
+- [ ] **AI-S2** `specs/ai/radiograph-analysis.md` — Full API spec
+- [ ] **AI-S3** `specs/ai/clinical-summary.md` — Full API spec
+- [ ] **AI-S4** `specs/ai/voice-clinical-notes.md` — Full API spec
+
+---
+
+## Sprint 37-38: AI Differentiation — Tier 2
+
+**Goal:** Beat Dentalink with smile simulator, unified contact center, and enhanced workflow supervisor.
+
+**Spec references:** `specs/ai/smile-simulator.md`, `specs/ai/contact-center.md`, `specs/ai/workflow-supervisor.md`
+
+### AI-04: AI Smile Simulator ($20/doc/mo, bundled with Radiograph)
+
+Backend:
+- [ ] **AI04-B1** Create integration adapter: `integrations/smile_simulator/` (base, claude_dalle_service, mock)
+- [ ] **AI04-B2** Create model: `models/tenant/smile_simulation.py` (smile_simulations table, variants JSONB)
+- [ ] **AI04-B3** Create migration: `alembic_tenant/versions/029_smile_simulations.py`
+- [ ] **AI04-B4** Add `SmileSimulatorErrors` to `core/error_codes.py`
+- [ ] **AI04-B5** Create Pydantic schemas: `schemas/smile_simulation.py`
+- [ ] **AI04-B6** Create service: `services/smile_simulator_service.py` (create, complete, get, list, share, select variant)
+- [ ] **AI04-B7** Add worker handler for `smile.simulate` in clinical worker
+- [ ] **AI04-B8** Create API routes: `api/v1/smile_simulations.py` (POST, GET, list, PUT select, POST share, DELETE)
+- [ ] **AI04-B9** Register router + portal route for patient viewing
+
+Frontend:
+- [ ] **AI04-F1** Create hook: `lib/hooks/use-smile-simulation.ts`
+- [ ] **AI04-F2** Create component: `components/smile-simulator/smile-upload-button.tsx`
+- [ ] **AI04-F3** Create component: `components/smile-simulator/before-after-slider.tsx` (touch support)
+- [ ] **AI04-F4** Create component: `components/smile-simulator/simulation-gallery.tsx`
+- [ ] **AI04-F5** Portal page: `app/(portal)/smile-simulations/page.tsx`
+- [ ] **AI04-F6** Integrate into patient detail page + quotation attachment
+
+Tests:
+- [ ] **AI04-T1** Unit tests: service, adapter, worker (12 tests)
+- [ ] **AI04-T2** Integration tests: API + portal + sharing flow (8 tests)
+- [ ] **AI04-T3** Frontend tests: slider, upload, gallery (6 tests)
+
+### AI-05: AI Contact Center ($25/location/mo)
+
+Backend:
+- [ ] **AI05-B1** Create orchestration service: `services/contact_center_service.py` (unifies chatbot + whatsapp + voip)
+- [ ] **AI05-B2** Expand intent taxonomy: 15+ intents (scheduling, billing, general, clinical, escalation)
+- [ ] **AI05-B3** Create conversation context store (Redis, cross-channel patient context)
+- [ ] **AI05-B4** Add `ContactCenterErrors` to `core/error_codes.py`
+- [ ] **AI05-B5** Create Pydantic schemas: `schemas/contact_center.py`
+- [ ] **AI05-B6** Create API routes: `api/v1/contact_center.py` (config, conversations, analytics, escalation)
+- [ ] **AI05-B7** Register router
+- [ ] **AI05-B8** Proactive outreach engine: scheduled campaigns (confirmation, recall, payment)
+- [ ] **AI05-B9** Human escalation: notification to receptionist + handoff protocol
+
+Frontend:
+- [ ] **AI05-F1** Create agent dashboard: `app/(dashboard)/contact-center/page.tsx` (live conversations, queue, analytics)
+- [ ] **AI05-F2** Create configuration page: `app/(dashboard)/settings/contact-center/page.tsx`
+- [ ] **AI05-F3** Create analytics widgets: conversion tracking, response times, escalation rate
+
+Tests:
+- [ ] **AI05-T1** Unit tests: orchestration, intent routing, context management (15 tests)
+- [ ] **AI05-T2** Integration tests: cross-channel flow, escalation, proactive outreach (10 tests)
+
+### AI-06: AI Workflow Supervisor (Clinica+ plan)
+
+Backend:
+- [ ] **AI06-B1** Create rule engine: `services/workflow_supervisor_service.py` (25 built-in rules, custom rules)
+- [ ] **AI06-B2** Create models: `models/tenant/workflow_supervisor.py` (workflow_rules, workflow_alerts, compliance_scores)
+- [ ] **AI06-B3** Create migration: `alembic_tenant/versions/030_workflow_supervisor.py`
+- [ ] **AI06-B4** Add `WorkflowSupervisorErrors` to `core/error_codes.py`
+- [ ] **AI06-B5** Create Pydantic schemas: `schemas/workflow_supervisor.py`
+- [ ] **AI06-B6** Create API routes: `api/v1/workflow_supervisor.py` (score, alerts, rules CRUD, doctor metrics)
+- [ ] **AI06-B7** Register router
+- [ ] **AI06-B8** Scheduled scan worker (15-min interval via maintenance queue)
+- [ ] **AI06-B9** Event-driven triggers (hook into existing mutation services)
+- [ ] **AI06-B10** Auto-remediation actions (create tasks, send notifications, block procedures)
+
+Frontend:
+- [ ] **AI06-F1** Dashboard widget: compliance score gauge + top alerts
+- [ ] **AI06-F2** Alerts page: `app/(dashboard)/workflow/alerts/page.tsx`
+- [ ] **AI06-F3** Rules config page: `app/(dashboard)/settings/workflow-rules/page.tsx`
+- [ ] **AI06-F4** Doctor metrics page: `app/(dashboard)/workflow/doctor-metrics/page.tsx`
+
+Tests:
+- [ ] **AI06-T1** Unit tests: rule engine, scoring, auto-remediation (15 tests)
+- [ ] **AI06-T2** Integration tests: scan + event triggers + API (10 tests)
+
+### Spec Documents (Tier 2)
+
+- [ ] **AI-S5** `specs/ai/smile-simulator.md` — Full API spec
+- [ ] **AI-S6** `specs/ai/contact-center.md` — Full API spec
+- [ ] **AI-S7** `specs/ai/workflow-supervisor.md` — Full API spec
+
+---
+
+## Sprint 39-40: AI Leapfrog — Tier 3
+
+**Goal:** Features no LATAM competitor has. Create competitive moat.
+
+**Spec references:** `specs/ai/voice-perio-charting.md`, `specs/ai/treatment-acceptance-predictor.md`, `specs/ai/patient-risk-score.md`, `specs/ai/smart-scheduling.md`, `specs/ai/revenue-optimizer.md`, `specs/ai/radiograph-overlay.md`
+
+### AI-07: AI Voice Perio Charting (AI Voice add-on)
+
+- [ ] **AI07-B1** Extend voice pipeline: perio context handler + number sequence extraction
+- [ ] **AI07-B2** Create service: `services/voice_perio_charting_service.py`
+- [ ] **AI07-B3** API route: `POST /patients/{id}/voice/perio-charting` (start session)
+- [ ] **AI07-F1** Frontend: real-time chart fill component + voice indicator
+- [ ] **AI07-T1** Tests: number extraction accuracy, chart mapping (10 tests)
+
+### AI-08: AI Treatment Acceptance Predictor (Clinica+ plan)
+
+- [ ] **AI08-B1** Create model: `models/tenant/acceptance_prediction.py`
+- [ ] **AI08-B2** Create migration: `alembic_tenant/versions/031_acceptance_predictions.py`
+- [ ] **AI08-B3** Create service: `services/acceptance_predictor_service.py` (logistic regression, per-clinic training)
+- [ ] **AI08-B4** API route: `GET /patients/{id}/treatment-plans/{id}/acceptance-score`
+- [ ] **AI08-F1** Frontend: score badge on quotation screen
+- [ ] **AI08-T1** Tests: prediction accuracy, training pipeline (8 tests)
+
+### AI-09: AI Patient Risk Score (Pro+ plan)
+
+- [ ] **AI09-B1** Create model: `models/tenant/patient_risk_score.py`
+- [ ] **AI09-B2** Create migration: `alembic_tenant/versions/032_patient_risk_scores.py`
+- [ ] **AI09-B3** Create service: `services/patient_risk_score_service.py` (4 risk dimensions, composite score)
+- [ ] **AI09-B4** API route: `GET /patients/{id}/risk-score`
+- [ ] **AI09-B5** Worker: recalculate on patient data change
+- [ ] **AI09-F1** Frontend: risk badges on patient card + detail panel
+- [ ] **AI09-T1** Tests: scoring algorithm, recalculation triggers (10 tests)
+
+### AI-10: AI Smart Scheduling (Clinica+ plan)
+
+- [ ] **AI10-B1** Create service: `services/smart_scheduling_service.py` (schedule advisor logic)
+- [ ] **AI10-B2** API route: `GET /appointments/smart-suggestions`
+- [ ] **AI10-F1** Frontend: advisor panel next to calendar
+- [ ] **AI10-T1** Tests: suggestion quality, edge cases (8 tests)
+
+### AI-11: AI Revenue Optimizer (Enterprise plan)
+
+- [ ] **AI11-B1** Create service: `services/revenue_optimizer_service.py` (opportunity detection + Claude insights)
+- [ ] **AI11-B2** API routes: `GET /analytics/revenue-opportunities`, `GET /analytics/revenue-digest`
+- [ ] **AI11-B3** Scheduled weekly digest worker
+- [ ] **AI11-F1** Frontend: dashboard widget + dedicated page
+- [ ] **AI11-T1** Tests: opportunity detection, digest generation (8 tests)
+
+### AI-12: AI Radiograph Overlay (AI Radiograph add-on)
+
+- [ ] **AI12-B1** Extend radiograph analysis response with bounding box coordinates
+- [ ] **AI12-B2** Update Claude Vision prompt to output spatial data
+- [ ] **AI12-F1** Frontend: Canvas overlay component with toggle controls per finding type
+- [ ] **AI12-F2** Color scheme: red=caries, yellow=bone loss, blue=restorations, green=healthy, orange=periapical
+- [ ] **AI12-T1** Tests: overlay rendering, toggle interactions (6 tests)
+
+### Spec Documents (Tier 3)
+
+- [x] **AI-S8** `specs/ai/voice-perio-charting.md`
+- [x] **AI-S9** `specs/ai/treatment-acceptance-predictor.md`
+- [x] **AI-S10** `specs/ai/patient-risk-score.md`
+- [x] **AI-S11** `specs/ai/smart-scheduling.md`
+- [x] **AI-S12** `specs/ai/revenue-optimizer.md`
+- [x] **AI-S13** `specs/ai/radiograph-overlay.md`
 *Next review: End of Sprint 2*
