@@ -84,6 +84,6 @@ export function useClinicalSummary(
       );
     },
     enabled: !!patientId,
-    staleTime: 5 * 60 * 1000, // 5 minutes (matches server cache TTL)
+    staleTime: 12 * 60 * 60 * 1000, // 12 hours (invalidated on patient data changes)
   });
 }

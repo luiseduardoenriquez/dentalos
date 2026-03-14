@@ -60,8 +60,8 @@ from app.services.ai_claude_client import call_claude, extract_json_object
 
 logger = logging.getLogger("dentalos.ai.clinical_summary")
 
-# Cache TTL in seconds (5 minutes)
-_CACHE_TTL = 300
+# Cache TTL in seconds (12 hours) — invalidated on patient data changes
+_CACHE_TTL = 43200
 
 # Haiku model for fast, low-cost summaries
 _MODEL = "claude-haiku-4-5-20251001"
@@ -962,25 +962,39 @@ class ClinicalSummaryService:
                     )
 
         # 3. Aggregate data from 8 sources in parallel
-        (
-            demographics,
-            odontogram_conditions,
-            diagnoses,
-            treatment_items,
-            appointments,
-            evolution_notes,
-            financial,
-            prescriptions,
-        ) = await asyncio.gather(
-            _fetch_patient_demographics(db, pid),
-            _fetch_odontogram_conditions(db, pid),
-            _fetch_active_diagnoses(db, pid),
-            _fetch_treatment_plans(db, pid),
-            _fetch_appointments(db, pid),
-            _fetch_evolution_notes(db, pid),
-            _fetch_financial_status(db, pid),
-            _fetch_prescriptions(db, pid),
-        )
+        try:
+            (
+                demographics,
+                odontogram_conditions,
+                diagnoses,
+                treatment_items,
+                appointments,
+                evolution_notes,
+                financial,
+                prescriptions,
+            ) = await asyncio.gather(
+                _fetch_patient_demographics(db, pid),
+                _fetch_odontogram_conditions(db, pid),
+                _fetch_active_diagnoses(db, pid),
+                _fetch_treatment_plans(db, pid),
+                _fetch_appointments(db, pid),
+                _fetch_evolution_notes(db, pid),
+                _fetch_financial_status(db, pid),
+                _fetch_prescriptions(db, pid),
+            )
+        except Exception:
+            logger.exception(
+                "Failed to aggregate patient data for clinical summary: patient=%s",
+                patient_id[:8],
+            )
+            raise DentalOSError(
+                error=AIClinicalSummaryErrors.GENERATION_FAILED,
+                message=(
+                    "Error al recopilar datos del paciente para el resumen. "
+                    "Intente nuevamente."
+                ),
+                status_code=500,
+            ) from None
 
         # 4. Verify patient exists
         if demographics is None:
@@ -1006,7 +1020,7 @@ class ClinicalSummaryService:
             claude_response = await call_claude(
                 system_prompt=_SYSTEM_PROMPT,
                 user_content=user_content,
-                max_tokens=2048,
+                max_tokens=4096,
                 temperature=0.2,
                 model_override=_MODEL,
             )
@@ -1025,7 +1039,10 @@ class ClinicalSummaryService:
         raw_json = extract_json_object(claude_response["content"])
         if not raw_json:
             logger.warning(
-                "Claude returned empty/invalid JSON for clinical summary"
+                "Claude returned empty/invalid JSON for clinical summary. "
+                "Raw response length=%d, first 500 chars: %s",
+                len(claude_response["content"]),
+                claude_response["content"][:500],
             )
             raise DentalOSError(
                 error=AIClinicalSummaryErrors.GENERATION_FAILED,
