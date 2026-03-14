@@ -95,6 +95,22 @@ class ResourceConflictError(DentalOSError):
         )
 
 
+class SyncConflictError(ResourceConflictError):
+    """Raised when an offline sync operation conflicts with server-side data."""
+
+    def __init__(
+        self,
+        conflict_type: str = "update_conflict",
+        message: str = "Server data was modified after client queued this operation.",
+        server_data: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            error=f"SYNC_{conflict_type}",
+            message=message,
+            details={"server_data": server_data or {}},
+        )
+
+
 class BusinessValidationError(DentalOSError):
     """For business rule validation failures (not Pydantic schema validation)."""
 

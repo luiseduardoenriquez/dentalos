@@ -10,7 +10,8 @@ Endpoint map:
   GET  /patients/{patient_id}    — P-03: Get detail       (any staff)
   POST /patients/                — P-04: Create patient   (patients:write)
   PUT  /patients/{patient_id}    — P-05: Update patient   (patients:write)
-  POST /patients/{patient_id}/deactivate — P-06: Soft-delete (clinic_owner)
+  POST /patients/{patient_id}/deactivate  — P-06: Soft-delete   (clinic_owner)
+  POST /patients/{patient_id}/reactivate — P-06b: Reactivate   (clinic_owner)
   POST /patients/{patient_id}/referrals  — P-15: Create referral (doctor)
   GET  /patients/{patient_id}/referrals  — P-15: List referrals  (staff)
 
@@ -594,6 +595,40 @@ async def deactivate_patient(
         db=db,
         current_user=current_user,
         action="deactivate",
+        resource_type="patient",
+        resource_id=patient_id,
+    )
+
+    return PatientResponse(**result)
+
+
+# ─── P-06b: Reactivate ──────────────────────────────────────────────────────
+
+
+@router.post("/{patient_id}/reactivate", response_model=PatientResponse)
+async def reactivate_patient(
+    patient_id: str,
+    request: Request,
+    current_user: AuthenticatedUser = Depends(require_role(["clinic_owner"])),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> PatientResponse:
+    """Re-activate a previously deactivated patient (clinic_owner only).
+
+    Reverses the soft-deactivation by setting is_active=True and clearing
+    deleted_at. Returns 404 if the patient is not found or already active.
+    Emits a reactivate audit event on success.
+    """
+    result = await patient_service.reactivate_patient(
+        db=db,
+        tenant_id=current_user.tenant.tenant_id,
+        patient_id=patient_id,
+    )
+
+    await audit_action(
+        request=request,
+        db=db,
+        current_user=current_user,
+        action="reactivate",
         resource_type="patient",
         resource_id=patient_id,
     )

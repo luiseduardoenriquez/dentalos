@@ -44,6 +44,8 @@ export interface HeaderProps {
   onSearchClick?: () => void;
   /** Called when notification bell is clicked */
   onNotificationClick?: () => void;
+  /** Optional sync status indicator rendered in the header */
+  syncIndicator?: React.ReactNode;
   className?: string;
 }
 
@@ -126,6 +128,7 @@ export function Header({
   onSignOut,
   onSearchClick,
   onNotificationClick,
+  syncIndicator,
   className,
 }: HeaderProps) {
   const roleLabel = ROLE_LABELS[userRole] ?? userRole;
@@ -180,6 +183,9 @@ export function Header({
         >
           <Search className="h-5 w-5" />
         </button>
+
+        {/* Sync status */}
+        {syncIndicator}
 
         {/* Notifications */}
         <NotificationBell count={notificationCount} onClick={onNotificationClick} />

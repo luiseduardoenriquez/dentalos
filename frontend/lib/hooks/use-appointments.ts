@@ -4,6 +4,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost, apiPut } from "@/lib/api-client";
 import { useToast } from "@/lib/hooks/use-toast";
 import { buildQueryString } from "@/lib/utils";
+import { cacheAppointments, getCachedAppointments } from "@/lib/db/offline-data-service";
+import { useOnlineStore } from "@/lib/stores/online-store";
+import type { CachedAppointment } from "@/lib/db/offline-db";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -99,6 +102,7 @@ export const calendarKey = (params: Record<string, unknown>) =>
  */
 export function useAppointments(params: AppointmentsQueryParams = {}) {
   const queryParams: Record<string, unknown> = { page_size: 50, ...params };
+  const is_online = useOnlineStore((s) => s.is_online);
 
   // Strip undefined values so buildQueryString works cleanly
   Object.keys(queryParams).forEach((key) => {
@@ -107,8 +111,45 @@ export function useAppointments(params: AppointmentsQueryParams = {}) {
 
   return useQuery({
     queryKey: [...APPOINTMENTS_KEY, queryParams],
-    queryFn: () =>
-      apiGet<AppointmentListResponse>(`/appointments${buildQueryString(queryParams)}`),
+    queryFn: async () => {
+      // Offline: try IDB cache
+      if (!is_online) {
+        const cached = await getCachedAppointments({
+          doctor_id: params.doctor_id,
+          date_from: params.date_from,
+          date_to: params.date_to,
+        });
+        return {
+          items: cached as unknown as Appointment[],
+          total: cached.length,
+          next_cursor: null,
+        } as AppointmentListResponse;
+      }
+      const result = await apiGet<AppointmentListResponse>(`/appointments${buildQueryString(queryParams)}`);
+      // Write-through to IDB
+      try {
+        const now = Date.now();
+        const toCache: CachedAppointment[] = result.items.map((a) => ({
+          id: a.id,
+          patient_id: a.patient_id,
+          doctor_id: a.doctor_id,
+          patient_name: a.patient_name,
+          doctor_name: a.doctor_name,
+          start_time: a.start_time,
+          end_time: a.end_time,
+          duration_minutes: a.duration_minutes,
+          type: a.type,
+          status: a.status,
+          notes: a.notes,
+          scheduled_at: a.start_time,
+          synced_at: now,
+        }));
+        cacheAppointments(toCache).catch(() => {});
+      } catch {
+        // Non-blocking
+      }
+      return result;
+    },
     staleTime: 30_000,
     placeholderData: (previousData) => previousData,
   });
@@ -143,6 +184,7 @@ export function useAppointment(id: string | null | undefined) {
  */
 export function useCalendar(params: CalendarQueryParams) {
   const queryParams: Record<string, unknown> = { ...params };
+  const is_online = useOnlineStore((s) => s.is_online);
 
   Object.keys(queryParams).forEach((key) => {
     if (queryParams[key] === undefined) delete queryParams[key];
@@ -150,8 +192,35 @@ export function useCalendar(params: CalendarQueryParams) {
 
   return useQuery({
     queryKey: calendarKey(queryParams),
-    queryFn: () =>
-      apiGet<CalendarResponse>(`/appointments/calendar${buildQueryString(queryParams)}`),
+    queryFn: async () => {
+      // Offline: build calendar from IDB cached appointments
+      if (!is_online) {
+        const cached = await getCachedAppointments({
+          date_from: params.date_from,
+          date_to: params.date_to,
+          doctor_id: params.doctor_id,
+        });
+        const dates: Record<string, CalendarSlot[]> = {};
+        for (const a of cached) {
+          const dateKey = a.start_time.split("T")[0];
+          if (!dates[dateKey]) dates[dateKey] = [];
+          dates[dateKey].push({
+            id: a.id,
+            patient_id: a.patient_id,
+            patient_name: a.patient_name ?? null,
+            doctor_id: a.doctor_id,
+            doctor_name: a.doctor_name ?? null,
+            start_time: a.start_time,
+            end_time: a.end_time,
+            duration_minutes: a.duration_minutes,
+            type: a.type as AppointmentType,
+            status: a.status as AppointmentStatus,
+          });
+        }
+        return { dates, date_from: params.date_from, date_to: params.date_to } as CalendarResponse;
+      }
+      return apiGet<CalendarResponse>(`/appointments/calendar${buildQueryString(queryParams)}`);
+    },
     enabled: Boolean(params.date_from) && Boolean(params.date_to),
     staleTime: 60_000,
     placeholderData: (previousData) => previousData,

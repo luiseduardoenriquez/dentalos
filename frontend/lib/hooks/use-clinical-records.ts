@@ -4,6 +4,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost, apiPut } from "@/lib/api-client";
 import { useToast } from "@/lib/hooks/use-toast";
 import { buildQueryString } from "@/lib/utils";
+import { cacheClinicalRecords, getCachedClinicalRecords } from "@/lib/db/offline-data-service";
+import { useOnlineStore } from "@/lib/stores/online-store";
+import type { CachedClinicalRecord } from "@/lib/db/offline-db";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -147,13 +150,49 @@ export function useClinicalRecords(
 ) {
   const queryParams: Record<string, unknown> = { page, page_size: pageSize };
   if (type) queryParams.type = type;
+  const is_online = useOnlineStore((s) => s.is_online);
 
   return useQuery({
     queryKey: clinicalRecordsQueryKey(patientId, page, pageSize, type),
-    queryFn: () =>
-      apiGet<ClinicalRecordListResponse>(
+    queryFn: async () => {
+      // Offline: try IDB cache
+      if (!is_online) {
+        const cached = await getCachedClinicalRecords(patientId);
+        const filtered = type ? cached.filter((r) => r.type === type) : cached;
+        const start = (page - 1) * pageSize;
+        const paged = filtered.slice(start, start + pageSize);
+        return {
+          items: paged as unknown as ClinicalRecordListItem[],
+          total: filtered.length,
+          page,
+          page_size: pageSize,
+        } as ClinicalRecordListResponse;
+      }
+      const result = await apiGet<ClinicalRecordListResponse>(
         `/patients/${patientId}/clinical-records${buildQueryString(queryParams)}`,
-      ),
+      );
+      // Write-through to IDB
+      try {
+        const now = Date.now();
+        const toCache: CachedClinicalRecord[] = result.items.map((r) => ({
+          id: r.id,
+          patient_id: patientId,
+          doctor_id: "",
+          doctor_name: r.doctor_name,
+          type: r.type,
+          content: {},
+          tooth_numbers: r.tooth_numbers,
+          is_editable: r.is_editable,
+          created_at: r.created_at,
+          updated_at: "",
+          synced_at: now,
+        }));
+        cacheClinicalRecords(toCache).catch(() => {});
+      } catch {
+        // Non-blocking
+      }
+      return result;
+    },
     enabled: Boolean(patientId),
     staleTime: 30_000,
     placeholderData: (previousData) => previousData,

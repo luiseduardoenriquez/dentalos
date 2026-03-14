@@ -290,4 +290,9 @@ from app.api.v1.announcements.router import router as announcements_router
 
 api_v1_router.include_router(announcements_router)
 
+# Offline Sync API
+from app.api.v1.sync.router import router as sync_router
+
+api_v1_router.include_router(sync_router)
+
 # Sprint 15-16: Admin (included at top of file for route priority)

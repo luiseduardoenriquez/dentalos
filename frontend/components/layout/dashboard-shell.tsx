@@ -7,6 +7,7 @@ import { Header } from "@/components/layout/header";
 import { NotificationDrawer } from "@/components/notifications/notification-drawer";
 import { PatientSearchDialog } from "@/components/patients/patient-search-dialog";
 import { GlobalVoiceFab } from "@/components/voice/global-voice-fab";
+import { SyncStatusIndicator } from "@/components/sync-status-indicator";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -100,6 +101,7 @@ export function DashboardShell({
           onSignOut={onSignOut}
           onSearchClick={onSearchClick ?? (() => setSearchOpen(true))}
           onNotificationClick={() => setNotificationDrawerOpen(true)}
+          syncIndicator={<SyncStatusIndicator />}
         />
 
         {/* Scrollable content area */}

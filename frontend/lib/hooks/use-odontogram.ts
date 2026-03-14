@@ -5,6 +5,8 @@ import type { z } from "zod";
 import { apiGet, apiPost, apiDelete } from "@/lib/api-client";
 import { useToast } from "@/lib/hooks/use-toast";
 import { buildQueryString } from "@/lib/utils";
+import { cacheOdontogramState, getCachedOdontogramState } from "@/lib/db/offline-data-service";
+import { useOnlineStore } from "@/lib/stores/online-store";
 import type {
   ConditionCreateValues,
   bulkUpdateSchema,
@@ -137,9 +139,22 @@ export const conditionsCatalogKey = ["catalog", "conditions"] as const;
  * const { data: odontogram, isLoading } = useOdontogram(patientId);
  */
 export function useOdontogram(patientId: string | null | undefined) {
+  const is_online = useOnlineStore((s) => s.is_online);
+
   return useQuery({
     queryKey: odontogramQueryKey(patientId ?? ""),
-    queryFn: () => apiGet<OdontogramResponse>(`/patients/${patientId}/odontogram`),
+    queryFn: async () => {
+      // Offline: try IDB cache
+      if (!is_online) {
+        const cached = await getCachedOdontogramState(patientId!);
+        if (cached) return cached.data as OdontogramResponse;
+        throw new Error("Sin conexion y odontograma no disponible offline");
+      }
+      const result = await apiGet<OdontogramResponse>(`/patients/${patientId}/odontogram`);
+      // Write-through to IDB
+      cacheOdontogramState(patientId!, result).catch(() => {});
+      return result;
+    },
     enabled: Boolean(patientId),
     staleTime: 60_000, // 1 minute — odontogram changes infrequently mid-session
   });

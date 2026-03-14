@@ -162,6 +162,34 @@ apiClient.interceptors.response.use(
   },
 );
 
+// ─── Network Retry Interceptor ───────────────────────────────────────────────
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY_BASE = 1_000; // 1s, 2s, 4s exponential backoff
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const config = error.config as AxiosRequestConfig & { _retryCount?: number };
+    if (!config) return Promise.reject(error);
+
+    // Only retry on network errors (no response = connection failure)
+    // Do NOT retry if there is an HTTP response (even 5xx) — let the caller handle it
+    if (error.response) return Promise.reject(error);
+
+    // Do not retry auth endpoints (refresh is handled separately)
+    if (config.url?.includes("/auth/")) return Promise.reject(error);
+
+    const retryCount = config._retryCount ?? 0;
+    if (retryCount >= MAX_RETRIES) return Promise.reject(error);
+
+    config._retryCount = retryCount + 1;
+    const delay = RETRY_DELAY_BASE * 2 ** retryCount;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    return apiClient(config);
+  },
+);
+
 // ─── Typed Request Helpers ────────────────────────────────────────────────────
 
 /**

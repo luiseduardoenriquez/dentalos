@@ -6,6 +6,8 @@ import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { UpdateBanner } from "@/components/update-banner";
 import { VoiceRecoveryBanner } from "@/components/voice/voice-recovery-banner";
+import { OfflineBanner } from "@/components/offline-banner";
+import { useOnlineStatus } from "@/lib/hooks/use-online-status";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { useAuthStore } from "@/lib/hooks/use-auth";
 import { clearAccessToken } from "@/lib/auth";
@@ -14,6 +16,8 @@ import { useMe } from "@/lib/hooks/use-me";
 import { useUnreadCount } from "@/lib/hooks/use-notifications";
 import { useImpersonationStore } from "@/lib/hooks/use-impersonation";
 import type { UserRole } from "@/components/layout/sidebar";
+import { clearAllOfflineData, getLastFullSyncTimestamp } from "@/lib/db/offline-data-service";
+import { performSync } from "@/lib/sync/sync-engine";
 
 // ─── Full-page Skeleton ───────────────────────────────────────────────────────
 
@@ -98,6 +102,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // Triggers GET /auth/me — hydrates store, redirects on 401
   useMe();
 
+  // Monitor real internet connectivity (health ping + browser events)
+  useOnlineStatus();
+
   // Timeout guard: if still loading after 10s, force redirect to login
   useEffect(() => {
     if (!is_loading) return;
@@ -114,7 +121,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // Real-time unread notification count (polls every 30s)
   const { data: unreadCount } = useUnreadCount();
 
-  // Request durable storage to prevent IndexedDB eviction (voice recordings)
+  // Request durable storage to prevent IndexedDB eviction (voice recordings + offline data)
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const storage = navigator.storage as any;
@@ -123,12 +130,34 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Handle sign-out
+  // Initial sync: trigger full sync if last_full_sync is null or > 24h
+  useEffect(() => {
+    if (!is_authenticated) return;
+    (async () => {
+      try {
+        const lastFull = await getLastFullSyncTimestamp();
+        const staleThreshold = 24 * 60 * 60 * 1000; // 24h
+        if (!lastFull || Date.now() - lastFull > staleThreshold) {
+          performSync("full").catch(() => {});
+        }
+      } catch {
+        // IDB not available — skip
+      }
+    })();
+  }, [is_authenticated]);
+
+  // Handle sign-out — clear PHI from IndexedDB
   async function handleSignOut() {
     try {
       await apiPost("/auth/logout", null);
     } catch {
       // Best-effort — clear client state regardless of server response
+    }
+    // Clear all offline data (PHI) before navigating away
+    try {
+      await clearAllOfflineData();
+    } catch {
+      // IDB error — non-critical, proceed with logout
     }
     clearAccessToken();
     useAuthStore.getState().clear_auth();
@@ -145,6 +174,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <UpdateBanner />
       <ImpersonationBanner />
       <VoiceRecoveryBanner />
+      <OfflineBanner />
       <div className={impersonating ? "pt-10" : ""}>
         <DashboardShell
           userRole={user.role as UserRole}

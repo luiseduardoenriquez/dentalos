@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 import { apiGet, apiPost, apiPut } from "@/lib/api-client";
 import { useToast } from "@/lib/hooks/use-toast";
 import { buildQueryString } from "@/lib/utils";
+import { cachePatients, getCachedPatients } from "@/lib/db/offline-data-service";
+import { useOnlineStore } from "@/lib/stores/online-store";
+import type { CachedPatient } from "@/lib/db/offline-db";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,6 +96,7 @@ export const patientSearchQueryKey = (q: string) => ["patients", "search", q] as
  */
 export function usePatients(params: PatientsQueryParams = {}) {
   const { page = 1, page_size = 20, search, is_active, sort_by, sort_order } = params;
+  const isOnline = useOnlineStore((s) => s.is_online);
 
   // Build clean query params — omit undefined/null/"all"
   const queryParams: Record<string, unknown> = { page, page_size };
@@ -103,7 +107,65 @@ export function usePatients(params: PatientsQueryParams = {}) {
 
   return useQuery({
     queryKey: [...PATIENTS_QUERY_KEY, queryParams],
-    queryFn: () => apiGet<PaginatedPatients>(`/patients${buildQueryString(queryParams)}`),
+    queryFn: async () => {
+      // Offline: serve from IDB cache
+      if (!isOnline) {
+        const cached = await getCachedPatients();
+        let items: PatientListItem[] = cached.map((p) => ({
+          id: p.id,
+          document_type: p.document_type,
+          document_number: p.document_number,
+          first_name: p.first_name,
+          last_name: p.last_name,
+          full_name: p.full_name,
+          phone: p.phone,
+          email: p.email,
+          is_active: p.is_active,
+          created_at: p.created_at,
+        }));
+        // Apply client-side filters
+        if (search) {
+          const q = search.toLowerCase();
+          items = items.filter(
+            (p) =>
+              p.full_name.toLowerCase().includes(q) ||
+              p.document_number.includes(q) ||
+              (p.phone && p.phone.includes(q)),
+          );
+        }
+        if (is_active !== undefined && is_active !== "all") {
+          items = items.filter((p) => p.is_active === is_active);
+        }
+        const total = items.length;
+        const start = (page - 1) * page_size;
+        return { items: items.slice(start, start + page_size), total, page, page_size };
+      }
+
+      const result = await apiGet<PaginatedPatients>(`/patients${buildQueryString(queryParams)}`);
+      // Write-through: cache to IDB for offline access
+      try {
+        const now = Date.now();
+        const toCache: CachedPatient[] = result.items.map((p) => ({
+          id: p.id,
+          tenant_id: "",
+          first_name: p.first_name,
+          last_name: p.last_name,
+          full_name: p.full_name,
+          document_type: p.document_type,
+          document_number: p.document_number,
+          phone: p.phone,
+          email: p.email,
+          is_active: p.is_active,
+          created_at: p.created_at,
+          updated_at: "",
+          synced_at: now,
+        }));
+        cachePatients(toCache).catch(() => {});
+      } catch {
+        // IDB write failure — non-blocking
+      }
+      return result;
+    },
     staleTime: 30_000, // 30 seconds
     placeholderData: (previousData) => previousData,
   });
@@ -118,10 +180,21 @@ export function usePatients(params: PatientsQueryParams = {}) {
  * @example
  * const { data: patient, isLoading } = usePatient(id);
  */
-export function usePatient(id: string | null | undefined) {
+export function usePatient(id: string | null | undefined, includeDeleted = false) {
+  const qs = includeDeleted ? "?include_deleted=true" : "";
+  const is_online = useOnlineStore((s) => s.is_online);
+
   return useQuery({
-    queryKey: patientQueryKey(id ?? ""),
-    queryFn: () => apiGet<Patient>(`/patients/${id}`),
+    queryKey: [...patientQueryKey(id ?? ""), { includeDeleted }],
+    queryFn: async () => {
+      // Offline: try IDB cache
+      if (!is_online) {
+        const cached = await getCachedPatients().then((all) => all.find((p) => p.id === id));
+        if (cached) return cached as unknown as Patient;
+        throw new Error("Sin conexion y paciente no disponible offline");
+      }
+      return apiGet<Patient>(`/patients/${id}${qs}`);
+    },
     enabled: Boolean(id),
     staleTime: 60_000, // 1 minute
   });
@@ -210,6 +283,35 @@ export function useDeactivatePatient() {
       const message =
         err instanceof Error ? err.message : "No se pudo desactivar el paciente. Inténtalo de nuevo.";
       error("Error al desactivar paciente", message);
+    },
+  });
+}
+
+// ─── useReactivatePatient ─────────────────────────────────────────────────────
+
+/**
+ * POST /patients/{id}/reactivate — re-activates a deactivated patient.
+ * On success: invalidates queries and shows a toast.
+ *
+ * @example
+ * const { mutate: reactivate } = useReactivatePatient();
+ * reactivate(patientId);
+ */
+export function useReactivatePatient() {
+  const queryClient = useQueryClient();
+  const { success, error } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => apiPost<Patient>(`/patients/${id}/reactivate`),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: patientQueryKey(id) });
+      queryClient.invalidateQueries({ queryKey: PATIENTS_QUERY_KEY });
+      success("Paciente reactivado", "El paciente fue marcado como activo nuevamente.");
+    },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof Error ? err.message : "No se pudo reactivar el paciente. Inténtalo de nuevo.";
+      error("Error al reactivar paciente", message);
     },
   });
 }

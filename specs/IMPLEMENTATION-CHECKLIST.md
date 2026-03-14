@@ -779,6 +779,12 @@ Minimal viable inventory: materials tracking, expiry alerts, sterilization cycle
 - [x] **I-18** Offline-first architecture design (Service Workers, IndexedDB schema, sync queue) -- ADR-006 defers full implementation to post-MVP
 - [x] **I-19** PWA configuration (service worker, manifest.json, cache strategies)
 - [x] **I-25** ADR-006: Offline sync approach decision
+- [x] **I-26** Phase 1: Data loss prevention — online status store, offline banner, mutation retry (3x network), navigation guard, form draft persistence (IDB)
+- [x] **I-27** Phase 2: IndexedDB data layer — Dexie.js schema (8 tables), offline data service CRUD, write-through cache in query hooks (patients, odontogram, appointments, clinical records)
+- [x] **I-28** Phase 3: Service worker enhancement — runtime caching (SWR for API reads, NetworkFirst for nav, CacheFirst for images), write interception (202 queued_offline), background sync queue, sync status indicator
+- [x] **I-29** Phase 4: Backend sync API — `GET /sync/delta`, `GET /sync/full`, `POST /sync/batch` (max 50 ops, conflict detection), SyncConflictError
+- [x] **I-30** Phase 5: Frontend sync engine — performSync orchestration, bandwidth-aware sync mode, LWW conflict resolution, odontogram surface-level merge, conflict resolution modal, SyncProvider with reconnect orchestration
+- [x] **I-31** Phase 6: Photo queue (IDB blob storage), offline feature gate component, pending changes drawer, IDB cleanup on logout (PHI security)
 
 ### Backend: Admin / Superadmin (AD-01 through AD-07)
 

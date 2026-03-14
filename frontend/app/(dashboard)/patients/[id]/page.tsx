@@ -44,7 +44,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/empty-state";
 import { MedicalHistoryTimeline } from "@/components/medical-history-timeline";
-import { usePatient, useDeactivatePatient, useManagePortalAccess } from "@/lib/hooks/use-patients";
+import { usePatient, useDeactivatePatient, useReactivatePatient, useManagePortalAccess } from "@/lib/hooks/use-patients";
+import { useAuthStore } from "@/lib/hooks/use-auth";
 import { usePatientReferralSummary } from "@/lib/hooks/use-referral-program";
 import { useAppointments, type Appointment, type AppointmentStatus } from "@/lib/hooks/use-appointments";
 import { useTreatmentPlans, type TreatmentPlanResponse } from "@/lib/hooks/use-treatment-plans";
@@ -623,8 +624,11 @@ export default function PatientDetailPage() {
   const router = useRouter();
   const [showDeactivateDialog, setShowDeactivateDialog] = React.useState(false);
 
-  const { data: patient, isLoading, isError } = usePatient(params.id);
+  const user = useAuthStore((s) => s.user);
+  const isOwner = user?.role === "clinic_owner";
+  const { data: patient, isLoading, isError } = usePatient(params.id, isOwner);
   const { mutate: deactivate, isPending: isDeactivating } = useDeactivatePatient();
+  const { mutate: reactivate, isPending: isReactivating } = useReactivatePatient();
   const { mutate: managePortal, isPending: isManagingPortal } = useManagePortalAccess();
 
   function handleDeactivate() {
@@ -751,7 +755,7 @@ export default function PatientDetailPage() {
                 {isManagingPortal ? "Revocando..." : "Revocar portal"}
               </Button>
             )}
-            {patient.is_active && (
+            {patient.is_active && isOwner && (
               <Button
                 variant="destructive"
                 size="sm"
@@ -759,6 +763,18 @@ export default function PatientDetailPage() {
               >
                 <UserX className="mr-1.5 h-3.5 w-3.5" />
                 Desactivar
+              </Button>
+            )}
+            {!patient.is_active && isOwner && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
+                disabled={isReactivating}
+                onClick={() => reactivate(patient.id)}
+              >
+                <User className="mr-1.5 h-3.5 w-3.5" />
+                {isReactivating ? "Reactivando..." : "Reactivar"}
               </Button>
             )}
           </div>

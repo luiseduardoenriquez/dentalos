@@ -668,6 +668,7 @@ class PatientService:
         patient.deleted_at = datetime.now(UTC)
 
         await db.flush()
+        await db.refresh(patient, attribute_names=["updated_at"])
 
         logger.info(
             "Patient deactivated in tenant=%s (id=%s)",
@@ -676,6 +677,54 @@ class PatientService:
         )
 
         # Invalidate search cache so deactivated patient disappears from results
+        await cache_delete_pattern(_invalidate_search_cache(tenant_id))
+
+        return _patient_to_dict(patient)
+
+    # ─── Reactivate ───────────────────────────────────────────────────────
+
+    async def reactivate_patient(
+        self,
+        *,
+        db: AsyncSession,
+        tenant_id: str,
+        patient_id: str,
+    ) -> dict[str, Any]:
+        """Re-activate a previously deactivated patient.
+
+        Reverses a soft-deactivation by setting is_active=True and
+        clearing deleted_at.
+
+        Raises:
+            ResourceNotFoundError (404) — patient not found or already active.
+        """
+        result = await db.execute(
+            select(Patient).where(
+                Patient.id == uuid.UUID(patient_id),
+                Patient.is_active.is_(False),
+            )
+        )
+        patient = result.scalar_one_or_none()
+
+        if patient is None:
+            raise ResourceNotFoundError(
+                error="PATIENT_not_found",
+                resource_name="Patient",
+            )
+
+        patient.is_active = True
+        patient.deleted_at = None
+
+        await db.flush()
+        await db.refresh(patient, attribute_names=["updated_at"])
+
+        logger.info(
+            "Patient reactivated in tenant=%s (id=%s)",
+            tenant_id[:8],
+            patient_id[:8],
+        )
+
+        # Invalidate search cache so reactivated patient reappears in results
         await cache_delete_pattern(_invalidate_search_cache(tenant_id))
 
         return _patient_to_dict(patient)

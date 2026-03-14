@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
+import { SyncProvider } from "@/lib/sync/sync-provider";
 
 // ─── Query Client ──────────────────────────────────────────────────────────────
 
@@ -12,20 +13,26 @@ function makeQueryClient(): QueryClient {
       queries: {
         // 5 minutes stale time — matches Redis TTL for most resources
         staleTime: 5 * 60 * 1000,
-        // Only retry once on failure (network errors, not 4xx)
+        // Retry up to 2 times on network errors (not 4xx/5xx)
         retry: (failureCount, error) => {
-          // Do not retry on 4xx client errors
           const status = (error as { response?: { status?: number } })?.response?.status;
-          if (status && status >= 400 && status < 500) {
-            return false;
-          }
-          return failureCount < 1;
+          // Do not retry on client errors
+          if (status && status >= 400 && status < 500) return false;
+          return failureCount < 2;
         },
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 4000),
         // Refetch on window focus to keep data fresh
         refetchOnWindowFocus: false,
       },
       mutations: {
-        retry: 0,
+        // Retry network errors (no response) up to 3 times with exponential backoff
+        retry: (failureCount, error) => {
+          // Only retry on network errors (no HTTP response = connection failure)
+          const hasResponse = (error as { response?: unknown })?.response;
+          if (hasResponse) return false;
+          return failureCount < 3;
+        },
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
       },
     },
   });
@@ -140,7 +147,9 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        {children}
+        <SyncProvider>
+          {children}
+        </SyncProvider>
         <Toaster />
       </ThemeProvider>
     </QueryClientProvider>
