@@ -61,6 +61,7 @@ import { VoiceSessionHistory } from "@/components/voice/voice-session-history";
 import { RadiographAnalysisHistory } from "@/components/radiograph-analysis/radiograph-analysis-history";
 import { RadiographAnalyzeButton } from "@/components/radiograph-analysis/radiograph-analyze-button";
 import { ClinicalSummaryPanel } from "@/components/clinical-summary/clinical-summary-panel";
+import { useClinicalSummary } from "@/lib/hooks/use-clinical-summary";
 
 // ─── Appointment Status Config ────────────────────────────────────────────────
 
@@ -636,6 +637,9 @@ export default function PatientDetailPage() {
   const user = useAuthStore((s) => s.user);
   const isOwner = user?.role === "clinic_owner";
   const { data: patient, isLoading, isError } = usePatient(params.id, isOwner);
+
+  // Prefetch clinical summary on page load so it's ready when doctor opens Resumen tab
+  useClinicalSummary(params.id);
   const { mutate: deactivate, isPending: isDeactivating } = useDeactivatePatient();
   const { mutate: reactivate, isPending: isReactivating } = useReactivatePatient();
   const { mutate: managePortal, isPending: isManagingPortal } = useManagePortalAccess();

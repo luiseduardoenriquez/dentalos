@@ -134,6 +134,8 @@ class ClaudeRadiographService(RadiographAnalysisServiceBase):
             summary=parsed.get("summary", "No se pudo generar el resumen."),
             radiograph_quality=parsed.get("radiograph_quality", "adequate"),
             recommendations=parsed.get("recommendations"),
+            input_tokens=result.get("input_tokens", 0),
+            output_tokens=result.get("output_tokens", 0),
         )
 
     def is_configured(self) -> bool:

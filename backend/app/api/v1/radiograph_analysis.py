@@ -13,7 +13,9 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_tenant_db, resolve_tenant
+from app.auth.dependencies import get_current_user
+from app.compliance.deps import resolve_tenant
+from app.core.database import get_tenant_db
 from app.core.error_codes import RadiographAnalysisErrors
 from app.core.exceptions import DentalOSError
 from app.core.queue import publish_message
@@ -53,8 +55,7 @@ async def create_radiograph_analysis(
     Roles: doctor, assistant, clinic_owner.
     """
     # Feature flag check
-    features = tenant.get("features", {}) if isinstance(tenant, dict) else {}
-    if not features.get("ai_radiograph"):
+    if not tenant.features.get("ai_radiograph"):
         raise DentalOSError(
             status_code=402,
             error=RadiographAnalysisErrors.ADDON_REQUIRED,
@@ -68,11 +69,11 @@ async def create_radiograph_analysis(
         doctor_id=current_user.id,
         document_id=uuid.UUID(body.document_id),
         radiograph_type=body.radiograph_type,
-        tenant_id=tenant.get("id", "") if isinstance(tenant, dict) else "",
+        tenant_id=tenant.tenant_id,
     )
 
     # Publish async job to clinical queue
-    tenant_id = tenant.get("id", "") if isinstance(tenant, dict) else ""
+    tenant_id = tenant.tenant_id
     await publish_message(
         "clinical",
         QueueMessage(

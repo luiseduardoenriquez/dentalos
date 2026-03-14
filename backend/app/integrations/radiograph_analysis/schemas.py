@@ -50,3 +50,5 @@ class AnalysisResult(BaseModel):
         default=None,
         description="General recommendations based on findings",
     )
+    input_tokens: int = Field(default=0, description="Claude API input tokens")
+    output_tokens: int = Field(default=0, description="Claude API output tokens")

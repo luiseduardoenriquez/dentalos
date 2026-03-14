@@ -9,7 +9,9 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_tenant_db, resolve_tenant
+from app.auth.dependencies import get_current_user
+from app.compliance.deps import resolve_tenant
+from app.core.database import get_tenant_db
 from app.core.error_codes import AIClinicalSummaryErrors
 from app.core.exceptions import DentalOSError
 from app.schemas.clinical_summary import ClinicalSummaryResponse
@@ -45,8 +47,7 @@ async def get_clinical_summary(
     Roles: doctor, assistant, clinic_owner.
     """
     # Feature flag check
-    features = tenant.get("features", {}) if isinstance(tenant, dict) else {}
-    if not features.get("ai_clinical_summary"):
+    if not tenant.features.get("ai_clinical_summary"):
         raise DentalOSError(
             status_code=402,
             error=AIClinicalSummaryErrors.PLAN_REQUIRED,
@@ -54,12 +55,11 @@ async def get_clinical_summary(
             details={"required_plan": "pro"},
         )
 
-    tenant_id = tenant.get("id", "") if isinstance(tenant, dict) else ""
-
     return await clinical_summary_service.generate_summary(
         db=db,
-        patient_id=patient_id,
-        appointment_id=appointment_id,
-        tenant_id=tenant_id,
+        patient_id=str(patient_id),
+        doctor_id=str(current_user.user_id),
+        tenant_id=tenant.tenant_id,
+        tenant_features=tenant.features,
         force_refresh=force_refresh,
     )

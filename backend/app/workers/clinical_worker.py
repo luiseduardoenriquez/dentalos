@@ -101,8 +101,8 @@ class ClinicalWorker(BaseWorker):
                     radiograph_quality=adapter_result.radiograph_quality,
                     recommendations=adapter_result.recommendations,
                     model_used=settings_model(),
-                    input_tokens=0,  # Updated below if available
-                    output_tokens=0,
+                    input_tokens=adapter_result.input_tokens,
+                    output_tokens=adapter_result.output_tokens,
                     tenant_id=message.tenant_id,
                 )
 

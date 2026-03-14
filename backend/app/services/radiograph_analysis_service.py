@@ -143,8 +143,9 @@ class RadiographAnalysisService:
         analysis.output_tokens = output_tokens
         analysis.status = "completed"
 
-        # Log AI usage
+        # Log AI usage (doctor_id from the analysis record)
         usage_log = AIUsageLog(
+            doctor_id=analysis.doctor_id,
             feature="radiograph_analysis",
             model=model_used,
             input_tokens=input_tokens,
