@@ -6,8 +6,10 @@ directly via httpx — no SDK dependency.
 Used by:
   - ai_treatment_service.py (VP-13: AI Treatment Advisor)
   - ai_report_service.py (GAP-14: Natural Language Reports)
+  - radiograph_analysis_service.py (AI-01: AI Radiograph Analysis)
 """
 
+import base64
 import json
 import logging
 import re
@@ -73,6 +75,104 @@ async def call_claude(
 
     logger.info(
         "Claude call completed: model=%s input_tokens=%d output_tokens=%d",
+        model,
+        usage.get("input_tokens", 0),
+        usage.get("output_tokens", 0),
+    )
+
+    return {
+        "content": content,
+        "input_tokens": usage.get("input_tokens", 0),
+        "output_tokens": usage.get("output_tokens", 0),
+    }
+
+
+async def call_claude_vision(
+    *,
+    system_prompt: str,
+    user_text: str,
+    image_data: bytes,
+    image_media_type: str,
+    max_tokens: int = 4096,
+    temperature: float = 0.1,
+    model_override: str | None = None,
+) -> dict[str, Any]:
+    """Call Claude Messages API with vision (image + text) content.
+
+    Used for radiograph analysis and other image-based AI features.
+    Timeout is 120s (vs 90s for text-only) since vision calls are slower.
+
+    Args:
+        system_prompt: System instructions for Claude.
+        user_text: Text portion of the user message.
+        image_data: Raw image bytes (JPEG, PNG, WEBP, GIF).
+        image_media_type: MIME type (e.g. "image/jpeg", "image/png").
+        max_tokens: Maximum tokens for the response.
+        temperature: Sampling temperature (0.0-1.0).
+        model_override: Override the default model from settings.
+
+    Returns:
+        dict with keys: content (str), input_tokens (int), output_tokens (int)
+
+    Raises:
+        RuntimeError: If API key is not configured or API call fails.
+        ValueError: If image_media_type is not supported.
+    """
+    if not settings.anthropic_api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY not set")
+
+    allowed_types = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+    if image_media_type not in allowed_types:
+        raise ValueError(
+            f"Unsupported image type: {image_media_type}. "
+            f"Allowed: {', '.join(sorted(allowed_types))}"
+        )
+
+    model = model_override or settings.anthropic_model
+    image_b64 = base64.b64encode(image_data).decode("ascii")
+
+    headers = {
+        "x-api-key": settings.anthropic_api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "system": system_prompt,
+        "temperature": temperature,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": image_media_type,
+                            "data": image_b64,
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": user_text,
+                    },
+                ],
+            }
+        ],
+    }
+
+    async with httpx.AsyncClient(timeout=120) as client:
+        response = await client.post(_API_URL, json=payload, headers=headers)
+        response.raise_for_status()
+
+    data = response.json()
+    content_blocks = data.get("content", [])
+    content = content_blocks[0].get("text", "") if content_blocks else ""
+    usage = data.get("usage", {})
+
+    logger.info(
+        "Claude Vision call completed: model=%s input_tokens=%d output_tokens=%d",
         model,
         usage.get("input_tokens", 0),
         usage.get("output_tokens", 0),

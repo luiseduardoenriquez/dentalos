@@ -121,6 +121,9 @@ from app.models.tenant.ortho import (
     OrthoCaseMaterial,
 )
 
+# AI-01: AI Radiograph Analysis
+from app.models.tenant.radiograph_analysis import RadiographAnalysis
+
 __all__ = [
     "AuditLog",
     "Anamnesis",
@@ -243,4 +246,6 @@ __all__ = [
     "OrthoBondingTooth",
     "OrthoVisit",
     "OrthoCaseMaterial",
+    # AI-01: AI Radiograph Analysis
+    "RadiographAnalysis",
 ]

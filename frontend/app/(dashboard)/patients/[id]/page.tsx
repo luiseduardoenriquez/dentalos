@@ -58,6 +58,8 @@ import {
   REFERRAL_SOURCE_LABELS,
 } from "@/lib/validations/patient";
 import { VoiceSessionHistory } from "@/components/voice/voice-session-history";
+import { RadiographAnalysisHistory } from "@/components/radiograph-analysis/radiograph-analysis-history";
+import { RadiographAnalyzeButton } from "@/components/radiograph-analysis/radiograph-analyze-button";
 
 // ─── Appointment Status Config ────────────────────────────────────────────────
 
@@ -538,6 +540,12 @@ function DocumentosTab({ patientId }: { patientId: string }) {
                 {doc.description && ` · ${doc.description}`}
               </p>
             </div>
+            {doc.document_type === "xray" && (
+              <RadiographAnalyzeButton
+                patientId={patientId}
+                documentId={doc.id}
+              />
+            )}
             {doc.download_url && (
               <Button variant="ghost" size="sm" asChild>
                 <a href={doc.download_url} target="_blank" rel="noopener noreferrer">
@@ -800,6 +808,7 @@ export default function PatientDetailPage() {
             <TabsTrigger value="referencias">Referencias</TabsTrigger>
             <TabsTrigger value="citas">Citas</TabsTrigger>
             <TabsTrigger value="voz">Voz</TabsTrigger>
+            <TabsTrigger value="radiografia-ia">Radiografía IA</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
           </TabsList>
 
@@ -1187,6 +1196,11 @@ export default function PatientDetailPage() {
           {/* ── Voz Tab ──────────────────────────────────────────────────── */}
           <TabsContent value="voz" className="mt-4">
             <VoiceSessionHistory patientId={patient.id} />
+          </TabsContent>
+
+          {/* ── Radiografía IA Tab ─────────────────────────────────────── */}
+          <TabsContent value="radiografia-ia" className="mt-4">
+            <RadiographAnalysisHistory patientId={patient.id} />
           </TabsContent>
 
           {/* ── Documentos Tab ───────────────────────────────────────────── */}

@@ -523,6 +523,25 @@ class WorkflowComplianceErrors:
     CHECK_FAILED = "WORKFLOW_COMPLIANCE_check_failed"
 
 
+class RadiographAnalysisErrors:
+    """RADIOGRAPH_ANALYSIS domain — AI radiograph analysis error codes."""
+
+    NOT_FOUND = "RADIOGRAPH_ANALYSIS_not_found"
+    DOCUMENT_NOT_FOUND = "RADIOGRAPH_ANALYSIS_document_not_found"
+    DOCUMENT_NOT_XRAY = "RADIOGRAPH_ANALYSIS_document_not_xray"
+    ADDON_REQUIRED = "RADIOGRAPH_ANALYSIS_addon_required"
+    ALREADY_PROCESSING = "RADIOGRAPH_ANALYSIS_already_processing"
+    ANALYSIS_FAILED = "RADIOGRAPH_ANALYSIS_analysis_failed"
+    ALREADY_REVIEWED = "RADIOGRAPH_ANALYSIS_already_reviewed"
+    NOT_COMPLETED = "RADIOGRAPH_ANALYSIS_not_completed"
+    INVALID_RADIOGRAPH_TYPE = "RADIOGRAPH_ANALYSIS_invalid_radiograph_type"
+    IMAGE_TOO_LARGE = "RADIOGRAPH_ANALYSIS_image_too_large"
+    UNSUPPORTED_IMAGE_TYPE = "RADIOGRAPH_ANALYSIS_unsupported_image_type"
+    RATE_LIMIT_EXCEEDED = "RADIOGRAPH_ANALYSIS_rate_limit_exceeded"
+    PATIENT_NOT_FOUND = "RADIOGRAPH_ANALYSIS_patient_not_found"
+    ALREADY_DELETED = "RADIOGRAPH_ANALYSIS_already_deleted"
+
+
 class SystemErrors:
     """SYSTEM domain — infrastructure, HTTP, and platform-level error codes."""
 

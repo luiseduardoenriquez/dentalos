@@ -295,4 +295,9 @@ from app.api.v1.sync.router import router as sync_router
 
 api_v1_router.include_router(sync_router)
 
+# AI-01: AI Radiograph Analysis
+from app.api.v1.radiograph_analysis import router as radiograph_analysis_router
+
+api_v1_router.include_router(radiograph_analysis_router)
+
 # Sprint 15-16: Admin (included at top of file for route priority)

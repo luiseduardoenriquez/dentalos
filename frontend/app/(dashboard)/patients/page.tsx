@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { UserPlus, Users, Search } from "lucide-react";
+import { UserPlus, Users, Search, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -186,12 +186,20 @@ export default function PatientsPage() {
             Gestiona los pacientes registrados en la clínica.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/patients/new">
-            <UserPlus className="mr-2 h-4 w-4" />
-            Nuevo paciente
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/patients/import">
+              <Upload className="mr-2 h-4 w-4" />
+              Importar
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/patients/new">
+              <UserPlus className="mr-2 h-4 w-4" />
+              Nuevo paciente
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* ─── Filters & Search ──────────────────────────────────────────── */}

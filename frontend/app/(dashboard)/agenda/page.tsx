@@ -62,26 +62,16 @@ export default function AgendaPage() {
   }
 
   return (
-    <div className="flex flex-col h-full gap-4 p-6">
-      {/* ─── Page Header ──────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Agenda</h1>
-          <p className="mt-0.5 text-sm text-[hsl(var(--muted-foreground))]">
-            Gestiona las citas de la clínica
-          </p>
-        </div>
-
-        {/* FAB for mobile — shown only on small screens */}
-        <Button
-          onClick={handle_create_click}
-          className="md:hidden fixed bottom-6 right-6 z-20 h-14 w-14 rounded-full shadow-lg p-0"
-          size="icon"
-          aria-label="Nueva cita"
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
-      </div>
+    <div className="flex flex-col h-full gap-4 px-6">
+      {/* FAB for mobile — shown only on small screens */}
+      <Button
+        onClick={handle_create_click}
+        className="md:hidden fixed bottom-6 right-6 z-20 h-14 w-14 rounded-full shadow-lg p-0"
+        size="icon"
+        aria-label="Nueva cita"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
 
       {/* ─── Calendar ─────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-hidden">

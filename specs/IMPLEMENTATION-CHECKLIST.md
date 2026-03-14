@@ -2089,26 +2089,26 @@ Track G: Competitive Gap Closures (Sprint 23+)
 ### AI-01: AI Radiograph Analysis ($20/doc/mo add-on)
 
 Backend:
-- [ ] **AI01-B1** Add `call_claude_vision()` to `ai_claude_client.py` (image+text content blocks, 120s timeout)
-- [ ] **AI01-B2** Create integration adapter: `integrations/radiograph_analysis/__init__.py`, `schemas.py`, `base.py`
-- [ ] **AI01-B3** Create Claude Vision adapter: `integrations/radiograph_analysis/claude_service.py` (dental prompt, FDI validation, image resize >5MB)
-- [ ] **AI01-B4** Create mock adapter: `integrations/radiograph_analysis/mock_service.py` (deterministic findings)
-- [ ] **AI01-B5** Create model: `models/tenant/radiograph_analysis.py` (radiograph_analyses table, JSONB findings, soft delete)
-- [ ] **AI01-B6** Create migration: `alembic_tenant/versions/027_radiograph_analyses.py`
-- [ ] **AI01-B7** Add `RadiographAnalysisErrors` to `core/error_codes.py` (14 error codes)
-- [ ] **AI01-B8** Create Pydantic schemas: `schemas/radiograph_analysis.py` (Create, Review, Response, Finding, List)
-- [ ] **AI01-B9** Create service: `services/radiograph_analysis_service.py` (analyze, complete, fail, get, list, review)
-- [ ] **AI01-B10** Create/extend clinical worker: `workers/clinical_worker.py` handler for `radiograph.analyze`
-- [ ] **AI01-B11** Create API routes: `api/v1/radiograph_analysis.py` (POST create, GET list, GET detail, PUT review, POST retry, DELETE)
-- [ ] **AI01-B12** Register router in `api/v1/router.py`
-- [ ] **AI01-B13** Add `ai_usage_logs` table for AI cost tracking (shared across all AI features)
+- [x] **AI01-B1** Add `call_claude_vision()` to `ai_claude_client.py` (image+text content blocks, 120s timeout)
+- [x] **AI01-B2** Create integration adapter: `integrations/radiograph_analysis/__init__.py`, `schemas.py`, `base.py`
+- [x] **AI01-B3** Create Claude Vision adapter: `integrations/radiograph_analysis/claude_service.py` (dental prompt, FDI validation, image resize >5MB)
+- [x] **AI01-B4** Create mock adapter: `integrations/radiograph_analysis/mock_service.py` (deterministic findings)
+- [x] **AI01-B5** Create model: `models/tenant/radiograph_analysis.py` (radiograph_analyses table, JSONB findings, soft delete)
+- [x] **AI01-B6** Create migration: `alembic_tenant/versions/027_radiograph_analyses.py`
+- [x] **AI01-B7** Add `RadiographAnalysisErrors` to `core/error_codes.py` (14 error codes)
+- [x] **AI01-B8** Create Pydantic schemas: `schemas/radiograph_analysis.py` (Create, Review, Response, Finding, List)
+- [x] **AI01-B9** Create service: `services/radiograph_analysis_service.py` (analyze, complete, fail, get, list, review)
+- [x] **AI01-B10** Create/extend clinical worker: `workers/clinical_worker.py` handler for `radiograph.analyze`
+- [x] **AI01-B11** Create API routes: `api/v1/radiograph_analysis.py` (POST create, GET list, GET detail, PUT review, POST retry, DELETE)
+- [x] **AI01-B12** Register router in `api/v1/router.py`
+- [x] **AI01-B13** Add `ai_usage_logs` table for AI cost tracking (shared across all AI features)
 
 Frontend:
-- [ ] **AI01-F1** Create hook: `lib/hooks/use-radiograph-analysis.ts` (list, detail with polling, analyze mutation, review mutation)
-- [ ] **AI01-F2** Create component: `components/radiograph-analysis/radiograph-analyze-button.tsx` (feature flag check, 402 upsell)
-- [ ] **AI01-F3** Create component: `components/radiograph-analysis/radiograph-analysis-panel.tsx` (findings display, accept/reject, severity badges)
-- [ ] **AI01-F4** Create component: `components/radiograph-analysis/radiograph-analysis-history.tsx` (past analyses list)
-- [ ] **AI01-F5** Integrate into patient detail page: "Radiografía IA" tab + "Analizar con IA" button in Documents tab
+- [x] **AI01-F1** Create hook: `lib/hooks/use-radiograph-analysis.ts` (list, detail with polling, analyze mutation, review mutation)
+- [x] **AI01-F2** Create component: `components/radiograph-analysis/radiograph-analyze-button.tsx` (feature flag check, 402 upsell)
+- [x] **AI01-F3** Create component: `components/radiograph-analysis/radiograph-analysis-panel.tsx` (findings display, accept/reject, severity badges)
+- [x] **AI01-F4** Create component: `components/radiograph-analysis/radiograph-analysis-history.tsx` (past analyses list)
+- [x] **AI01-F5** Integrate into patient detail page: "Radiografía IA" tab + "Analizar con IA" button in Documents tab
 
 Tests:
 - [ ] **AI01-T1** Unit tests: service (analyze, complete, fail, review), adapter (claude, mock), worker handler (12 tests)
@@ -2161,15 +2161,15 @@ Tests:
 
 ### Feature Flags & Admin (Shared)
 
-- [ ] **AI-FF1** Add feature flags to `AD-05` system: `ai_radiograph`, `ai_clinical_summary`, `ai_voice_notes`
+- [x] **AI-FF1** Add feature flags to `AD-05` system: `ai_radiograph`, `ai_clinical_summary`, `ai_voice_notes`
 - [ ] **AI-FF2** Add AI usage tracking: `ai_usage_logs` table in tenant schema + logging middleware
 - [ ] **AI-FF3** Admin portal: AI usage dashboard (tokens consumed, cost per tenant, feature adoption)
 - [ ] **AI-FF4** Add AI disclaimer component: "Esta es una sugerencia de IA. El diagnóstico final es responsabilidad del profesional."
 
 ### Spec Documents (Tier 1)
 
-- [ ] **AI-S1** `specs/ai/AI-STRATEGY.md` — AI strategy, competitive analysis, roadmap
-- [ ] **AI-S2** `specs/ai/radiograph-analysis.md` — Full API spec
+- [x] **AI-S1** `specs/ai/AI-STRATEGY.md` — AI strategy, competitive analysis, roadmap
+- [x] **AI-S2** `specs/ai/radiograph-analysis.md` — Full API spec
 - [ ] **AI-S3** `specs/ai/clinical-summary.md` — Full API spec
 - [ ] **AI-S4** `specs/ai/voice-clinical-notes.md` — Full API spec
 
